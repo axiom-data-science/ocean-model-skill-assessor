@@ -68,6 +68,20 @@ def compute_root_mean_square_error(reference, sample, centered=True):
     return np.sqrt(mse)
 
 
-def compute_standard_deviation(sample, ddof=0):
+def compute_descriptive_statistics(sample, ddof=0):
     """Given reference and sample signals, return the standard deviation"""
-    return np.std(sample, ddof=ddof)
+    return (np.max(sample), np.min(sample), np.mean(sample), np.std(sample, ddof=ddof))
+
+
+def compute_stats(reference, sample):
+    """Compute stats and return as DataFrame"""
+
+    return {
+        'bias': compute_bias(reference, sample),
+        'corr': compute_correlation_coefficient(reference, sample),
+        'ioa': compute_index_of_agreement(reference, sample),
+        'mse': compute_mean_square_error(reference, sample),
+        'mss': compute_murphy_skill_score(reference, sample),
+        'rmse': compute_root_mean_square_error(reference, sample),
+        'descriptive': compute_descriptive_statistics(sample)
+    }

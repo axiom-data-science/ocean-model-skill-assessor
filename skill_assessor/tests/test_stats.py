@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from xarray import DataArray
 
 from skill_assessor import stats
 
@@ -21,6 +22,17 @@ class TestStats:
         }, index=self.model_times)
 
         aligned_signals = stats._align(self.obs, model)
+
+        assert isinstance(aligned_signals, pd.DataFrame)
+        assert aligned_signals.shape == (17, 2)
+        assert np.isclose(aligned_signals['model'].mean(), 0.026802742458784518)
+        assert np.isclose(aligned_signals['obs'].mean(), 0.023065018092923745)
+
+    def test_align_xr(self):
+        data = np.sin(self.model_times.astype(int))
+        da = DataArray(data, coords=[self.model_times], dims=['time'])
+
+        aligned_signals = stats._align(self.obs, da)
 
         assert isinstance(aligned_signals, pd.DataFrame)
         assert aligned_signals.shape == (17, 2)

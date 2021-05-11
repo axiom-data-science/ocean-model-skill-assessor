@@ -1,35 +1,35 @@
 import numpy as np
 
 
-def _align(reference, sample):
-    """Aligns reference and sample signals in time and returns a combined DataFrame"""
-    # TODO: Handle gaps and reference signals without a regular frequency
-    reference.rename(columns={reference.columns[0]: 'reference'}, inplace=True)
-    sample.rename(columns={sample.columns[0]: 'sample'}, inplace=True)
-    aligned = reference.join(sample).interpolate()
+def _align(obs, model):
+    """Aligns obs and model signals in time and returns a combined DataFrame"""
+    # TODO: Handle gaps and obs signals without a regular frequency
+    obs.rename(columns={obs.columns[0]: 'obs'}, inplace=True)
+    model.rename(columns={model.columns[0]: 'model'}, inplace=True)
+    aligned = obs.join(model).interpolate()
     return aligned
 
 
-def compute_bias(reference, sample):
-    """Given reference and sample signals return bias (or, MSD in some communities)."""
-    aligned_signals = _align(reference, sample)
-    return (aligned_signals['sample'] - aligned_signals['reference']).mean()
+def compute_bias(obs, model):
+    """Given obs and model signals return bias (or, MSD in some communities)."""
+    aligned_signals = _align(obs, model)
+    return (aligned_signals['model'] - aligned_signals['obs']).mean()
 
 
-def compute_correlation_coefficient(reference, sample):
-    """Given reference and sample signals, return Pearson product-moment correlation coefficient"""
-    aligned_signals = _align(reference, sample)
-    return np.corrcoef(aligned_signals['reference'], aligned_signals['sample'])[0, 1]
+def compute_correlation_coefficient(obs, model):
+    """Given obs and model signals, return Pearson product-moment correlation coefficient"""
+    aligned_signals = _align(obs, model)
+    return np.corrcoef(aligned_signals['obs'], aligned_signals['model'])[0, 1]
 
 
-def compute_index_of_agreement(reference, sample):
-    """Given reference and sample signals, return Index of Agreement (Willmott 1981)"""
-    aligned_signals = _align(reference, sample)
+def compute_index_of_agreement(obs, model):
+    """Given obs and model signals, return Index of Agreement (Willmott 1981)"""
+    aligned_signals = _align(obs, model)
 
-    ref_mean = aligned_signals['reference'].mean()
-    num = ((aligned_signals['reference'] - aligned_signals['sample'])**2).sum()
-    denom_a = (aligned_signals['sample'] - ref_mean).abs()
-    denom_b = (aligned_signals['reference'] - ref_mean).abs()
+    ref_mean = aligned_signals['obs'].mean()
+    num = ((aligned_signals['obs'] - aligned_signals['model'])**2).sum()
+    denom_a = (aligned_signals['model'] - ref_mean).abs()
+    denom_b = (aligned_signals['obs'] - ref_mean).abs()
     denom = ((denom_a + denom_b)**2).sum()
     # handle underfloat
     if denom < 1e-16:
@@ -37,51 +37,51 @@ def compute_index_of_agreement(reference, sample):
     return 1 - num/denom
 
 
-def compute_mean_square_error(reference, sample, centered=False):
-    """Given reference and sample signals, return mean square error (MSE)"""
-    aligned_signals = _align(reference, sample)
+def compute_mean_square_error(obs, model, centered=False):
+    """Given obs and model signals, return mean square error (MSE)"""
+    aligned_signals = _align(obs, model)
 
-    error = aligned_signals['reference'] - aligned_signals['sample']
+    error = aligned_signals['obs'] - aligned_signals['model']
     if centered:
-        error += -aligned_signals['reference'].mean() + aligned_signals['sample'].mean()
+        error += -aligned_signals['obs'].mean() + aligned_signals['model'].mean()
     return (error**2).mean()
 
 
-def compute_murphy_skill_score(reference, sample, reference_model=None):
-    """Given reference and sample signals, return Murphy Skill Score (Murphy 1988)"""
-    # if a reference forecast is not available, use mean of the *original* observations
-    if not reference_model:
-        reference_model = reference.copy()
-        reference_model[:] = reference.mean().values[0]
-        reference_model.rename(columns={'reference': 'reference_model'})
+def compute_murphy_skill_score(obs, model, obs_model=None):
+    """Given obs and model signals, return Murphy Skill Score (Murphy 1988)"""
+    # if a obs forecast is not available, use mean of the *original* observations
+    if not obs_model:
+        obs_model = obs.copy()
+        obs_model[:] = obs.mean().values[0]
+        obs_model.rename(columns={'obs': 'obs_model'})
 
-    mse_model = compute_mean_square_error(reference, sample, centered=False)
-    mse_reference_model = compute_mean_square_error(reference_model, reference, centered=False)
-    if mse_reference_model <= 0:
+    mse_model = compute_mean_square_error(obs, model, centered=False)
+    mse_obs_model = compute_mean_square_error(obs_model, obs, centered=False)
+    if mse_obs_model <= 0:
         return -1
-    return 1 - mse_model / mse_reference_model
+    return 1 - mse_model / mse_obs_model
 
 
-def compute_root_mean_square_error(reference, sample, centered=False):
-    """Given reference and sample signals, return Root Mean Square Error (RMSE)"""
-    mse = compute_mean_square_error(reference, sample, centered=centered)
+def compute_root_mean_square_error(obs, model, centered=False):
+    """Given obs and model signals, return Root Mean Square Error (RMSE)"""
+    mse = compute_mean_square_error(obs, model, centered=centered)
     return np.sqrt(mse)
 
 
-def compute_descriptive_statistics(sample, ddof=0):
-    """Given reference and sample signals, return the standard deviation"""
-    return (np.max(sample), np.min(sample), np.mean(sample), np.std(sample, ddof=ddof))
+def compute_descriptive_statistics(model, ddof=0):
+    """Given obs and model signals, return the standard deviation"""
+    return (np.max(model), np.min(model), np.mean(model), np.std(model, ddof=ddof))
 
 
-def compute_stats(reference, sample):
+def compute_stats(obs, model):
     """Compute stats and return as DataFrame"""
 
     return {
-        'bias': compute_bias(reference, sample),
-        'corr': compute_correlation_coefficient(reference, sample),
-        'ioa': compute_index_of_agreement(reference, sample),
-        'mse': compute_mean_square_error(reference, sample),
-        'mss': compute_murphy_skill_score(reference, sample),
-        'rmse': compute_root_mean_square_error(reference, sample),
-        'descriptive': compute_descriptive_statistics(sample)
+        'bias': compute_bias(obs, model),
+        'corr': compute_correlation_coefficient(obs, model),
+        'ioa': compute_index_of_agreement(obs, model),
+        'mse': compute_mean_square_error(obs, model),
+        'mss': compute_murphy_skill_score(obs, model),
+        'rmse': compute_root_mean_square_error(obs, model),
+        'descriptive': compute_descriptive_statistics(model)
     }

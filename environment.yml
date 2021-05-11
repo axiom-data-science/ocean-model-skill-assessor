@@ -1,0 +1,7 @@
+name: skill-assessor
+channels:
+  - conda-forge
+dependencies:
+  - matplotlib
+  - pandas
+  - xarray

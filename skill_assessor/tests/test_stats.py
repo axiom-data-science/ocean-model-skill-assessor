@@ -40,7 +40,7 @@ class TestStats:
     def test_index_of_agreement(self):
         ioa = stats.compute_index_of_agreement(self.reference, self.sample)
 
-        assert np.isclose(ioa, 0.9675229729784884)
+        assert np.isclose(ioa, 0.9887577663580477)
 
     def test_mean_square_error(self):
         mse = stats.compute_mean_square_error(self.reference, self.sample, centered=False)
@@ -60,7 +60,7 @@ class TestStats:
     def test_root_mean_square_error(self):
         rmse = stats.compute_root_mean_square_error(self.reference, self.sample)
 
-        assert np.isclose(rmse, 0.13824225289354608)
+        assert np.isclose(rmse, 0.13829277301622922)
 
     def test_descriptive_statistics(self):
         max, min, mean, std = stats.compute_descriptive_statistics(self.sample, ddof=0)

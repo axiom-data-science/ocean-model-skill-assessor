@@ -11,7 +11,7 @@ def _align(reference, sample):
 
 
 def compute_bias(reference, sample):
-    """Given reference and sample signals return bias."""
+    """Given reference and sample signals return bias (or, MSD in some communities)."""
     aligned_signals = _align(reference, sample)
     return (aligned_signals['sample'] - aligned_signals['reference']).mean()
 
@@ -27,17 +27,17 @@ def compute_index_of_agreement(reference, sample):
     aligned_signals = _align(reference, sample)
 
     ref_mean = aligned_signals['reference'].mean()
-    num = ((aligned_signals['sample'] - aligned_signals['reference'])**2).sum()
-    denom_a = (aligned_signals['sample'] - aligned_signals['reference']).abs()
-    denom_b = (aligned_signals['reference'] - ref_mean)**2
-    denom = (denom_a + denom_b).sum()
+    num = ((aligned_signals['reference'] - aligned_signals['sample'])**2).sum()
+    denom_a = (aligned_signals['sample'] - ref_mean).abs()
+    denom_b = (aligned_signals['reference'] - ref_mean).abs()
+    denom = ((denom_a + denom_b)**2).sum()
     # handle underfloat
     if denom < 1e-16:
         return 1
     return 1 - num/denom
 
 
-def compute_mean_square_error(reference, sample, centered=True):
+def compute_mean_square_error(reference, sample, centered=False):
     """Given reference and sample signals, return mean square error (MSE)"""
     aligned_signals = _align(reference, sample)
 
@@ -62,7 +62,7 @@ def compute_murphy_skill_score(reference, sample, reference_model=None):
     return 1 - mse_model / mse_reference_model
 
 
-def compute_root_mean_square_error(reference, sample, centered=True):
+def compute_root_mean_square_error(reference, sample, centered=False):
     """Given reference and sample signals, return Root Mean Square Error (RMSE)"""
     mse = compute_mean_square_error(reference, sample, centered=centered)
     return np.sqrt(mse)

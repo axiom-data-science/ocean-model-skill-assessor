@@ -5,15 +5,19 @@ dependencies:
   # Required for full project functionality (dont remove)
   - pytest
   # Examples (remove and add as needed)
-  - extract_model
+  # - extract_model
   - jupyter
   - jupyterlab
   - xarray
   - numpy
-  - ocean_data_gateway
+  # - ocean_data_gateway
   - scipy
   - dask
   - netcdf4
   - pandas
   - matplotlib
   - pip
+  - pip:
+    # use these from github to include recent changes while packages are changing a lot
+    - git+git://github.com/axiom-data-science/extract_model#egg=extract_model
+    - git+git://github.com/axiom-data-science/ocean_data_gateway#egg=ocean_data_gateway

@@ -1,4 +1,4 @@
-model_assessor
+ocean-model-skill-assessor
 ==============================
 [![Build Status](https://img.shields.io/github/workflow/status/axiom-data-science/model_assessor/Tests?logo=github&style=for-the-badge)](https://github.com/axiom-data-science/model_assessor/actions)
 [![Code Coverage](https://img.shields.io/codecov/c/github/axiom-data-science/model_assessor.svg?style=for-the-badge)](https://codecov.io/gh/axiom-data-science/model_assessor)
@@ -12,3 +12,4 @@ A package to fully run the comparison between data and model to assess model ski
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://github.com/jbusecke/cookiecutter-science-project">cookiecutter science project template</a>.</small></p>
+=======

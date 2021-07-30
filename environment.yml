@@ -8,16 +8,16 @@ dependencies:
   - extract_model
   - jupyter
   - jupyterlab
-  # - xarray
+  - matplotlib
   # - numpy
-  # - ocean_data_gateway
+  - ocean_data_gateway=0.3.0
   - scipy
   # - dask
   # - netcdf4
-  # - pandas
-  # - matplotlib
+  - pandas
+  - xarray
   - pip
-  - pip:
-    # use these from github to include recent changes while packages are changing a lot
-    # - git+git://github.com/axiom-data-science/extract_model#egg=extract_model
-    - git+git://github.com/axiom-data-science/ocean_data_gateway#egg=ocean_data_gateway
+  # - pip:
+  #   # use these from github to include recent changes while packages are changing a lot
+  #   # - git+git://github.com/axiom-data-science/extract_model#egg=extract_model
+  #   - git+git://github.com/axiom-data-science/ocean_data_gateway#egg=ocean_data_gateway

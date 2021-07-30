@@ -1,3 +1,11 @@
+from pkg_resources import DistributionNotFound, get_distribution
+
+try:
+    __version__ = get_distribution("ocean_model_skill_assessor").version
+except DistributionNotFound:
+    # package is not installed
+    __version__ = "unknown"
+
 from .stats import (compute_bias,
                     compute_correlation_coefficient,
                     compute_index_of_agreement,
@@ -9,4 +17,4 @@ from .stats import (compute_bias,
 
 from .plot import time_series
 
-import skill_assessor.accessor
+import ocean_model_skill_assessor.accessor

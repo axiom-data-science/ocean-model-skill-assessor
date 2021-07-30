@@ -1,4 +1,4 @@
-import matplotlib; matplotlib.use('agg')  # noqa
+import matplotlib; #matplotlib.use('agg')  # noqa
 
 import matplotlib.pyplot as plt
 

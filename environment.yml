@@ -5,12 +5,13 @@ dependencies:
   # Required for full project functionality (dont remove)
   - pytest
   # Examples (remove and add as needed)
+  - cartopy
   - extract_model
   - jupyter
   - jupyterlab
   - matplotlib
   # - numpy
-  - ocean_data_gateway=0.3.0
+  - ocean_data_gateway
   - scipy
   # - dask
   # - netcdf4

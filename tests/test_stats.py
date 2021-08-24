@@ -1,24 +1,20 @@
 import numpy as np
 import pandas as pd
-from xarray import DataArray
 
 from skill_assessor import stats
+from xarray import DataArray
 
 
 class TestStats:
-    ref_times = pd.date_range(start='2000-12-30', end='2001-01-03', freq='6H')
-    obs = pd.DataFrame({
-        'obs': np.sin(ref_times.view(int))
-    }, index=ref_times)
+    ref_times = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6H")
+    obs = pd.DataFrame({"obs": np.sin(ref_times.view(int))}, index=ref_times)
 
-    model_times = pd.date_range(start='2000-12-28', end='2001-01-04', freq='D')
-    data = 1.25*np.sin(model_times.view(int) + 2)
-    model = pd.DataFrame({
-        'model': data
-    }, index=model_times)
+    model_times = pd.date_range(start="2000-12-28", end="2001-01-04", freq="D")
+    data = 1.25 * np.sin(model_times.view(int) + 2)
+    model = pd.DataFrame({"model": data}, index=model_times)
 
     aligned_signals = stats._align(obs, model)
-    da = DataArray(data, coords=[model_times], dims=['time'])
+    da = DataArray(data, coords=[model_times], dims=["time"])
 
     aligned_signals_xr = stats._align(obs, da)
 
@@ -26,15 +22,15 @@ class TestStats:
 
         assert isinstance(self.aligned_signals, pd.DataFrame)
         assert self.aligned_signals.shape == (5, 2)
-        assert np.isclose(self.aligned_signals['model'].mean(), 0.16391766802943322)
-        assert np.isclose(self.aligned_signals['obs'].mean(), 0.13113413442354657)
+        assert np.isclose(self.aligned_signals["model"].mean(), 0.16391766802943322)
+        assert np.isclose(self.aligned_signals["obs"].mean(), 0.13113413442354657)
 
     def test_align_xr(self):
 
         assert isinstance(self.aligned_signals_xr, pd.DataFrame)
         assert self.aligned_signals_xr.shape == (5, 2)
-        assert np.isclose(self.aligned_signals_xr['model'].mean(), 0.16391766802943322)
-        assert np.isclose(self.aligned_signals_xr['obs'].mean(), 0.13113413442354657)
+        assert np.isclose(self.aligned_signals_xr["model"].mean(), 0.16391766802943322)
+        assert np.isclose(self.aligned_signals_xr["obs"].mean(), 0.13113413442354657)
 
     def test_bias(self):
         bias = stats.compute_bias(self.obs, self.model)

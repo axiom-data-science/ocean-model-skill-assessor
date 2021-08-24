@@ -1,8 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from skill_assessor import stats
 from xarray import DataArray
+
+from ocean_model_skill_assessor import stats
 
 
 class TestStats:

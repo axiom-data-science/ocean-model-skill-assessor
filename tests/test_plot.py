@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from skill_assessor.plot import time_series
+from ocean_model_skill_assessor.plot import time_series
 
 
 def test_time_series():

@@ -1,13 +1,16 @@
 """
-
+Class to facilitate some functions directly on DataFrames.
 """
 
 import pandas as pd
+
 import ocean_model_skill_assessor
 
 
 @pd.api.extensions.register_dataframe_accessor("omsa")
 class SkillAssessorAccessor:
+    """Class to facilitate some functions directly on DataFrames."""
+
     def __init__(self, df):
         """
         Parameters
@@ -22,14 +25,20 @@ class SkillAssessorAccessor:
     def _validate(df):
         """DataFrame must have datetimes as index."""
         if not isinstance(df.index, pd.DatetimeIndex):
-            raise TypeError('DataFrame index must be datetimes')
+            raise TypeError("DataFrame index must be datetimes")
 
     @property
     def compute_stats(self):
-        if not hasattr(self, '_compute_stats'):
-            stats = ocean_model_skill_assessor.compute_stats(self.df['obs'], self.df['model'])
+        """Run `compute_stats` on DataFrame."""
+        if not hasattr(self, "_compute_stats"):
+            stats = ocean_model_skill_assessor.compute_stats(
+                self.df["obs"], self.df["model"]
+            )
             self._compute_stats = stats
         return self._compute_stats
 
-    def plot(self, title='title'):
-        ocean_model_skill_assessor.time_series.plot(self.df['obs'], self.df['model'], title)
+    def plot(self, **kwargs):
+        """Plot."""
+        ocean_model_skill_assessor.time_series.plot(
+            self.df["obs"], self.df["model"], **kwargs
+        )

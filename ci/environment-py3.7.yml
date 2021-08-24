@@ -1,0 +1,18 @@
+name: test_env_model_assessor
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+  ############## These will have to be adjusted to your specific project
+  - cartopy
+  - matplotlib
+  - numpy
+  - pandas
+  - scipy
+  - xarray
+  ##############
+  - pytest
+  - pip:
+    - codecov
+    - pytest-cov
+    - coverage[toml]

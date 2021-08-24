@@ -1,9 +1,13 @@
+"""
+A package to fully run the comparison between data and model to assess model skill.
+"""
+
 from pkg_resources import DistributionNotFound, get_distribution
 
-import ocean_model_skill_assessor.accessor
+import ocean_model_skill_assessor.accessor  # noqa: F401
 
-from .plot import map, time_series
-from .stats import (
+from .plot import map, time_series  # noqa: F401
+from .stats import (  # noqa: F401
     compute_bias,
     compute_correlation_coefficient,
     compute_descriptive_statistics,

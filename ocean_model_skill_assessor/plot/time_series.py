@@ -1,4 +1,8 @@
-import matplotlib
+"""
+Time series plots.
+"""
+
+
 import matplotlib.pyplot as plt
 
 

@@ -1,5 +1,5 @@
 """
-
+Class to facilitate some functions directly on DataFrames.
 """
 
 import pandas as pd
@@ -9,6 +9,8 @@ import ocean_model_skill_assessor
 
 @pd.api.extensions.register_dataframe_accessor("omsa")
 class SkillAssessorAccessor:
+    """Class to facilitate some functions directly on DataFrames."""
+
     def __init__(self, df):
         """
         Parameters

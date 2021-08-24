@@ -1,0 +1,29 @@
+name: model_assessor_docs
+dependencies:
+   - python=3.8
+   # If your docs code examples depend on other packages add them here
+   - cartopy
+   - matplotlib
+   - ipython
+   - jupyter
+   - jupyterlab
+   - xarray
+   # These are needed for the docs themselves
+   - numpydoc
+   # https://stackoverflow.com/questions/68642540/nbsphinx-causes-build-to-fail-when-building-jupyter-notebooks
+   - sphinx==4.0.2
+   - sphinx_rtd_theme
+   - ipython
+   - nbconvert
+   - nbformat
+   - ipykernel
+   - pandoc
+   - pip
+   - recommonmark
+   - pip:
+     - docrep<=0.2.7
+     - nbsphinx
+     - jupyter_client
+     - sphinx_pangeo_theme
+     - sphinx-copybutton
+     - sphinxcontrib-srclinks

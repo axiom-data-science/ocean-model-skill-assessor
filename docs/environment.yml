@@ -4,13 +4,13 @@ channels:
 dependencies:
    - python=3.8
    # If your docs code examples depend on other packages add them here
-   - cartopy
-   - matplotlib
-   - ipython
+   # - cartopy
+   # - matplotlib
+   # - ipython
    - jupyter
-   - jupyterlab
+   # - jupyterlab
    - ocean_model_skill_assessor
-   - xarray
+   # - xarray
    # These are needed for the docs themselves
    - numpydoc
    # https://stackoverflow.com/questions/68642540/nbsphinx-causes-build-to-fail-when-building-jupyter-notebooks

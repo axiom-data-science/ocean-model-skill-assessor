@@ -17,15 +17,10 @@ A package to fully run the comparison between data and model to assess model ski
 
 ## Installation
 
-<!-- Install the package plus its requirements from PyPI with
+Install the package plus its requirements from `conda-forge` with
 ``` bash
-$ pip install ocean_data_gateway
+$ conda install -c conda-forge ocean_model_skill_assessor
 ```
-
-or from `conda-forge` with
-``` bash
-$ conda install -c conda-forge ocean_data_gateway
-``` -->
 
 Clone the repo:
 ``` bash

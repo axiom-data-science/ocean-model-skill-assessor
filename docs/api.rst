@@ -1,9 +1,5 @@
 API
------
-
-.. autosummary::
-    :toctree: generated/
-
+===
 
 .. currentmodule:: ocean_model_skill_assessor
 

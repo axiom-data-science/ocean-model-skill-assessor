@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 fs = 14
 fs_title = 16
 lw = 2
+col_model = 'r'
+col_obs = 'k'
 
 
 def plot(reference, sample, title, ylabel=None, figname="figure.png", dpi=100):
@@ -36,8 +38,8 @@ def plot(reference, sample, title, ylabel=None, figname="figure.png", dpi=100):
 
     """
     fig, ax = plt.subplots(1, 1, figsize=(15, 5))
-    reference.plot(ax=ax, label="observation", fontsize=fs, lw=lw)
-    sample.plot(ax=ax, label="model", fontsize=fs, lw=lw)
+    reference.plot(ax=ax, label="observation", fontsize=fs, lw=lw, color=col_obs)
+    sample.plot(ax=ax, label="model", fontsize=fs, lw=lw, color=col_model)
 
     ax.set_title(title, fontsize=fs_title)
     ax.set_xlabel("", fontsize=fs)  # don't need time label

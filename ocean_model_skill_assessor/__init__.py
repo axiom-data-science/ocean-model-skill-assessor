@@ -5,7 +5,9 @@ A package to fully run the comparison between data and model to assess model ski
 from pkg_resources import DistributionNotFound, get_distribution
 
 import ocean_model_skill_assessor.accessor  # noqa: F401
+# import ocean_model_skill_assessor.CLI
 
+from .main import run
 from .plot import map, time_series  # noqa: F401
 from .stats import (  # noqa: F401
     compute_bias,
@@ -17,6 +19,8 @@ from .stats import (  # noqa: F401
     compute_root_mean_square_error,
     compute_stats,
 )
+from .utils import set_criteria
+
 
 
 try:

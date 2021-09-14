@@ -1,0 +1,47 @@
+---
+approach: "region"
+loc_model: "https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc"
+axds:
+bbox:
+  - -124.5
+  - 40
+  - -123.5
+  - 42
+criteria:
+  salt:
+    name:
+      "sea_water_practical_salinity$"
+erddap:
+  known_server:
+    "ioos"
+figname_map: "nonlocal_cli_region.png"
+figname_data_prefix: "nonlocal_cli__region"
+local:
+only_search: false
+only_searchplot: false
+parallel: true
+readers:
+  - "erddap"
+run_qc: false
+skip_units: true
+stations:
+time_range:
+  - "2021-9-1"
+  - "2021-9-8"
+var_def:
+  salt:
+    units: "psu"
+    fail_span:
+      - -10
+      - 60
+    suspect_span:
+      - -1
+      - 45
+variables:
+  - "salt"
+xarray_kwargs:
+  chunks:
+    time:
+      1
+    depth:
+      1

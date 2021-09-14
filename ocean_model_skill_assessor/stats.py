@@ -27,7 +27,6 @@ def _align(
     """
 
     # if obs or model is a dask DataArray, output will be loaded in at this point
-#     import pdb;pdb.set_trace()
     if isinstance(obs, DataArray):
         obs = DataFrame(obs.to_pandas())
     elif isinstance(obs, pd.Series):
@@ -39,7 +38,6 @@ def _align(
     model.rename(columns={model.columns[0]: "model"}, inplace=True)
 
     # don't extrapolate beyond either time range
-#     import pdb; pdb.set_trace()
     min_time = max(obs.index.min(), model.index.min())
     max_time = min(obs.index.max(), model.index.max())
     obs = obs[min_time:max_time]

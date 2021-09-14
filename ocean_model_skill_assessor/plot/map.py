@@ -23,7 +23,7 @@ def plot(
     proj=None,
     res="110m",
     extent=None,
-    figname="figure.png",
+    figname=None,
     dpi=100,
 ):
     """Plot data locations on map.
@@ -50,6 +50,9 @@ def plot(
     dpi: int
         dpi for figure.
     """
+    
+    if figname is None:
+        figname = "figure.png"
 
     # enforce longs/lats/names all same length
     # enforce type

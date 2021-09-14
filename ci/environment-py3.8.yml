@@ -5,6 +5,7 @@ dependencies:
   - python=3.8
   ############## These will have to be adjusted to your specific project
   - cartopy
+  - cf_xarray
   - matplotlib
   - numpy
   - pandas

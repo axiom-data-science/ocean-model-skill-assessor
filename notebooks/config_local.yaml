@@ -12,8 +12,8 @@ figname_map: "local_cli.png"
 figname_data_prefix: "local_cli_"
 local:
   filenames:
-    - "../data/edu_humboldt_tdp.csv"
-    - "../data/bodega-bay-bml_wts.nc"
+    - "edu_humboldt_tdp.csv"
+    - "bodega-bay-bml_wts.nc"
 only_search: false
 only_searchplot: false
 parallel: true

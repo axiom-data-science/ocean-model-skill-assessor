@@ -6,8 +6,10 @@ dependencies:
   ############## These will have to be adjusted to your specific project
   - cartopy
   - cf_xarray
+  - extract_model
   - matplotlib
   - numpy
+  - ocean_data_gateway
   - pandas
   - scipy
   - xarray

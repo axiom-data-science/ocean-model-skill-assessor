@@ -12,11 +12,13 @@ import matplotlib.pyplot as plt
 fs = 14
 fs_title = 16
 lw = 2
-col_model = 'r'
-col_obs = 'k'
+col_model = "r"
+col_obs = "k"
 
 
-def plot(reference, sample, title, ylabel=None, figname="figure.png", dpi=100, stats=None):
+def plot(
+    reference, sample, title, ylabel=None, figname="figure.png", dpi=100, stats=None
+):
     """Plot time series
 
     Plot reference vs. sample as time series line plot.
@@ -41,13 +43,13 @@ def plot(reference, sample, title, ylabel=None, figname="figure.png", dpi=100, s
     fig, ax = plt.subplots(1, 1, figsize=(15, 5))
     reference.plot(ax=ax, label="observation", fontsize=fs, lw=lw, color=col_obs)
     sample.plot(ax=ax, label="model", fontsize=fs, lw=lw, color=col_model)
-    
+
     if stats is not None:
         stat_sum = ""
-        types = ['bias', 'corr', 'ioa', 'mse', 'mss', 'rmse']
+        types = ["bias", "corr", "ioa", "mse", "mss", "rmse"]
         for type in types:
             stat_sum += f"{type}: {stats[type]:.1f}  "
-        title = f'{title}: {stat_sum}'
+        title = f"{title}: {stat_sum}"
 
     ax.set_title(title, fontsize=fs_title)
     ax.set_xlabel("", fontsize=fs)  # don't need time label

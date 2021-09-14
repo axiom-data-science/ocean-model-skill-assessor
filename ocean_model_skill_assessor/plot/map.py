@@ -3,9 +3,10 @@ Plot map.
 """
 
 import cartopy
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
-import matplotlib.patches as mpatches
+
 
 pc = cartopy.crs.PlateCarree()
 col_label = "r"
@@ -50,15 +51,14 @@ def plot(
     dpi: int
         dpi for figure.
     """
-    
+
     if figname is None:
         figname = "figure.png"
 
     # enforce longs/lats/names all same length
     # enforce type
-#     import pdb; pdb.set_trace()
     if boundary is not None:
-        central_longitude = boundary[:,0].mean()
+        central_longitude = boundary[:, 0].mean()
     elif lls_stations is not None:
         central_longitude = lls_stations[:, 0].mean()
     elif lls_boxes is not None:
@@ -68,9 +68,7 @@ def plot(
         names_stations = [names_stations]
 
     if not proj:
-#         central_longitude = lons.mean()
         proj = cartopy.crs.Mercator(central_longitude=central_longitude)
-#     import pdb; pdb.set_trace()
     fig = plt.figure(figsize=(8, 7), dpi=100)
     ax = fig.add_axes([0.06, 0.01, 0.93, 0.95], projection=proj)
     # ax.set_frame_on(False) # kind of like it without the box
@@ -90,23 +88,25 @@ def plot(
     if lls_stations is not None:
         lons, lats = np.asarray(lls_stations[:, 0]), np.asarray(lls_stations[:, 1])
         ax.plot(lons, lats, marker="o", transform=pc, ls="", color=col_label)
-    
+
     # Plot boxes
     if lls_boxes is not None:
         for box, name in zip(lls_boxes, names_boxes):
-            ax.add_patch(mpatches.Rectangle(xy=box[:2], 
-                                             width=box[2]-box[0], 
-                                             height=box[3]-box[1],
-                                             linewidth=1,
-                                             edgecolor='r',
-                                             facecolor='none',
-                                             transform=pc,
-                                             zorder=10
-                                            )
-                         )
+            ax.add_patch(
+                mpatches.Rectangle(
+                    xy=box[:2],
+                    width=box[2] - box[0],
+                    height=box[3] - box[1],
+                    linewidth=1,
+                    edgecolor="r",
+                    facecolor="none",
+                    transform=pc,
+                    zorder=10,
+                )
+            )
             xyproj = ax.projection.transform_point(*box[:2], pc)
             ax.annotate(name, xy=xyproj, xytext=xyproj, color=col_label)
-    
+
     if lls_stations is not None:
         for name, lon, lat in zip(names_stations, lons, lats):
             xyproj = ax.projection.transform_point(lon, lat, pc)

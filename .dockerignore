@@ -1,0 +1,15 @@
+# need .git to install osma
+.gitignore
+.github
+
+.pre-commit-config.yaml
+covdecov.yml
+pyproject.toml
+README.md
+readthedocs.yml
+
+ci
+docs
+tests
+
+ocean_model_skill_assessor.egg-info

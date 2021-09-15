@@ -16,7 +16,7 @@ local:
     - "bodega-bay-bml_wts.nc"
 only_search: false
 only_searchplot: false
-parallel: true
+parallel: false 
 readers:
   - "local"
 run_qc: false

@@ -27,7 +27,7 @@ Clone the repo:
 $ git clone https://github.com/axiom-data-science/ocean_model_skill_assessor.git
 ```
 
-In the `ocean_model_skill_assessor` directory, install conda environment:
+Install in a conda environment:
 ``` bash
 $ conda env create -f environment.yml
 ```

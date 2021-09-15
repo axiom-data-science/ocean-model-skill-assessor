@@ -1,5 +1,6 @@
 black
 check-manifest
+conda-lock
 doctr
 flake8
 flake8-builtins

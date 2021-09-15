@@ -19,6 +19,7 @@ figname_data_prefix: "nonlocal_cli__region"
 local:
 only_search: false
 only_searchplot: false
+output_dir: "/data"
 parallel: true
 readers:
   - "erddap"

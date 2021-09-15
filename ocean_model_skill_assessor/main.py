@@ -2,6 +2,8 @@
 Main run functions.
 """
 
+from pathlib import Path
+
 import cf_xarray
 import extract_model as em
 import numpy as np
@@ -206,6 +208,7 @@ def run(
     local=None,
     only_search=False,
     only_searchplot=False,
+    output_dir=None,
     parallel=True,
     readers=None,
     run_qc=False,
@@ -244,6 +247,8 @@ def run(
         Stop after search is initiated.
     only_searchplot : boolean, optional
         Stop after search and map plot is perform.
+    output_dir: str, optional
+        Path to directory where output files will be saved.  Otherwise, files will be saved in the current directory.
     parallel : boolean, optional
         Whether to run in parallel with `multiprocessing` library where
         possible. Default is True.
@@ -270,6 +275,13 @@ def run(
     -------
     An `ocean_data_gateway` Gateway object.
     """
+
+    # Prepare output directory
+    if output_dir is None:
+        output_dir = Path('.')
+    else:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(exist_ok=True, parents=True)
 
     if xarray_kwargs is None:
         xarray_kwargs = {}
@@ -332,6 +344,7 @@ def run(
 
     # Plot discovered datasets
     lls_stations, names_stations, lls_box, names_boxes = prep_plot(search)
+    fig_fpath = output_dir / figname_map
     omsa.map.plot(
         lls_stations=lls_stations,
         names_stations=names_stations,
@@ -339,7 +352,7 @@ def run(
         names_boxes=names_boxes,
         boundary=boundary,
         res="10m",
-        figname=figname_map,
+        figname=fig_fpath
     )
 
     if only_searchplot:
@@ -381,10 +394,12 @@ def run(
             longname = dsm.cf[variable].attrs["long_name"]
             ylabel = f"{longname}"
             figname = f"{dataset_id}_{variable}.png"
+            figname = figname_data_prefix + figname
+            fig_fpath = output_dir / figname
             df.omsa.plot(
                 title=f"{dataset_id}",
                 ylabel=ylabel,
-                figname=figname_data_prefix + figname,
+                figname=fig_fpath,
                 stats=stats,
             )
 

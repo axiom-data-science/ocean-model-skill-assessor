@@ -16,6 +16,7 @@ local:
     - "bodega-bay-bml_wts.nc"
 only_search: false
 only_searchplot: false
+output_dir: "/data"
 parallel: false 
 readers:
   - "local"

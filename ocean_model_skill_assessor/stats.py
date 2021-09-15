@@ -27,9 +27,11 @@ def _align(
     """
 
     # if obs or model is a dask DataArray, output will be loaded in at this point
-    if not isinstance(obs, DataFrame):
+    if isinstance(obs, DataArray):
         obs = DataFrame(obs.to_pandas())
-    if not isinstance(model, DataFrame):
+    elif isinstance(obs, pd.Series):
+        obs = DataFrame(obs)
+    if isinstance(model, DataArray):
         model = DataFrame(model.to_pandas())
 
     obs.rename(columns={obs.columns[0]: "obs"}, inplace=True)

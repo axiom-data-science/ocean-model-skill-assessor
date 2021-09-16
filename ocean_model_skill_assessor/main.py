@@ -53,7 +53,6 @@ def find_bbox(ds):
     try:
         lon = ds.cf["longitude"].values
         lat = ds.cf["latitude"].values
-
     except KeyError as e:
         # In case there are multiple grids, just take first one;
         # they are close enough
@@ -283,6 +282,10 @@ def run(
         output_dir = Path(output_dir)
         output_dir.mkdir(exist_ok=True, parents=True)
 
+    # Prepare stats output
+    stats_summary = omsa.stats.StatsSummary(approach, loc_model)
+    stats_summary_fpath = output_dir / "stats_summary.csv"
+
     if xarray_kwargs is None:
         xarray_kwargs = {}
 
@@ -389,12 +392,12 @@ def run(
             # Combine and align the two time series of variable
             df = omsa.stats._align(data.cf[variable], model_var.cf[variable])
             stats = df.omsa.compute_stats
+            stats_summary.add_dataset(dataset_id, variable, stats)
 
             # Write stats on plot
             longname = dsm.cf[variable].attrs["long_name"]
             ylabel = f"{longname}"
-            figname = f"{dataset_id}_{variable}.png"
-            figname = figname_data_prefix + figname
+            figname = f"{figname_data_prefix}_{dataset_id}_{variable}.png"
             fig_fpath = output_dir / figname
             df.omsa.plot(
                 title=f"{dataset_id}",
@@ -402,5 +405,7 @@ def run(
                 figname=fig_fpath,
                 stats=stats,
             )
+
+    stats_summary.to_csv(stats_summary_fpath)
 
     return search

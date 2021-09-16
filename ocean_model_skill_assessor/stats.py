@@ -11,6 +11,50 @@ from pandas import DataFrame
 from xarray import DataArray
 
 
+class StatsSummary:
+
+    def __init__(self, approach: str, loc_model: str):
+        self.description = approach + '_' + loc_model
+        self.stats = pd.DataFrame(
+            columns=[
+                'dataset_id',
+                'variable',
+                'max',
+                'min',
+                'mean',
+                'std',
+                'bias',
+                'corr',
+                'ioa',
+                'mse',
+                'mss',
+                'rmse',
+            ]
+        )
+
+    def add_dataset(self, dataset_id: str, variable: str, stats: dict):
+        self.stats = self.stats.append(
+            {
+                'dataset_id': dataset_id,
+                'variable': variable,
+                'max': stats['descriptive'][0],
+                'min': stats['descriptive'][1],
+                'mean': stats['descriptive'][2],
+                'std': stats['descriptive'][3],
+                'bias': stats['bias'],
+                'corr': stats['corr'],
+                'ioa': stats['ioa'],
+                'mse': stats['mse'],
+                'mss': stats['mss'],
+                'rmse': stats['rmse']
+            },
+            ignore_index=True
+        )
+
+    def to_csv(self, filename: str):
+        self.stats.to_csv(filename, index=False)
+
+
 def _align(
     obs: Union[DataFrame, DataArray], model: Union[DataFrame, DataArray]
 ) -> DataFrame:
@@ -166,6 +210,8 @@ def compute_descriptive_statistics(model: DataFrame, ddof=0) -> Tuple:
 
 def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
     """Compute stats and return as DataFrame"""
+    # keep original model values for descriptive statistics
+    unaligned_model = model.values.copy()
 
     # check if aligned
     if (len(obs) != len(model)) or (obs.index != model.index).any():
@@ -180,5 +226,5 @@ def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
         "mse": compute_mean_square_error(obs, model),
         "mss": compute_murphy_skill_score(obs, model),
         "rmse": compute_root_mean_square_error(obs, model),
-        "descriptive": compute_descriptive_statistics(model),
+        "descriptive": compute_descriptive_statistics(unaligned_model),
     }

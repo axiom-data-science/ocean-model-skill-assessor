@@ -9,7 +9,7 @@ criteria:
       "sea_water_practical_salinity$"
 erddap:
 figname_map: "local_cli.png"
-figname_data_prefix: "local_cli_"
+figname_data_prefix: "local_cli"
 local:
   filenames:
     - "edu_humboldt_tdp.csv"

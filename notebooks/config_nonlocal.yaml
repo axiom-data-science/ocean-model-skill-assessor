@@ -11,7 +11,7 @@ erddap:
   known_server:
     "ioos"
 figname_map: "nonlocal_cli.png"
-figname_data_prefix: "nonlocal_cli_"
+figname_data_prefix: "nonlocal_cli"
 local:
 only_search: false
 only_searchplot: false

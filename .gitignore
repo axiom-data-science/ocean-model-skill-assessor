@@ -91,3 +91,10 @@ target/
 
 # Mypy cache
 .mypy_cache/
+
+# ignore demo files
+demo-helper-files
+erddap_variable_list_coastwatch.pfeg.noaa.gov.csv
+erddap_variable_list_erddap.sensors.ioos.us.csv
+axds_platform2_variable_list.csv
+parameter_group_names.txt

@@ -8,10 +8,10 @@ from ocean_model_skill_assessor import stats
 
 class TestStats:
     ref_times = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6H")
-    obs = pd.DataFrame({"obs": np.sin(ref_times.view(int))}, index=ref_times)
+    obs = pd.DataFrame({"obs": np.sin(ref_times.view(np.int64))}, index=ref_times)
 
     model_times = pd.date_range(start="2000-12-28", end="2001-01-04", freq="D")
-    data = 1.25 * np.sin(model_times.view(int) + 2)
+    data = 1.25 * np.sin(model_times.view(np.int64) + 2)
     model = pd.DataFrame({"model": data}, index=model_times)
 
     aligned_signals = stats._align(obs, model)

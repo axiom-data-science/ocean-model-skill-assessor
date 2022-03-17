@@ -9,6 +9,12 @@ import ocean_data_gateway as odg
 import pandas as pd
 import xarray as xr
 
+
+try:
+    import xesmf
+except ImportError:
+    import pyinterp
+
 import ocean_model_skill_assessor as omsa
 
 
@@ -361,20 +367,27 @@ def run(
             continue
 
         for variable in variables:
+            da = (dsm
+            .cf[variable]
+            .cf.isel(Z=0)
+            .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5))
+            )
+
             kwargs = dict(
-                da=dsm.cf[variable]
-                .cf.isel(Z=0)
-                .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5)),
+                da=da,
                 longitude=lon,
                 latitude=lat,
                 T=T,
                 iZ=Z,
-                locstream=True,
+                locstream=True
             )
 
-            model_var = em.select(**kwargs).to_dataset()
+            model_var = em.select(**kwargs)
+            if isinstance(model_var, xr.Dataset):
+                model_var = model_var.cf[variable]
+            data_var = data.cf[variable]
             # Combine and align the two time series of variable
-            df = omsa.stats._align(data.cf[variable], model_var.cf[variable])
+            df = omsa.stats._align(data_var, model_var)
             stats = df.omsa.compute_stats
 
             # Write stats on plot

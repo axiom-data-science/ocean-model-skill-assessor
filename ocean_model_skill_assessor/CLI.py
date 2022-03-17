@@ -19,7 +19,7 @@ args = parser.parse_args()
 config_file = args.config_file
 
 with open(config_file, "r") as ymlfile:
-    cfg = yaml.load(ymlfile)
+    cfg = yaml.safe_load(ymlfile)
 
 approach = cfg["approach"]
 loc_model = cfg["loc_model"]

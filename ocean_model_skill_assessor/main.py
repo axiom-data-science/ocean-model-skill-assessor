@@ -374,6 +374,7 @@ def run(
                 (dsm.cf['latitude'] < lat + 2), drop=True
             ).cf.isel(Z=0)
 
+            variable = [variable]
             kwargs = dict(
                 da=da.cf[variable],
                 longitude=lon,
@@ -383,17 +384,16 @@ def run(
                 locstream=True
             )
 
-            var_str = variable[0]
             model_var = em.select(**kwargs)
             if isinstance(model_var, xr.Dataset):
-                model_var = model_var.cf[var_str]
-            data_var = data.cf[var_str]
+                model_var = model_var.cf[variable[0]]
+            data_var = data.cf[variable[0]]
             # Combine and align the two time series of variable
             df = omsa.stats._align(data_var, model_var)
             stats = df.omsa.compute_stats
 
             # Write stats on plot
-            longname = dsm.cf[var_str].attrs["long_name"]
+            longname = dsm.cf[variable[0]].attrs["long_name"]
             ylabel = f"{longname}"
             figname = f"{dataset_id}_{variable}.png"
             df.omsa.plot(

@@ -57,12 +57,17 @@ def find_bbox(ds):
     try:
         lon = ds.cf["longitude"].values
         lat = ds.cf["latitude"].values
-
     except KeyError as e:
         # In case there are multiple grids, just take first one;
         # they are close enough
-        lon = list(ds.cf[["longitude"]].coords.keys())[0].values
-        lat = list(ds.cf[["latitude"]].coords.keys())[0].values
+        for ix, key in enumerate(ds.cf[["longitude"]].coords.keys()):
+            if ix > 0:
+                break
+            lon = ds[key].values
+        for ix, key in enumerate(ds.cf[["latitude"]].coords.keys()):
+            if ix > 0:
+                break
+            lat= ds[key].values
 
     min_lon = lon.min()
     max_lon = lon.max()
@@ -106,7 +111,7 @@ def read_model(loc_model, xarray_kwargs, time_range=None):
     dsm = xr.open_dataset(loc_model, **xarray_kwargs)
 
     # add more cf-xarray info
-    dsm = dsm.cf.guess_coord_axis()
+    dsm = dsm.cf.guess_coord_axis(verbose=False)
 
     # drop duplicate time indices if present
     # also limit the time range of the model output to what we are requesting from the data to
@@ -118,10 +123,18 @@ def read_model(loc_model, xarray_kwargs, time_range=None):
         dsm = dsm.cf.isel(T=index).cf.sel(T=slice(time_range[0], time_range[1]))
 
     # force longitude to be from -180 to 180
-    lkey = dsm.cf["longitude"].name
-    dsm[lkey] = dsm.cf["longitude"].where(
-        dsm.cf["longitude"] < 180, dsm.cf["longitude"] - 360
-    )
+    # Models with two-dimensional coordinates will throw an exception
+    try:
+        lkey = dsm.cf["longitude"].name
+        dsm[lkey] = dsm.cf["longitude"].where(
+            dsm.cf["longitude"] < 180, dsm.cf["longitude"] - 360
+        )
+    except KeyError:
+        # Ensure each lon coordinate is between -180 to 180
+        for lkey in dsm.cf[["longitude"]].coords.keys():
+            dsm[lkey] = dsm[lkey].where(
+                dsm[lkey] < 180, dsm[lkey] - 360
+            )
 
     return dsm
 
@@ -366,12 +379,27 @@ def run(
         if data is None:
             continue
 
+        spatial_buffer = 5
         for variable in variables:
-            da = (dsm
-            .cf[variable]
-            .cf.isel(Z=0)
-            .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5))
-            )
+            try:
+                da = (dsm
+                    .cf[variable]
+                    .cf.isel(Z=0)
+                    .cf.sel(
+                        lon=slice(lon - spatial_buffer, lon + spatial_buffer),
+                        lat=slice(lat - spatial_buffer, lat + spatial_buffer)
+                    )
+                )
+            # KeyError when coords have multi-dimensional indices
+            except KeyError:
+                da = (dsm
+                    .cf[variable]
+                    .cf.isel(Z=0)
+                )
+                da = da.where(
+                    (da.cf['longitude'] > lon - spatial_buffer) & (da.cf['longitude'] > lon + spatial_buffer) &
+                    (da.cf['latitude'] > lat - spatial_buffer) & (da.cf['latitude'] > lat + spatial_buffer)
+                )
 
             kwargs = dict(
                 da=da,
@@ -381,7 +409,6 @@ def run(
                 iZ=Z,
                 locstream=True
             )
-
             model_var = em.select(**kwargs)
             if isinstance(model_var, xr.Dataset):
                 model_var = model_var.cf[variable]

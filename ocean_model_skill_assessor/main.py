@@ -367,16 +367,18 @@ def run(
             continue
 
         for variable in variables:
+
+            variable = [variable]
             da = dsm.where(
                 (dsm.cf['longitude'] > lon - 2) &
                 (dsm.cf['longitude'] < lon + 2) &
                 (dsm.cf['latitude'] > lat - 2) &
                 (dsm.cf['latitude'] < lat + 2), drop=True
             ).cf.isel(Z=0)
-
-            variable = [variable]
+            da = da.cf[variable]
+            
             kwargs = dict(
-                da=da.cf[variable],
+                da=da,
                 longitude=lon,
                 latitude=lat,
                 T=T,

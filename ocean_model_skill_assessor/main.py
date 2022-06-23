@@ -367,14 +367,13 @@ def run(
             continue
 
         for variable in variables:
-            da = (dsm
-            .cf[variable]
-            .cf.isel(Z=0)
-            .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5))
-            )
+            da = dsm.where((dsm.cf['longitude'] > lon - 2) &
+                           (dsm.cf['longitude'] < lon + 2) &
+                           (dsm.cf['latitude'] > lat - 2) &
+                           (dsm.cf['latitude'] < lat + 2), drop=True).cf.isel(Z=0)
 
             kwargs = dict(
-                da=da,
+                da=da.cf[variable],
                 longitude=lon,
                 latitude=lat,
                 T=T,
@@ -382,16 +381,17 @@ def run(
                 locstream=True
             )
 
+            var_str = variable[0]
             model_var = em.select(**kwargs)
             if isinstance(model_var, xr.Dataset):
-                model_var = model_var.cf[variable]
-            data_var = data.cf[variable]
+                model_var = model_var.cf[var_str]
+            data_var = data.cf[var_str]
             # Combine and align the two time series of variable
             df = omsa.stats._align(data_var, model_var)
             stats = df.omsa.compute_stats
 
             # Write stats on plot
-            longname = dsm.cf[variable].attrs["long_name"]
+            longname = dsm.cf[var_str].attrs["long_name"]
             ylabel = f"{longname}"
             figname = f"{dataset_id}_{variable}.png"
             df.omsa.plot(

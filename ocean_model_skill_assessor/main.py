@@ -203,6 +203,7 @@ def run(
     erddap=None,
     figname_map=None,
     figname_data_prefix="",
+    horizontal_interp=False,
     local=None,
     only_search=False,
     only_searchplot=False,
@@ -238,6 +239,9 @@ def run(
         Figure name for map showing data locations.
     figname_data_prefix : str, optional
         Prefix for figures for dataset-model comparisons.
+    horizontal_interp : bool, optional
+        If True, use `em.select()` to interpolate to the data location horizontally.
+        If False, use `em.sel2d()` to use the nearest grid point to the data location.
     local : dict, optional
         Inputs for local reader.
     only_search : boolean, optional
@@ -361,18 +365,39 @@ def run(
             continue
 
         for variable in variables:
-            kwargs = dict(
-                da=dsm.cf[variable]
-                .cf.isel(Z=0)
-                .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5)),
-                longitude=lon,
-                latitude=lat,
-                T=T,
-                iZ=Z,
-                locstream=True,
-            )
 
-            model_var = em.select(**kwargs).to_dataset()
+            if horizontal_interp:
+                kwargs = dict(
+                    da=dsm.cf[variable]
+                    .cf.isel(Z=0)
+                    .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5)),
+                    longitude=lon,
+                    latitude=lat,
+                    T=T,
+                    iZ=Z,
+                    locstream=True,
+                )
+
+                model_var = em.select(**kwargs).to_dataset()
+
+            else:
+                kwargs = dict(
+                    longitude=lon,
+                    latitude=lat,
+                    #                     T=T,
+                    Z=0,
+                    method="nearest",
+                )
+                if T is not None:
+                    kwargs["T"] = T
+
+                # xoak doesn't work for 1D lon/lat coords
+                if dsm.cf["longitude"].ndim == dsm.cf["latitude"].ndim == 1:
+                    model_var = dsm.cf[variable].cf.sel(**kwargs).to_dataset()
+
+                elif dsm.cf["longitude"].ndim == dsm.cf["latitude"].ndim == 2:
+                    model_var = dsm.cf[variable].em.sel2dcf(**kwargs).to_dataset()
+
             # Combine and align the two time series of variable
             df = omsa.stats._align(data.cf[variable], model_var.cf[variable])
             stats = df.omsa.compute_stats

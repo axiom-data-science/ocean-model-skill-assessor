@@ -4,10 +4,10 @@ channels:
 dependencies:
   - python=3.9
   ############## These will have to be adjusted to your specific project
-  # - cartopy
+  - cartopy
   - cf_xarray
   - extract_model
-  # - matplotlib
+  - matplotlib-base
   - numpy
   - ocean_data_gateway
   - pandas

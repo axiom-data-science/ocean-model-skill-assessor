@@ -8,7 +8,7 @@ dependencies:
    # - cartopy
    # - matplotlib
    # - ipython
-   - jupyter
+   # - jupyter
    # - jupyterlab
    - ocean_model_skill_assessor
    # - xarray

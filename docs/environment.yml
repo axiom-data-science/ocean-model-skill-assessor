@@ -8,14 +8,13 @@ dependencies:
    # - cartopy
    # - matplotlib
    # - ipython
-   - jupyter
+   # - jupyter
    # - jupyterlab
    - ocean_model_skill_assessor
    # - xarray
    # These are needed for the docs themselves
    - numpydoc
-   # https://stackoverflow.com/questions/68642540/nbsphinx-causes-build-to-fail-when-building-jupyter-notebooks
-   - sphinx==4.0.2
+   - sphinx
    - sphinx_rtd_theme
    - ipython
    - nbconvert

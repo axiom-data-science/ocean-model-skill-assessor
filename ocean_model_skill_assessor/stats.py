@@ -115,7 +115,7 @@ def compute_mean_square_error(
     error = obs - model
     if centered:
         error += -obs.mean() + model.mean()
-    return (error ** 2).mean()
+    return (error**2).mean()
 
 
 def compute_murphy_skill_score(

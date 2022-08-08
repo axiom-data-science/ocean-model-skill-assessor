@@ -7,7 +7,7 @@ dependencies:
   - cartopy
   - cf_xarray
   - extract_model
-  - matplotlib
+  - matplotlib-base
   - numpy
   - ocean_data_gateway
   - pandas

@@ -52,11 +52,13 @@ def find_bbox(ds):
         lon = ds.cf["longitude"].values
         lat = ds.cf["latitude"].values
 
-    except KeyError as e:
+    except KeyError:
         # In case there are multiple grids, just take first one;
         # they are close enough
-        lon = list(ds.cf[["longitude"]].coords.keys())[0].values
-        lat = list(ds.cf[["latitude"]].coords.keys())[0].values
+        lon = ds[ds.cf.coordinates["longitude"][0]]
+        lat = ds[ds.cf.coordinates["latitude"][0]]
+        # lon = list(ds.cf[["longitude"]].coords.keys())[0].values
+        # lat = list(ds.cf[["latitude"]].coords.keys())[0].values
 
     min_lon = lon.min()
     max_lon = lon.max()
@@ -97,7 +99,10 @@ def read_model(loc_model, xarray_kwargs, time_range=None):
     xarray Dataset containing model output.
     """
 
-    dsm = xr.open_dataset(loc_model, **xarray_kwargs)
+    if isinstance(loc_model, list):
+        dsm = xr.open_mfdataset(loc_model, **xarray_kwargs)
+    else:
+        dsm = xr.open_dataset(loc_model, **xarray_kwargs)
 
     # add more cf-xarray info
     dsm = dsm.cf.guess_coord_axis()
@@ -112,10 +117,12 @@ def read_model(loc_model, xarray_kwargs, time_range=None):
         dsm = dsm.cf.isel(T=index).cf.sel(T=slice(time_range[0], time_range[1]))
 
     # force longitude to be from -180 to 180
-    lkey = dsm.cf["longitude"].name
-    dsm[lkey] = dsm.cf["longitude"].where(
-        dsm.cf["longitude"] < 180, dsm.cf["longitude"] - 360
-    )
+    for lkey in dsm.cf.coordinates["longitude"]:
+        dsm[lkey] = dsm[lkey].where(dsm[lkey] < 180, dsm[lkey] - 360)
+    # lkey = dsm.cf["longitude"].name
+    # dsm[lkey] = dsm.cf["longitude"].where(
+    #     dsm.cf["longitude"] < 180, dsm.cf["longitude"] - 360
+    # )
 
     return dsm
 
@@ -208,6 +215,7 @@ def run(
     only_search=False,
     only_searchplot=False,
     parallel=True,
+    proj=None,
     readers=None,
     run_qc=False,
     skip_units=False,
@@ -251,6 +259,8 @@ def run(
     parallel : boolean, optional
         Whether to run in parallel with `multiprocessing` library where
         possible. Default is True.
+    proj: proj instance
+        Projection from cartopy. Example: `cartopy.crs.Mercator()`.
     readers : odg reader or list of readers, optional
         Can specify which of the available readers to use in your search.
         Options are odg.erddap, odg.axds, and odg.local. Default is to use all.
@@ -336,6 +346,7 @@ def run(
 
     # Plot discovered datasets
     lls_stations, names_stations, lls_box, names_boxes = prep_plot(search)
+    # import pdb; pdb.set_trace()
     omsa.map.plot(
         lls_stations=lls_stations,
         names_stations=names_stations,
@@ -344,6 +355,7 @@ def run(
         boundary=boundary,
         res="10m",
         figname=figname_map,
+        proj=proj,
     )
 
     if only_searchplot:
@@ -392,10 +404,18 @@ def run(
                     kwargs["T"] = T
 
                 # xoak doesn't work for 1D lon/lat coords
-                if dsm.cf["longitude"].ndim == dsm.cf["latitude"].ndim == 1:
+                if (
+                    dsm.cf[variable].cf["longitude"].ndim
+                    == dsm.cf[variable].cf["latitude"].ndim
+                    == 1
+                ):
                     model_var = dsm.cf[variable].cf.sel(**kwargs).to_dataset()
 
-                elif dsm.cf["longitude"].ndim == dsm.cf["latitude"].ndim == 2:
+                elif (
+                    dsm.cf[variable].cf["longitude"].ndim
+                    == dsm.cf[variable].cf["latitude"].ndim
+                    == 2
+                ):
                     model_var = dsm.cf[variable].em.sel2dcf(**kwargs).to_dataset()
 
             # Combine and align the two time series of variable

@@ -13,7 +13,7 @@ dependencies:
   - matplotlib-base
   # - numpy
   - ocean_data_gateway
-  - ocean-model-skill-assessor
+  - ocean_model_skill_assessor
   - pip
   - scipy
   # - dask

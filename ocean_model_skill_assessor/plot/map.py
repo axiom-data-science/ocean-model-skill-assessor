@@ -40,7 +40,7 @@ def plot(
     boundary: array-like, Nx2, optional
         Model boundary locations. boundary[:,0] longitudes and boundary[:,1]
         latitudes.
-    proj: proj instance
+    proj: proj instance, optional
         Projection from cartopy. Example: `cartopy.crs.Mercator()`.
     res: str
         Resolution of Natural Earth features. Options: '110m', '50m', '10m'.
@@ -68,7 +68,7 @@ def plot(
         names_stations = [names_stations]
 
     if not proj:
-        proj = cartopy.crs.Mercator(central_longitude=central_longitude)
+        proj = cartopy.crs.Mercator(central_longitude=float(central_longitude))
     fig = plt.figure(figsize=(8, 7), dpi=100)
     ax = fig.add_axes([0.06, 0.01, 0.93, 0.95], projection=proj)
     # ax.set_frame_on(False) # kind of like it without the box

@@ -404,10 +404,18 @@ def run(
                     kwargs["T"] = T
 
                 # xoak doesn't work for 1D lon/lat coords
-                if dsm.cf[variable].cf["longitude"].ndim == dsm.cf[variable].cf["latitude"].ndim == 1:
+                if (
+                    dsm.cf[variable].cf["longitude"].ndim
+                    == dsm.cf[variable].cf["latitude"].ndim
+                    == 1
+                ):
                     model_var = dsm.cf[variable].cf.sel(**kwargs).to_dataset()
 
-                elif dsm.cf[variable].cf["longitude"].ndim == dsm.cf[variable].cf["latitude"].ndim == 2:
+                elif (
+                    dsm.cf[variable].cf["longitude"].ndim
+                    == dsm.cf[variable].cf["latitude"].ndim
+                    == 2
+                ):
                     model_var = dsm.cf[variable].em.sel2dcf(**kwargs).to_dataset()
 
             # Combine and align the two time series of variable

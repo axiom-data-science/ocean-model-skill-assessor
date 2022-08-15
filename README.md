@@ -8,11 +8,18 @@ ocean-model-skill-assessor
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/ocean_model_skill_assessor.svg?style=for-the-badge)](https://anaconda.org/conda-forge/ocean_model_skill_assessor)
 
 
+
 A package to fully run the comparison between data and model to assess model skill.
 
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://github.com/jbusecke/cookiecutter-science-project">cookiecutter science project template</a>.</small></p>
+
+## Run Demo without Installation
+
+Click the binder button to open up a demonstration notebook in your browser window
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/axiom-data-science/ocean-model-skill-assessor/HEAD?labpath=docs%2FDemo-AK.ipynb)
 
 
 ## Installation

@@ -24,14 +24,11 @@ Click the binder button to open up a demonstration notebook in your browser wind
 
 ## Installation
 
-Install the package plus its requirements from `conda-forge` with
-``` bash
-$ conda install -c conda-forge ocean_model_skill_assessor
-```
+### Set up fresh environment for this package
 
 Clone the repo:
 ``` bash
-$ git clone https://github.com/axiom-data-science/ocean_model_skill_assessor.git
+$ git clone https://github.com/axiom-data-science/ocean-model-skill-assessor.git
 ```
 
 In the `ocean_model_skill_assessor` directory, install conda environment:
@@ -39,10 +36,22 @@ In the `ocean_model_skill_assessor` directory, install conda environment:
 $ conda env create -f environment.yml
 ```
 
+Note that this process is faster if you first install `mamba` to your base Python and then use `mamba` in place of `conda`.
+
+### Install into existing Python environment
+
+Install the package plus its requirements from `conda-forge` with
+``` bash
+$ conda install -c conda-forge ocean_model_skill_assessor
+```
+
+Or you can git clone the repository and then pip install it locally into your existing Python environment:
 For local package install, in the `ocean_model_skill_assessor` directory:
 ``` bash
 $ pip install -e .
 ```
+
+### Extra packages for development
 
 To also develop this package, install additional packages with:
 ``` bash

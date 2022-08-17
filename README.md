@@ -26,17 +26,21 @@ Click the binder button to open up a demonstration notebook in your browser wind
 
 ### Set up fresh environment for this package
 
-Clone the repo:
+First, make sure you have [Anaconda or Miniconda installed](https://conda.io/projects/conda/en/latest/user-guide/install/download.html).
+
+Then, clone this repository:
 ``` bash
 $ git clone https://github.com/axiom-data-science/ocean-model-skill-assessor.git
 ```
 
-In the `ocean_model_skill_assessor` directory, install conda environment:
+In the `ocean_model_skill_assessor` directory, install a conda environment with convenient packages for working with this package (beyond the requirements):
 ``` bash
 $ conda env create -f environment.yml
 ```
 
-Note that this process is faster if you first install `mamba` to your base Python and then use `mamba` in place of `conda`.
+Note that installing the packages is faster if you first install `mamba` to your base Python and then use `mamba` in place of `conda`.
+
+Activate your new Python environment to use it with `conda activate ocean-model-skill-assessor`.
 
 ### Install into existing Python environment
 
@@ -62,3 +66,7 @@ To then check code before committing and pushing it to github, locally run
 ``` bash
 $ pre-commit run --all-files
 ```
+
+## Run Demo
+
+In your terminal window, activate your Python environment if you are using one, then type `jupyter lab` in the `ocean_model_skill_assessor` directory. This will open into your browser window. Navigate to `docs/Demo-AK.ipynb` or any of the other notebooks and double-click to open. Inside a notebook, push `shift-enter` to run individual cells, or the play button at the top to run all cells, or select commands under the `Run` menu.

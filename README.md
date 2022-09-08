@@ -40,7 +40,10 @@ $ conda env create -f environment.yml
 
 Note that installing the packages is faster if you first install `mamba` to your base Python and then use `mamba` in place of `conda`.
 
-Activate your new Python environment to use it with `conda activate ocean-model-skill-assessor`.
+Activate your new Python environment to use it with 
+``` bash
+$ conda activate ocean-model-skill-assessor
+```
 
 ### Install into existing Python environment
 

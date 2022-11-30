@@ -9,10 +9,11 @@ Welcome to ocean-model-skill-assessor's documentation!
 .. toctree::
    :maxdepth: 3
 
-   Demo-AK
+   Demo-AK.md
    Demo-CA
    Demo_workflows
    api
+   GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 
 
 

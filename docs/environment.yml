@@ -1,21 +1,28 @@
-name: model_assessor_docs
+name: omsa_docs
 channels:
   - conda-forge
   - defaults
 dependencies:
    - python=3.8
    # If your docs code examples depend on other packages add them here
-   # - cartopy
-   # - matplotlib
+   - cartopy
+   - matplotlib-base
    # - ipython
    # - jupyter
    # - jupyterlab
-   - ocean_model_skill_assessor
+   - cf_xarray
+   - extract_model
+   - intake
+   - numpy
+   - ocean_data_gateway
+   - pandas
+   - xarray
    # - xarray
    # These are needed for the docs themselves
+   - jupytext
    - numpydoc
    - sphinx
-   - sphinx_rtd_theme
+   - sphinx-markdown-tables
    - ipython
    - nbconvert
    - nbformat
@@ -24,9 +31,12 @@ dependencies:
    - pip
    - recommonmark
    - pip:
+     - cf-pandas
      - docrep<=0.2.7
+     - furo
      - nbsphinx
      - jupyter_client
+     - myst-nb
      - sphinx_pangeo_theme
      - sphinx-copybutton
      - sphinxcontrib-srclinks

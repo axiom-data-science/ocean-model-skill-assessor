@@ -347,7 +347,7 @@ def run(
     # Plot discovered datasets
     lls_stations, names_stations, lls_box, names_boxes = prep_plot(search)
     # import pdb; pdb.set_trace()
-    omsa.map.plot(
+    omsa.plots.map.plot(
         lls_stations=lls_stations,
         names_stations=names_stations,
         lls_boxes=lls_box,

@@ -8,6 +8,7 @@ API
    :toctree: generated/
    :recursive:
 
+   main
    accessor
    stats
    plot.map

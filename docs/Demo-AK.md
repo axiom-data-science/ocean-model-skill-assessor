@@ -49,7 +49,7 @@ var_def = odg.return_response(url)
 
 ## Search for Data over a Region
 
-This example demonstrates performing a search in time and space for data to compare with your model output. By default this would search in the spatial bounding box of the model output, but here we instead input a smaller bounding box so as to limit the number of datasets found and used. For several of the datasets, the model output isn't available (must be determined to be on land). 
+This example demonstrates performing a search in time and space for data to compare with your model output. By default this would search in the spatial bounding box of the model output, but here we instead input a smaller bounding box so as to limit the number of datasets found and used. For several of the datasets, the model output isn't available (must be determined to be on land).
 
 ```{code-cell} ipython3
 :tags: []
@@ -70,7 +70,7 @@ search = omsa.run(
                   var_def=var_def,
                   xarray_kwargs={'chunks': {'ocean_time': 1, 's_rho': 1},
                                  'drop_variables': ['ocean_time', 'time_run']},
-                  time_range=['2022-5-1','2022-5-4'], 
+                  time_range=['2022-5-1','2022-5-4'],
                   variables=['temp'],
                   readers=[odg.erddap],
                   erddap={

@@ -32,7 +32,7 @@ import ocean_model_skill_assessor  # isort:skip
 # -- Project information -----------------------------------------------------
 
 project = "ocean-model-skill-assessor"
-copyright = "2021, Axiom Data Science"
+copyright = "2021-2022, Axiom Data Science"
 author = "Axiom Data Science"
 
 release = get_distribution("ocean_model_skill_assessor").version
@@ -55,11 +55,18 @@ extensions = [
     "sphinx.ext.extlinks",
     "sphinx.ext.intersphinx",
     "numpydoc",
-    "nbsphinx",
     "IPython.sphinxext.ipython_directive",
     "IPython.sphinxext.ipython_console_highlighting",
     "sphinxcontrib.srclinks",
+    "sphinx_markdown_tables",
+    "myst_nb",
 ]
+
+# for compiling notebooks with mystnb
+# https://docs.readthedocs.io/en/stable/guides/jupyter.html#using-notebooks-in-other-formats
+nb_custom_formats = {
+    ".md": ["jupytext.reads", {"fmt": "mystnb"}],
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -75,7 +82,10 @@ exclude_patterns = ["_build", "**.ipynb_checkpoints", "Thumbs.db", ".DS_Store"]
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "pangeo"
+html_theme = "furo"
+
+# furo variables
+html_title = "ocean-model-skill-assessor documentation"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

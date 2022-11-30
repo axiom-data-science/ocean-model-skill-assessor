@@ -10,16 +10,17 @@ dependencies:
   - extract_model
   - jupyter
   - jupyterlab
-  - matplotlib
+  - matplotlib-base
   # - numpy
   - ocean_data_gateway
+  - ocean_model_skill_assessor
+  - pip
   - scipy
   # - dask
   # - netcdf4
   - pandas
   - xarray
-  - pip
-  # - pip:
+  - pip:
   #   # use these from github to include recent changes while packages are changing a lot
   #   # - git+git://github.com/axiom-data-science/extract_model#egg=extract_model
-  #   - git+git://github.com/axiom-data-science/ocean_data_gateway#egg=ocean_data_gateway
+  #  - git+git://github.com/axiom-data-science/ocean-model-skill-assessor#egg=ocean-model-skill-assessor

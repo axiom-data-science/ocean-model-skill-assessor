@@ -13,6 +13,7 @@ Welcome to ocean-model-skill-assessor's documentation!
    Demo-CA
    Demo_workflows
    api
+   GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 
 
 

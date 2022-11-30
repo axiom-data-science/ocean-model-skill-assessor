@@ -2,8 +2,13 @@
 Main run functions.
 """
 
+import pathlib
+from typing import DefaultDict, Dict, Optional, Sequence, Union
+import warnings
 import cf_xarray
+import cf_pandas as cfp
 import extract_model as em
+import intake
 import numpy as np
 import ocean_data_gateway as odg
 import pandas as pd
@@ -11,6 +16,8 @@ import xarray as xr
 
 import ocean_model_skill_assessor as omsa
 
+from intake.catalog.local import LocalCatalogEntry
+from intake.catalog import Catalog
 
 def make_kw(bbox, time_range):
     """Make kw for search.
@@ -201,8 +208,224 @@ def prep_em(input_data):
     return data, lon, lat, T, Z
 
 
+def make_local_catalog(filenames: Optional[Union[Sequence,str]] = None,) -> Catalog:
+    """_summary_
+
+    Parameters
+    ----------
+    filenames : Optional[Union[Sequence,str]], optional
+        _description_, by default None
+
+    Returns
+    -------
+    Catalog
+        _description_
+    """
+    import mimetypes
+    sources = []
+    for filename in filenames:
+        if "csv" in mimetypes.guess_type(filename)[0]:
+            sources.append(getattr(intake, "open_csv")(filename))
+        elif "netcdf" in mimetypes.guess_type(filename)[0]:
+            sources.append(getattr(intake, "open_netcdf")(filename))
+            
+    from intake.catalog.local import LocalCatalogEntry
+    from intake.catalog import Catalog
+
+    # create dictionary of catalog entries
+    entries = {
+        f"source{i}": LocalCatalogEntry(
+            name=f"source{i}",
+            description=source.description,
+            driver=source._yaml()['sources'][source.name]['driver'],
+            args=source._yaml()["sources"][source.name]["args"],
+            metadata=source.metadata,
+        )
+        for i, source in enumerate(sources)
+    }
+
+    # create catalog
+    cat = Catalog.from_dict(
+        entries,
+        name="Input files",
+        description="full_cat_description",
+        metadata="full_cat_metadata",
+    )
+    return cat
+
+
+def make_catalog(project_name: str,
+                 catalog_name: Optional[str] = None,
+                 nickname: Optional[str] = None,
+                 filenames: Optional[Union[Sequence,str]] = None,
+                 erddap_server: Optional[str] = None,
+                 axds_type: Optional[str] = None,
+                 kwargs_search: Dict[str, Union[str, int, float]] = None,
+                 vocab: Optional[Union[DefaultDict[str, Dict[str, str]],str,pathlib.PurePath]] = None,
+                 page_size: int = 10,
+                 container: str = "xarray",
+                 return_cat = True,
+                 save_cat = False,
+                 ):
+    """Make a catalog given input selections.
+
+    Parameters
+    ----------
+    project_name : str
+        Subdirectory in cache dir to store files associated together.
+    catalog_name : str
+        Catalog name, with or without suffix of yaml.
+    nickname : str
+        Variable nickname representing which variable in vocabulary you are searching for.
+    filenames : Optional[Union[Sequence,str]], optional
+        _description_, by default None
+    erddap_server : Optional[str], optional
+        _description_, by default None
+    axds_type : Optional[str], optional
+        _description_, by default None
+    kwargs_search : Dict[str, Union[str, int, float]], optional
+        _description_, by default None
+    vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
+        _description_, by default None
+    """
+
+    # Should I require vocab if nickname is not None?
+    # if vocab is None:
+    #     # READ IN DEFAULT AND SET VOCAB
+    #     vocab = cfp.Vocab("vocabs/general")
+        
+    # elif isinstance(vocab, str):
+    #     vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
+    
+    # Can use filenames OR erddap_server OR axds_type
+    if [(filenames is not None), (erddap_server is not None), (axds_type is not None)].count(True) > 1:
+        raise KeyError("Input `filenames` or `erddap_server` or `axds_type` but not more than one.")
+
+    if filenames is not None:
+        cat = make_local_catalog(filenames)
+
+    elif erddap_server is not None:
+        if vocab is not None:
+            with cfp.set_options(custom_criteria=vocab.vocab):
+                cat = intake.open_erddap_cat(erddap_server, kwargs_search=kwargs_search, category_search=["standard_name", nickname])
+        else:
+            cat = intake.open_erddap_cat(erddap_server, kwargs_search=kwargs_search)
+        catalog_name = "erddap_cat" if catalog_name is None else catalog_name
+        
+    elif axds_type is not None:
+        cat = intake.open_axds_cat(datatype=axds_type, outtype=container, kwargs_search=kwargs_search, keys_to_match=nickname, page_size=page_size)
+        catalog_name = "axds_cat" if catalog_name is None else catalog_name
+    
+    if save_cat:
+        # save cat to file
+        cat.save(omsa.CAT_PATH(catalog_name, project_name))
+
+    if return_cat:
+        return cat
+    
+    
+def run2(catalog_paths: Union[Sequence,str,pathlib.PurePath],
+         nickname: str,
+         model_url: str,
+         project_name: Optional[str] = None,
+         vocab: Optional[DefaultDict[str, Dict[str, str]]] = None,
+         ):
+    """_summary_
+
+    Parameters
+    ----------
+    catalog_paths : Union[Sequence[str,pathlib.PurePath],str,pathlib.PurePath]
+        _description_
+    nickname : str
+        _description_
+    model_url : str
+        _description_
+    project_name : str, optional
+        If not input, will use the the parent to catalog_paths as the project directory, but can be overridden by inputting this keyword.
+    vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
+        _description_, by default None
+    """
+    
+    if vocab is None:
+        # READ IN DEFAULT AND SET VOCAB
+        vocab = cfp.Vocab("vocabs/general")
+        
+    if project_name is None:
+        project_name is cfp.astype(catalog_paths, list)[0].parent
+        
+    # read in model output
+    dsm = xr.open_mfdataset(model_url, em.preprocess) if cfp.astype(model_url, list) else xr.open_dataset(model_url, em.preprocess)
+    
+    # use only one variable from model
+    dam = dsm.cf[nickname]
+
+    cats = [intake.open_catalog(catalog_path) for catalog_path in catalog_paths]
+
+    # loop over catalogs and sources to pull out lon/lat locations for plot
+    maps = []
+    for cat in cats:
+        for source_name in list(cat):
+            min_lon, max_lon = cat[source_name].metadata["min_lon"], cat[source_name].metadata["max_lon"]
+            min_lat, max_lat = cat[source_name].metadata["min_lat"], cat[source_name].metadata["max_lat"]
+            min_time, max_time = cat[source_name].metadata["min_time"], cat[source_name].metadata["max_time"]
+            maps.append([min_lon, max_lon, min_lat, max_lat, source_name])
+            
+            if min_lon != max_lon or min_lat != max_lat:
+                warnings.warn(f"Source {source_name} in catalog {cat.name} is not stationary so not plotting.")
+                continue
+            
+            # Pull out nearest model output to data
+            # use extract_model
+            kwargs = dict(
+                longitude=min_lon,
+                latitude=min_lat,
+                iT = slice(min_time, max_time),
+                # T=cat[source_name],
+                Z=0,
+                method="nearest",
+            )
+            # if T is not None:
+            #     kwargs["T"] = T
+
+            # xoak doesn't work for 1D lon/lat coords
+            if (
+                dam.cf["longitude"].ndim
+                == dam.cf["latitude"].ndim
+                == 1
+            ):
+                model_var = dam.cf.sel(**kwargs)#.to_dataset()
+
+            elif (
+                dam.cf["longitude"].ndim
+                == dam.cf["latitude"].ndim
+                == 2
+            ):
+                model_var = dam.em.sel2dcf(**kwargs)#.to_dataset()
+        
+            # Combine and align the two time series of variable
+            df = omsa.stats._align(cat[source_name].to_dask().cf[nickname], model_var)#.cf[variable])
+
+            # pull out depth at surface
+
+            # df = omsa.stats._align(data.cf[variable], model_var)#.cf[variable])
+            # Where to save stats to?
+            stats = df.omsa.compute_stats
+
+            # Write stats on plot
+            figname = f"{source_name}_{nickname}.png"
+            df.omsa.plot(
+                title=f"{source_name}",
+                ylabel=dam.name,
+                figname=figname_data_prefix + figname,
+                stats=stats,
+            )
+    
+    # map of model domain with data locations
+    plot_map(maps, project_name)
+    
+
+
 def run(
-    approach,
     loc_model,
     axds=None,
     bbox=None,
@@ -229,8 +452,6 @@ def run(
 
     Parameters
     ----------
-    approach : str
-        'region' or 'stations'
     loc_model : str
         Relative or absolute, local or nonlocal path to model output.
     axds : dict, optional
@@ -304,7 +525,6 @@ def run(
     kwargs = dict(
         criteria=criteria,
         var_def=var_def,
-        approach=approach,
         parallel=parallel,
         variables=variables,
         readers=readers,
@@ -318,21 +538,21 @@ def run(
     if bbox is None:
         bbox = bbox_model
 
-    if approach == "region":
+    # if approach == "region":
 
-        # Require time_range
-        assert time_range, "Require time range for `approach=='region'`."
+    #     # Require time_range
+    #     assert time_range, "Require time range for `approach=='region'`."
 
-        kw = make_kw(bbox, time_range)
+    #     kw = make_kw(bbox, time_range)
 
-        kwargs["kw"] = kw
+    #     kwargs["kw"] = kw
 
-    elif (approach == "stations") and time_range:
+    # elif (approach == "stations") and time_range:
 
-        kw = dict(min_time=time_range[0], max_time=time_range[1])
+    #     kw = dict(min_time=time_range[0], max_time=time_range[1])
 
-        kwargs["kw"] = kw
-        kwargs["stations"] = stations
+    #     kwargs["kw"] = kw
+    #     kwargs["stations"] = stations
 
     # Perform search
     search = odg.Gateway(**kwargs)

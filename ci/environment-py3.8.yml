@@ -16,6 +16,9 @@ dependencies:
   ##############
   - pytest
   - pip:
+    - git+https://github.com/intake/intake
+    - intake-erddap
+    - intake-xarray
     - codecov
     - pytest-cov
     - coverage[toml]

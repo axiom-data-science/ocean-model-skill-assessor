@@ -12,7 +12,6 @@ dependencies:
    # - jupyterlab
    - cf_xarray
    - extract_model
-   - intake
    - numpy
    - ocean_data_gateway
    - pandas
@@ -31,6 +30,9 @@ dependencies:
    - pip
    - recommonmark
    - pip:
+     - git+https://github.com/intake/intake
+     - intake-erddap
+     - intake-xarray
      - cf-pandas
      - docrep<=0.2.7
      - furo

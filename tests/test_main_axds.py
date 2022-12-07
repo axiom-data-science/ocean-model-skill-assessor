@@ -3,46 +3,6 @@ import os
 from unittest import mock
 import intake
 import ocean_model_skill_assessor as omsa
-
-
-# string = """
-# description: description
-# metadata: {}
-# name: Catalog
-# sources:
-#   source1:
-#     args:
-#       urlpath: file.nc
-#     description: source description
-#     driver: intake_xarray.netcdf.NetCDFSource
-#     metadata: {}
-#     name: source1
-#     parameters: {}
-# """
-
-# @mock.patch("intake.open_axds_cat")
-# @mock.patch("ocean_model_skill_assessor.CAT_PATH")
-# def test_make_catalog_axds_platform2(mock_cat_path, mock_open_cat, tmpdir):
-#     # make_catalog test1 --axds_type platform2 return cat
-#     catloc = tmpdir / "cat.yaml"
-#     with open(catloc, 'w') as f:
-#         f.write(string)
-#     cat_in = intake.open_catalog(catloc)
-#     mock_open_cat.return_value = cat_in
-
-#     catloc2 = tmpdir / "projectA" / "catA.yaml"
-#     mock_cat_path.return_value = catloc2
-
-#     cat = omsa.make_catalog(project_name="projectA", catalog_name="catA",
-#                             axds_type="platform2", return_cat=True, save_cat=True)
-#     assert cat == cat_in
-#     assert os.path.exists(catloc2)
-    
-    
-#     # make_catalog test1 --axds_type platform2 --container dataframe return cat
-#     # make_catalog test1 --axds_type platform2 --container xarray return cat
-#     # make_catalog test1 --axds_type platform2 --kwargs_search kw return cat
-#     # make_catalog test1 --axds_type platform2 --vocab vocab --nickname nickname return cat
     
 
 class FakeResponse(object):
@@ -96,16 +56,6 @@ class FakeResponse(object):
             ]
         }
         return res
-
-
-# @mock.patch("requests.get")
-# def test_axds_catalog_platform_dataframe(mock_requests):
-#     """Test basic catalog API: platform as dataframe."""
-
-#     mock_requests.side_effect = [FakeResponseSearch(), FakeResponseMeta()]
-
-#     cat = AXDSCatalog(datatype="platform2", outtype="dataframe")
-
 
 
 @mock.patch("ocean_model_skill_assessor.CAT_PATH")

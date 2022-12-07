@@ -31,6 +31,7 @@ dependencies:
    - recommonmark
    - pip:
      - git+https://github.com/intake/intake
+     - intake-axds
      - intake-erddap
      - intake-xarray
      - cf-pandas

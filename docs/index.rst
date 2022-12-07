@@ -9,6 +9,7 @@ Welcome to ocean-model-skill-assessor's documentation!
 .. toctree::
    :maxdepth: 3
 
+   create_vocabs.md
    Demo-AK.md
    Demo-CA
    Demo_workflows

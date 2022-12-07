@@ -161,7 +161,7 @@ def compute_root_mean_square_error(
 
 def compute_descriptive_statistics(model: DataFrame, ddof=0) -> Tuple:
     """Given obs and model signals, return the standard deviation"""
-    return (np.max(model), np.min(model), np.mean(model), np.std(model, ddof=ddof))
+    return (model.max(), model.min(), model.mean(), model.std(ddof=ddof))
 
 
 def compute_stats(obs: DataFrame, model: DataFrame) -> dict:

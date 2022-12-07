@@ -261,7 +261,7 @@ def make_catalog(catalog_type: str,
                 #  filenames: Optional[Union[Sequence,str]] = None,
                 #  erddap_server: Optional[str] = None,
                 #  axds_type: Optional[str] = "platform2",
-                 kwargs: dict = None,
+                 kwargs: Dict[str, Union[str, int, float]] = None,
                  kwargs_search: Dict[str, Union[str, int, float]] = None,
                  vocab: Optional[Union[DefaultDict[str, Dict[str, str]],str,pathlib.PurePath]] = None,
                 #  page_size: int = 10,
@@ -306,6 +306,9 @@ def make_catalog(catalog_type: str,
     vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
         _description_, by default None
     """
+    
+    if kwargs is None:
+        kwargs = {}
 
     # Should I require vocab if nickname is not None?
     # if vocab is None:

@@ -254,16 +254,17 @@ def make_local_catalog(filenames: Optional[Union[Sequence,str]] = None,) -> Cata
     return cat
 
 
-def make_catalog(project_name: str,
+def make_catalog(catalog_type: str,
+                 project_name: str,
                  catalog_name: Optional[str] = None,
-                 nickname: Optional[str] = None,
-                 filenames: Optional[Union[Sequence,str]] = None,
-                 erddap_server: Optional[str] = None,
-                 axds_type: Optional[str] = None,
+                #  nickname: Optional[str] = None,
+                #  filenames: Optional[Union[Sequence,str]] = None,
+                #  erddap_server: Optional[str] = None,
+                #  axds_type: Optional[str] = "platform2",
+                 kwargs: dict = None,
                  kwargs_search: Dict[str, Union[str, int, float]] = None,
                  vocab: Optional[Union[DefaultDict[str, Dict[str, str]],str,pathlib.PurePath]] = None,
-                 page_size: int = 10,
-                 container: str = "xarray",
+                #  page_size: int = 10,
                  return_cat = True,
                  save_cat = False,
                  ):
@@ -271,18 +272,35 @@ def make_catalog(project_name: str,
 
     Parameters
     ----------
+    catalog_type : str
+        Which type of catalog to make? Options are "erddap", "axds", or "local".
     project_name : str
         Subdirectory in cache dir to store files associated together.
     catalog_name : str
         Catalog name, with or without suffix of yaml.
     nickname : str
         Variable nickname representing which variable in vocabulary you are searching for.
-    filenames : Optional[Union[Sequence,str]], optional
-        _description_, by default None
-    erddap_server : Optional[str], optional
-        _description_, by default None
-    axds_type : Optional[str], optional
-        _description_, by default None
+    
+    kwargs : 
+        All keyword arguments for the given catalog.
+        * axds:
+        
+          * datatype: default "platform2"
+          * page_size: default 10
+          * keys_to_match: Optional[Union[str, list]] = None,
+          * standard_names: Optional[Union[str, list]] = None,
+          * verbose: bool = False,
+          * name: str = "catalog",
+          * description: str = "Catalog of Axiom assets.",
+          * metadata: dict = None,
+          * ttl: Optional[int] = None,
+        
+        * erddap:
+          * erddap_server : Optional[str], optional
+          
+        * local
+          * filenames : Optional[Union[Sequence,str]], optional
+
     kwargs_search : Dict[str, Union[str, int, float]], optional
         _description_, by default None
     vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
@@ -296,29 +314,42 @@ def make_catalog(project_name: str,
         
     # elif isinstance(vocab, str):
     #     vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
+
+    if isinstance(vocab, str):
+        vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
     
-    # Can use filenames OR erddap_server OR axds_type
-    if [(filenames is not None), (erddap_server is not None), (axds_type is not None)].count(True) > 1:
-        raise KeyError("Input `filenames` or `erddap_server` or `axds_type` but not more than one.")
+    # # Can use filenames OR erddap_server OR axds_type
+    # if [(filenames is not None), (erddap_server is not None), (axds_type is not None)].count(True) > 1:
+    #     raise KeyError("Input `filenames` or `erddap_server` or `axds_type` but not more than one.")
 
-    if filenames is not None:
-        cat = make_local_catalog(filenames)
+    if catalog_type == "local":
+        if "filenames" not in kwargs:
+            raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
+        cat = make_local_catalog(kwargs["filenames"])
 
-    elif erddap_server is not None:
+    elif catalog_type == "erddap":
+        if "erddap_server" not in kwargs:
+            raise ValueError("For `catalog_type=='erddap'`, must input `erddap_server`.")
         if vocab is not None:
             with cfp.set_options(custom_criteria=vocab.vocab):
-                cat = intake.open_erddap_cat(erddap_server, kwargs_search=kwargs_search, category_search=["standard_name", nickname])
+                cat = intake.open_erddap_cat(kwargs["erddap_server"], kwargs_search=kwargs_search, category_search=["standard_name", nickname])
         else:
-            cat = intake.open_erddap_cat(erddap_server, kwargs_search=kwargs_search)
+            cat = intake.open_erddap_cat(kwargs["erddap_server"], kwargs_search=kwargs_search)
         catalog_name = "erddap_cat" if catalog_name is None else catalog_name
         
-    elif axds_type is not None:
-        cat = intake.open_axds_cat(datatype=axds_type, outtype=container, kwargs_search=kwargs_search, keys_to_match=nickname, page_size=page_size)
+    elif catalog_type == "axds":
         catalog_name = "axds_cat" if catalog_name is None else catalog_name
-    
+        kwargs["name"] = catalog_name
+        if vocab is not None:
+            with cfp.set_options(custom_criteria=vocab.vocab):
+                cat = intake.open_axds_cat(kwargs_search=kwargs_search, **kwargs)
+        else:
+            cat = intake.open_axds_cat(kwargs_search=kwargs_search, **kwargs)
+
     if save_cat:
         # save cat to file
         cat.save(omsa.CAT_PATH(catalog_name, project_name))
+        print(f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)}.")
 
     if return_cat:
         return cat

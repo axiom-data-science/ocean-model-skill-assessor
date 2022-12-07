@@ -2,6 +2,7 @@
 A package to fully run the comparison between data and model to assess model skill.
 """
 
+import shutil
 from pkg_resources import DistributionNotFound, get_distribution
 
 import ocean_model_skill_assessor.accessor  # noqa: F401
@@ -35,6 +36,10 @@ dirs = AppDirs("ocean-model-skill-assessor", "axiom-data-science")
 cache_dir = Path(dirs.user_cache_dir)
 VOCAB_DIR = cache_dir / "vocab"
 VOCAB_DIR.mkdir(parents=True, exist_ok=True)
+VOCAB_DIR_INIT = Path.cwd() / "vocab"
+
+# copy vocab files to vocab cache location
+[shutil.copy(vocab_path, VOCAB_DIR) for vocab_path in VOCAB_DIR_INIT.glob("*.json")]
 
 def PROJ_DIR(project_name):
     """Return path to project directory."""

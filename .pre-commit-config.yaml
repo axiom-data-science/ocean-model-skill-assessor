@@ -30,7 +30,7 @@ repos:
       args: [--max-line-length=105, --ignore=E203,E501,W503, --select=select=C,E,F,W,B,B950]
 
 - repo: https://github.com/pre-commit/mirrors-isort
-  rev: v4.3.21
+  rev: v5.10.1
   hooks:
   - id: isort
     additional_dependencies: [toml]

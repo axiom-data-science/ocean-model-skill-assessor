@@ -3,9 +3,11 @@ Utility functions.
 """
 
 import cf_xarray
-# import ocean_data_gateway as odg
 
 import ocean_model_skill_assessor as omsa
+
+
+# import ocean_data_gateway as odg
 
 
 def set_criteria(criteria):

@@ -3,13 +3,15 @@ A package to fully run the comparison between data and model to assess model ski
 """
 
 import shutil
+
+from pathlib import Path
+
+from appdirs import AppDirs
 from pkg_resources import DistributionNotFound, get_distribution
 
 import ocean_model_skill_assessor.accessor  # noqa: F401
-from appdirs import AppDirs
-from pathlib import Path
-from .main import prep_plot, find_bbox, make_catalog
-# from .plot import map, time_series  # noqa: F401
+
+from .main import find_bbox, make_catalog, prep_plot
 from .stats import (  # noqa: F401
     compute_bias,
     compute_correlation_coefficient,
@@ -41,18 +43,21 @@ VOCAB_DIR_INIT = Path.cwd() / "vocab"
 # copy vocab files to vocab cache location
 [shutil.copy(vocab_path, VOCAB_DIR) for vocab_path in VOCAB_DIR_INIT.glob("*.json")]
 
+
 def PROJ_DIR(project_name):
     """Return path to project directory."""
     path = cache_dir / f"{project_name}"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
+
 def CAT_PATH(cat_name, project_name):
     """Return path to catalog."""
-    path =  (cache_dir / project_name / cat_name).with_suffix(".yaml")
+    path = (cache_dir / project_name / cat_name).with_suffix(".yaml")
     return path
+
 
 def VOCAB_PATH(vocab_name):
     """Return path to vocab."""
-    path =  (VOCAB_DIR / vocab_name).with_suffix(".json")
+    path = (VOCAB_DIR / vocab_name).with_suffix(".json")
     return path

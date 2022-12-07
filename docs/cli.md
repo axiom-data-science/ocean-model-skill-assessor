@@ -50,5 +50,4 @@ Alternatively, filter returned datasets for variables using the variable nicknam
 * erddap catalog, Coastwatch: vocab_name erddap_coastwatch
 * local catalog: vocab_name general
 
-    python CLI.py make_catalog --project_name test1 --catalog_type axds --vocab_name standard_names --kwargs keys_to_match="[temp,salt]" 
-
+    python CLI.py make_catalog --project_name test1 --catalog_type axds --vocab_name standard_names --kwargs keys_to_match="[temp,salt]"

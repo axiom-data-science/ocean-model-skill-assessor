@@ -1,9 +1,11 @@
-
 import os
+
 from unittest import mock
+
 import intake
+
 import ocean_model_skill_assessor as omsa
-    
+
 
 class FakeResponse(object):
     def __init__(self):
@@ -66,14 +68,25 @@ def test_make_catalog_axds_platform2(mock_requests, mock_cat_path, tmpdir):
     catloc2 = tmpdir / "projectA" / "catalog.yaml"
     mock_cat_path.return_value = catloc2
 
-    cat1 = omsa.make_catalog(catalog_type="axds", project_name="projectA", catalog_name="catA", return_cat=True, save_cat=True)
+    cat1 = omsa.make_catalog(
+        catalog_type="axds",
+        project_name="projectA",
+        catalog_name="catA",
+        return_cat=True,
+        save_cat=True,
+    )
 
     assert os.path.exists(catloc2)
 
     mock_requests.side_effect = [FakeResponse()]
     cat2 = intake.open_axds_cat()
-    assert cat1["test_platform_parquet"].describe() == cat2["test_platform_parquet"].describe()
+    assert (
+        cat1["test_platform_parquet"].describe()
+        == cat2["test_platform_parquet"].describe()
+    )
 
     cat3 = intake.open_catalog(catloc2)
-    assert cat3["test_platform_parquet"].describe() == cat2["test_platform_parquet"].describe()
-    
+    assert (
+        cat3["test_platform_parquet"].describe()
+        == cat2["test_platform_parquet"].describe()
+    )

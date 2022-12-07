@@ -3,21 +3,23 @@ Main run functions.
 """
 
 import pathlib
-from typing import DefaultDict, Dict, Optional, Sequence, Union
 import warnings
-import cf_xarray
+
+from typing import DefaultDict, Dict, Optional, Sequence, Union
+
 import cf_pandas as cfp
+import cf_xarray
 import extract_model as em
 import intake
 import numpy as np
-# import ocean_data_gateway as odg
 import pandas as pd
 import xarray as xr
 
+from intake.catalog import Catalog
+from intake.catalog.local import LocalCatalogEntry
+
 import ocean_model_skill_assessor as omsa
 
-from intake.catalog.local import LocalCatalogEntry
-from intake.catalog import Catalog
 
 def make_kw(bbox, time_range):
     """Make kw for search.
@@ -208,7 +210,9 @@ def prep_em(input_data):
     return data, lon, lat, T, Z
 
 
-def make_local_catalog(filenames: Optional[Union[Sequence,str]] = None,) -> Catalog:
+def make_local_catalog(
+    filenames: Optional[Union[Sequence, str]] = None,
+) -> Catalog:
     """_summary_
 
     Parameters
@@ -222,22 +226,23 @@ def make_local_catalog(filenames: Optional[Union[Sequence,str]] = None,) -> Cata
         _description_
     """
     import mimetypes
+
     sources = []
     for filename in filenames:
         if "csv" in mimetypes.guess_type(filename)[0]:
             sources.append(getattr(intake, "open_csv")(filename))
         elif "netcdf" in mimetypes.guess_type(filename)[0]:
             sources.append(getattr(intake, "open_netcdf")(filename))
-            
-    from intake.catalog.local import LocalCatalogEntry
+
     from intake.catalog import Catalog
+    from intake.catalog.local import LocalCatalogEntry
 
     # create dictionary of catalog entries
     entries = {
         f"source{i}": LocalCatalogEntry(
             name=f"source{i}",
             description=source.description,
-            driver=source._yaml()['sources'][source.name]['driver'],
+            driver=source._yaml()["sources"][source.name]["driver"],
             args=source._yaml()["sources"][source.name]["args"],
             metadata=source.metadata,
         )
@@ -254,20 +259,23 @@ def make_local_catalog(filenames: Optional[Union[Sequence,str]] = None,) -> Cata
     return cat
 
 
-def make_catalog(catalog_type: str,
-                 project_name: str,
-                 catalog_name: Optional[str] = None,
-                #  nickname: Optional[str] = None,
-                #  filenames: Optional[Union[Sequence,str]] = None,
-                #  erddap_server: Optional[str] = None,
-                #  axds_type: Optional[str] = "platform2",
-                 kwargs: Dict[str, Union[str, int, float]] = None,
-                 kwargs_search: Dict[str, Union[str, int, float]] = None,
-                 vocab: Optional[Union[DefaultDict[str, Dict[str, str]],str,pathlib.PurePath]] = None,
-                #  page_size: int = 10,
-                 return_cat = True,
-                 save_cat = False,
-                 ):
+def make_catalog(
+    catalog_type: str,
+    project_name: str,
+    catalog_name: Optional[str] = None,
+    #  nickname: Optional[str] = None,
+    #  filenames: Optional[Union[Sequence,str]] = None,
+    #  erddap_server: Optional[str] = None,
+    #  axds_type: Optional[str] = "platform2",
+    kwargs: Dict[str, Union[str, int, float]] = None,
+    kwargs_search: Dict[str, Union[str, int, float]] = None,
+    vocab: Optional[
+        Union[DefaultDict[str, Dict[str, str]], str, pathlib.PurePath]
+    ] = None,
+    #  page_size: int = 10,
+    return_cat=True,
+    save_cat=False,
+):
     """Make a catalog given input selections.
 
     Parameters
@@ -280,11 +288,11 @@ def make_catalog(catalog_type: str,
         Catalog name, with or without suffix of yaml.
     nickname : str
         Variable nickname representing which variable in vocabulary you are searching for.
-    
-    kwargs : 
+
+    kwargs :
         All keyword arguments for the given catalog.
         * axds:
-        
+
           * datatype: default "platform2"
           * page_size: default 10
           * keys_to_match: Optional[Union[str, list]] = None,
@@ -294,10 +302,10 @@ def make_catalog(catalog_type: str,
           * description: str = "Catalog of Axiom assets.",
           * metadata: dict = None,
           * ttl: Optional[int] = None,
-        
+
         * erddap:
           * erddap_server : Optional[str], optional
-          
+
         * local
           * filenames : Optional[Union[Sequence,str]], optional
 
@@ -306,7 +314,7 @@ def make_catalog(catalog_type: str,
     vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
         _description_, by default None
     """
-    
+
     if kwargs is None:
         kwargs = {}
 
@@ -314,13 +322,13 @@ def make_catalog(catalog_type: str,
     # if vocab is None:
     #     # READ IN DEFAULT AND SET VOCAB
     #     vocab = cfp.Vocab("vocabs/general")
-        
+
     # elif isinstance(vocab, str):
     #     vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
 
     if isinstance(vocab, str):
         vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
-    
+
     # # Can use filenames OR erddap_server OR axds_type
     # if [(filenames is not None), (erddap_server is not None), (axds_type is not None)].count(True) > 1:
     #     raise KeyError("Input `filenames` or `erddap_server` or `axds_type` but not more than one.")
@@ -332,14 +340,22 @@ def make_catalog(catalog_type: str,
 
     elif catalog_type == "erddap":
         if "erddap_server" not in kwargs:
-            raise ValueError("For `catalog_type=='erddap'`, must input `erddap_server`.")
+            raise ValueError(
+                "For `catalog_type=='erddap'`, must input `erddap_server`."
+            )
         if vocab is not None:
             with cfp.set_options(custom_criteria=vocab.vocab):
-                cat = intake.open_erddap_cat(kwargs["erddap_server"], kwargs_search=kwargs_search, category_search=["standard_name", nickname])
+                cat = intake.open_erddap_cat(
+                    kwargs["erddap_server"],
+                    kwargs_search=kwargs_search,
+                    category_search=["standard_name", nickname],
+                )
         else:
-            cat = intake.open_erddap_cat(kwargs["erddap_server"], kwargs_search=kwargs_search)
+            cat = intake.open_erddap_cat(
+                kwargs["erddap_server"], kwargs_search=kwargs_search
+            )
         catalog_name = "erddap_cat" if catalog_name is None else catalog_name
-        
+
     elif catalog_type == "axds":
         catalog_name = "axds_cat" if catalog_name is None else catalog_name
         kwargs["name"] = catalog_name
@@ -356,14 +372,15 @@ def make_catalog(catalog_type: str,
 
     if return_cat:
         return cat
-    
-    
-def run2(catalog_paths: Union[Sequence,str,pathlib.PurePath],
-         nickname: str,
-         model_url: str,
-         project_name: Optional[str] = None,
-         vocab: Optional[DefaultDict[str, Dict[str, str]]] = None,
-         ):
+
+
+def run2(
+    catalog_paths: Union[Sequence, str, pathlib.PurePath],
+    nickname: str,
+    model_url: str,
+    project_name: Optional[str] = None,
+    vocab: Optional[DefaultDict[str, Dict[str, str]]] = None,
+):
     """_summary_
 
     Parameters
@@ -379,17 +396,21 @@ def run2(catalog_paths: Union[Sequence,str,pathlib.PurePath],
     vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
         _description_, by default None
     """
-    
+
     if vocab is None:
         # READ IN DEFAULT AND SET VOCAB
         vocab = cfp.Vocab("vocabs/general")
-        
+
     if project_name is None:
         project_name is cfp.astype(catalog_paths, list)[0].parent
-        
+
     # read in model output
-    dsm = xr.open_mfdataset(model_url, em.preprocess) if cfp.astype(model_url, list) else xr.open_dataset(model_url, em.preprocess)
-    
+    dsm = (
+        xr.open_mfdataset(model_url, em.preprocess)
+        if cfp.astype(model_url, list)
+        else xr.open_dataset(model_url, em.preprocess)
+    )
+
     # use only one variable from model
     dam = dsm.cf[nickname]
 
@@ -399,21 +420,32 @@ def run2(catalog_paths: Union[Sequence,str,pathlib.PurePath],
     maps = []
     for cat in cats:
         for source_name in list(cat):
-            min_lon, max_lon = cat[source_name].metadata["min_lon"], cat[source_name].metadata["max_lon"]
-            min_lat, max_lat = cat[source_name].metadata["min_lat"], cat[source_name].metadata["max_lat"]
-            min_time, max_time = cat[source_name].metadata["min_time"], cat[source_name].metadata["max_time"]
+            min_lon, max_lon = (
+                cat[source_name].metadata["min_lon"],
+                cat[source_name].metadata["max_lon"],
+            )
+            min_lat, max_lat = (
+                cat[source_name].metadata["min_lat"],
+                cat[source_name].metadata["max_lat"],
+            )
+            min_time, max_time = (
+                cat[source_name].metadata["min_time"],
+                cat[source_name].metadata["max_time"],
+            )
             maps.append([min_lon, max_lon, min_lat, max_lat, source_name])
-            
+
             if min_lon != max_lon or min_lat != max_lat:
-                warnings.warn(f"Source {source_name} in catalog {cat.name} is not stationary so not plotting.")
+                warnings.warn(
+                    f"Source {source_name} in catalog {cat.name} is not stationary so not plotting."
+                )
                 continue
-            
+
             # Pull out nearest model output to data
             # use extract_model
             kwargs = dict(
                 longitude=min_lon,
                 latitude=min_lat,
-                iT = slice(min_time, max_time),
+                iT=slice(min_time, max_time),
                 # T=cat[source_name],
                 Z=0,
                 method="nearest",
@@ -422,22 +454,16 @@ def run2(catalog_paths: Union[Sequence,str,pathlib.PurePath],
             #     kwargs["T"] = T
 
             # xoak doesn't work for 1D lon/lat coords
-            if (
-                dam.cf["longitude"].ndim
-                == dam.cf["latitude"].ndim
-                == 1
-            ):
-                model_var = dam.cf.sel(**kwargs)#.to_dataset()
+            if dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 1:
+                model_var = dam.cf.sel(**kwargs)  # .to_dataset()
 
-            elif (
-                dam.cf["longitude"].ndim
-                == dam.cf["latitude"].ndim
-                == 2
-            ):
-                model_var = dam.em.sel2dcf(**kwargs)#.to_dataset()
-        
+            elif dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 2:
+                model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+
             # Combine and align the two time series of variable
-            df = omsa.stats._align(cat[source_name].to_dask().cf[nickname], model_var)#.cf[variable])
+            df = omsa.stats._align(
+                cat[source_name].to_dask().cf[nickname], model_var
+            )  # .cf[variable])
 
             # pull out depth at surface
 
@@ -453,10 +479,9 @@ def run2(catalog_paths: Union[Sequence,str,pathlib.PurePath],
                 figname=figname_data_prefix + figname,
                 stats=stats,
             )
-    
+
     # map of model domain with data locations
     plot_map(maps, project_name)
-    
 
 
 # def run(

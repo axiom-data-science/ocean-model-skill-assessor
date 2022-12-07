@@ -10,9 +10,9 @@ Welcome to ocean-model-skill-assessor's documentation!
    :maxdepth: 3
 
    create_vocabs.md
-   Demo-AK.md
-   Demo-CA
-   Demo_workflows
+   .. Demo-AK.md
+   .. Demo-CA
+   .. Demo_workflows
    api
    GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 

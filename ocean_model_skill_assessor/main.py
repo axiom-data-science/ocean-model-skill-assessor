@@ -10,7 +10,7 @@ import cf_pandas as cfp
 import extract_model as em
 import intake
 import numpy as np
-import ocean_data_gateway as odg
+# import ocean_data_gateway as odg
 import pandas as pd
 import xarray as xr
 
@@ -459,232 +459,232 @@ def run2(catalog_paths: Union[Sequence,str,pathlib.PurePath],
     
 
 
-def run(
-    loc_model,
-    axds=None,
-    bbox=None,
-    criteria=None,
-    erddap=None,
-    figname_map=None,
-    figname_data_prefix="",
-    horizontal_interp=False,
-    local=None,
-    only_search=False,
-    only_searchplot=False,
-    parallel=True,
-    proj=None,
-    readers=None,
-    run_qc=False,
-    skip_units=False,
-    stations=None,
-    time_range=None,
-    variables=None,
-    var_def=None,
-    xarray_kwargs=None,
-):
-    """Run package.
+# def run(
+#     loc_model,
+#     axds=None,
+#     bbox=None,
+#     criteria=None,
+#     erddap=None,
+#     figname_map=None,
+#     figname_data_prefix="",
+#     horizontal_interp=False,
+#     local=None,
+#     only_search=False,
+#     only_searchplot=False,
+#     parallel=True,
+#     proj=None,
+#     readers=None,
+#     run_qc=False,
+#     skip_units=False,
+#     stations=None,
+#     time_range=None,
+#     variables=None,
+#     var_def=None,
+#     xarray_kwargs=None,
+# ):
+#     """Run package.
 
-    Parameters
-    ----------
-    loc_model : str
-        Relative or absolute, local or nonlocal path to model output.
-    axds : dict, optional
-        Inputs for axds reader.
-    bbox : list, optional
-        [min_lon, min_lat, max_lon, max_lat] if you want to override
-        the default of taking the model bounding box for your region
-        search.
-    criteria : dict, str, optional
-        Regex criteria to use for identifying variables by name or attributes. Note that this will both be used in this package and passed on to odg.
-    erddap : dict, optional
-        Inputs for ERDDAP reader.
-    figname_map : str, optional
-        Figure name for map showing data locations.
-    figname_data_prefix : str, optional
-        Prefix for figures for dataset-model comparisons.
-    horizontal_interp : bool, optional
-        If True, use `em.select()` to interpolate to the data location horizontally.
-        If False, use `em.sel2d()` to use the nearest grid point to the data location.
-    local : dict, optional
-        Inputs for local reader.
-    only_search : boolean, optional
-        Stop after search is initiated.
-    only_searchplot : boolean, optional
-        Stop after search and map plot is perform.
-    parallel : boolean, optional
-        Whether to run in parallel with `multiprocessing` library where
-        possible. Default is True.
-    proj: proj instance
-        Projection from cartopy. Example: `cartopy.crs.Mercator()`.
-    readers : odg reader or list of readers, optional
-        Can specify which of the available readers to use in your search.
-        Options are odg.erddap, odg.axds, and odg.local. Default is to use all.
-    run_qc : boolean, optional
-        If True, run basic QC.
-    skip_units : boolean, optional
-        If True, assume units are the same between model output and datasets.
-    stations : str, list, optional
-        Stations or dataset_ids for `approach=='stations'`.
-    time_range: list
-        [min_time, max_time] for desired time range of search where each
-        are strings that can be interpreted with pandas `Timestamp`.
-    var_def : dict, optional
-        Variable units and QARTOD information. Necessary for QC. Variables key nicknames must match those in `criteria`.
-    variables : str, list, optional
-        Variables to search for.
-    xarray_kwargs : dict, optional
-        Keyword arguments to pass into `xr.open_dataset`.
+#     Parameters
+#     ----------
+#     loc_model : str
+#         Relative or absolute, local or nonlocal path to model output.
+#     axds : dict, optional
+#         Inputs for axds reader.
+#     bbox : list, optional
+#         [min_lon, min_lat, max_lon, max_lat] if you want to override
+#         the default of taking the model bounding box for your region
+#         search.
+#     criteria : dict, str, optional
+#         Regex criteria to use for identifying variables by name or attributes. Note that this will both be used in this package and passed on to odg.
+#     erddap : dict, optional
+#         Inputs for ERDDAP reader.
+#     figname_map : str, optional
+#         Figure name for map showing data locations.
+#     figname_data_prefix : str, optional
+#         Prefix for figures for dataset-model comparisons.
+#     horizontal_interp : bool, optional
+#         If True, use `em.select()` to interpolate to the data location horizontally.
+#         If False, use `em.sel2d()` to use the nearest grid point to the data location.
+#     local : dict, optional
+#         Inputs for local reader.
+#     only_search : boolean, optional
+#         Stop after search is initiated.
+#     only_searchplot : boolean, optional
+#         Stop after search and map plot is perform.
+#     parallel : boolean, optional
+#         Whether to run in parallel with `multiprocessing` library where
+#         possible. Default is True.
+#     proj: proj instance
+#         Projection from cartopy. Example: `cartopy.crs.Mercator()`.
+#     readers : odg reader or list of readers, optional
+#         Can specify which of the available readers to use in your search.
+#         Options are odg.erddap, odg.axds, and odg.local. Default is to use all.
+#     run_qc : boolean, optional
+#         If True, run basic QC.
+#     skip_units : boolean, optional
+#         If True, assume units are the same between model output and datasets.
+#     stations : str, list, optional
+#         Stations or dataset_ids for `approach=='stations'`.
+#     time_range: list
+#         [min_time, max_time] for desired time range of search where each
+#         are strings that can be interpreted with pandas `Timestamp`.
+#     var_def : dict, optional
+#         Variable units and QARTOD information. Necessary for QC. Variables key nicknames must match those in `criteria`.
+#     variables : str, list, optional
+#         Variables to search for.
+#     xarray_kwargs : dict, optional
+#         Keyword arguments to pass into `xr.open_dataset`.
 
-    Returns
-    -------
-    An `ocean_data_gateway` Gateway object.
-    """
+#     Returns
+#     -------
+#     An `ocean_data_gateway` Gateway object.
+#     """
 
-    if xarray_kwargs is None:
-        xarray_kwargs = {}
+#     if xarray_kwargs is None:
+#         xarray_kwargs = {}
 
-    # Set custom criteria
-    if criteria:
-        if isinstance(criteria, str) and criteria[:4] == "http":
-            criteria = odg.return_response(criteria)
-        cf_xarray.set_options(custom_criteria=criteria)
+#     # Set custom criteria
+#     if criteria:
+#         if isinstance(criteria, str) and criteria[:4] == "http":
+#             criteria = odg.return_response(criteria)
+#         cf_xarray.set_options(custom_criteria=criteria)
 
-    if var_def:
-        if isinstance(var_def, str) and var_def[:4] == "http":
-            var_def = odg.return_response(var_def)
+#     if var_def:
+#         if isinstance(var_def, str) and var_def[:4] == "http":
+#             var_def = odg.return_response(var_def)
 
-    dsm = read_model(loc_model, xarray_kwargs, time_range)
+#     dsm = read_model(loc_model, xarray_kwargs, time_range)
 
-    # Start set up for kwargs for search
-    kwargs = dict(
-        criteria=criteria,
-        var_def=var_def,
-        parallel=parallel,
-        variables=variables,
-        readers=readers,
-        local=local,
-        erddap=erddap,
-        axds=axds,
-        skip_units=skip_units,
-    )
+#     # Start set up for kwargs for search
+#     kwargs = dict(
+#         criteria=criteria,
+#         var_def=var_def,
+#         parallel=parallel,
+#         variables=variables,
+#         readers=readers,
+#         local=local,
+#         erddap=erddap,
+#         axds=axds,
+#         skip_units=skip_units,
+#     )
 
-    bbox_model, boundary = find_bbox(dsm)
-    if bbox is None:
-        bbox = bbox_model
+#     bbox_model, boundary = find_bbox(dsm)
+#     if bbox is None:
+#         bbox = bbox_model
 
-    # if approach == "region":
+#     # if approach == "region":
 
-    #     # Require time_range
-    #     assert time_range, "Require time range for `approach=='region'`."
+#     #     # Require time_range
+#     #     assert time_range, "Require time range for `approach=='region'`."
 
-    #     kw = make_kw(bbox, time_range)
+#     #     kw = make_kw(bbox, time_range)
 
-    #     kwargs["kw"] = kw
+#     #     kwargs["kw"] = kw
 
-    # elif (approach == "stations") and time_range:
+#     # elif (approach == "stations") and time_range:
 
-    #     kw = dict(min_time=time_range[0], max_time=time_range[1])
+#     #     kw = dict(min_time=time_range[0], max_time=time_range[1])
 
-    #     kwargs["kw"] = kw
-    #     kwargs["stations"] = stations
+#     #     kwargs["kw"] = kw
+#     #     kwargs["stations"] = stations
 
-    # Perform search
-    search = odg.Gateway(**kwargs)
+#     # Perform search
+#     search = odg.Gateway(**kwargs)
 
-    # return if no datasets discovered
-    if len(search.dataset_ids) == 0:
-        print("No dataset_ids found. Try a different search.")
-        return search
-    if only_search:
-        return search
+#     # return if no datasets discovered
+#     if len(search.dataset_ids) == 0:
+#         print("No dataset_ids found. Try a different search.")
+#         return search
+#     if only_search:
+#         return search
 
-    # Plot discovered datasets
-    lls_stations, names_stations, lls_box, names_boxes = prep_plot(search)
-    # import pdb; pdb.set_trace()
-    omsa.plots.map.plot(
-        lls_stations=lls_stations,
-        names_stations=names_stations,
-        lls_boxes=lls_box,
-        names_boxes=names_boxes,
-        boundary=boundary,
-        res="10m",
-        figname=figname_map,
-        proj=proj,
-    )
+#     # Plot discovered datasets
+#     lls_stations, names_stations, lls_box, names_boxes = prep_plot(search)
+#     # import pdb; pdb.set_trace()
+#     omsa.plots.map.plot(
+#         lls_stations=lls_stations,
+#         names_stations=names_stations,
+#         lls_boxes=lls_box,
+#         names_boxes=names_boxes,
+#         boundary=boundary,
+#         res="10m",
+#         figname=figname_map,
+#         proj=proj,
+#     )
 
-    if only_searchplot:
-        print("Searched and plotted.")
-        return search
+#     if only_searchplot:
+#         print("Searched and plotted.")
+#         return search
 
-    # data locations to calculate model at
-    for dataset_id in search.dataset_ids:
+#     # data locations to calculate model at
+#     for dataset_id in search.dataset_ids:
 
-        # Run QC
-        # Results not currently incorporated into rest of analysis.
-        if run_qc:
-            obs = search.qc(
-                dataset_ids=dataset_id, verbose=False, skip_units=skip_units
-            )
+#         # Run QC
+#         # Results not currently incorporated into rest of analysis.
+#         if run_qc:
+#             obs = search.qc(
+#                 dataset_ids=dataset_id, verbose=False, skip_units=skip_units
+#             )
 
-        data, lon, lat, T, Z = prep_em(search[dataset_id])
-        if data is None:
-            continue
+#         data, lon, lat, T, Z = prep_em(search[dataset_id])
+#         if data is None:
+#             continue
 
-        for variable in variables:
+#         for variable in variables:
 
-            if horizontal_interp:
-                kwargs = dict(
-                    da=dsm.cf[variable]
-                    .cf.isel(Z=0)
-                    .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5)),
-                    longitude=lon,
-                    latitude=lat,
-                    T=T,
-                    iZ=Z,
-                    locstream=True,
-                )
+#             if horizontal_interp:
+#                 kwargs = dict(
+#                     da=dsm.cf[variable]
+#                     .cf.isel(Z=0)
+#                     .cf.sel(lon=slice(lon - 5, lon + 5), lat=slice(lat - 5, lat + 5)),
+#                     longitude=lon,
+#                     latitude=lat,
+#                     T=T,
+#                     iZ=Z,
+#                     locstream=True,
+#                 )
 
-                model_var = em.select(**kwargs).to_dataset()
+#                 model_var = em.select(**kwargs).to_dataset()
 
-            else:
-                kwargs = dict(
-                    longitude=lon,
-                    latitude=lat,
-                    #                     T=T,
-                    Z=0,
-                    method="nearest",
-                )
-                if T is not None:
-                    kwargs["T"] = T
+#             else:
+#                 kwargs = dict(
+#                     longitude=lon,
+#                     latitude=lat,
+#                     #                     T=T,
+#                     Z=0,
+#                     method="nearest",
+#                 )
+#                 if T is not None:
+#                     kwargs["T"] = T
 
-                # xoak doesn't work for 1D lon/lat coords
-                if (
-                    dsm.cf[variable].cf["longitude"].ndim
-                    == dsm.cf[variable].cf["latitude"].ndim
-                    == 1
-                ):
-                    model_var = dsm.cf[variable].cf.sel(**kwargs).to_dataset()
+#                 # xoak doesn't work for 1D lon/lat coords
+#                 if (
+#                     dsm.cf[variable].cf["longitude"].ndim
+#                     == dsm.cf[variable].cf["latitude"].ndim
+#                     == 1
+#                 ):
+#                     model_var = dsm.cf[variable].cf.sel(**kwargs).to_dataset()
 
-                elif (
-                    dsm.cf[variable].cf["longitude"].ndim
-                    == dsm.cf[variable].cf["latitude"].ndim
-                    == 2
-                ):
-                    model_var = dsm.cf[variable].em.sel2dcf(**kwargs).to_dataset()
+#                 elif (
+#                     dsm.cf[variable].cf["longitude"].ndim
+#                     == dsm.cf[variable].cf["latitude"].ndim
+#                     == 2
+#                 ):
+#                     model_var = dsm.cf[variable].em.sel2dcf(**kwargs).to_dataset()
 
-            # Combine and align the two time series of variable
-            df = omsa.stats._align(data.cf[variable], model_var.cf[variable])
-            stats = df.omsa.compute_stats
+#             # Combine and align the two time series of variable
+#             df = omsa.stats._align(data.cf[variable], model_var.cf[variable])
+#             stats = df.omsa.compute_stats
 
-            # Write stats on plot
-            longname = dsm.cf[variable].attrs["long_name"]
-            ylabel = f"{longname}"
-            figname = f"{dataset_id}_{variable}.png"
-            df.omsa.plot(
-                title=f"{dataset_id}",
-                ylabel=ylabel,
-                figname=figname_data_prefix + figname,
-                stats=stats,
-            )
+#             # Write stats on plot
+#             longname = dsm.cf[variable].attrs["long_name"]
+#             ylabel = f"{longname}"
+#             figname = f"{dataset_id}_{variable}.png"
+#             df.omsa.plot(
+#                 title=f"{dataset_id}",
+#                 ylabel=ylabel,
+#                 figname=figname_data_prefix + figname,
+#                 stats=stats,
+#             )
 
-    return search
+#     return search

@@ -8,8 +8,8 @@ from pkg_resources import DistributionNotFound, get_distribution
 import ocean_model_skill_assessor.accessor  # noqa: F401
 from appdirs import AppDirs
 from pathlib import Path
-from .main import run, prep_plot, find_bbox, make_catalog
-from .plot import map, time_series  # noqa: F401
+from .main import prep_plot, find_bbox, make_catalog
+# from .plot import map, time_series  # noqa: F401
 from .stats import (  # noqa: F401
     compute_bias,
     compute_correlation_coefficient,

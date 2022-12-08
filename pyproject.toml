@@ -1,5 +1,5 @@
 [project]
-name = ocean-model-skill-assessor
+name = "ocean-model-skill-assessor"
 
 [build-system]
 requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]

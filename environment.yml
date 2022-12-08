@@ -23,6 +23,7 @@ dependencies:
   - xarray
   - pip:
     - git+https://github.com/intake/intake
+    - intake-axds
     - intake-erddap
     - intake-xarray
   #   # use these from github to include recent changes while packages are changing a lot

@@ -18,6 +18,7 @@ dependencies:
   - pytest
   - pip:
     - git+https://github.com/intake/intake
+    - intake-axds
     - intake-erddap
     - intake-xarray
     - codecov

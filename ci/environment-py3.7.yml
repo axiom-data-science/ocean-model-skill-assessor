@@ -6,6 +6,7 @@ dependencies:
   ############## These will have to be adjusted to your specific project
   - cartopy
   - cf_xarray
+  - cf_pandas
   - extract_model
   - matplotlib-base
   - numpy

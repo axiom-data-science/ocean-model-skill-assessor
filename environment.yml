@@ -6,6 +6,7 @@ dependencies:
   - pytest
   # Examples (remove and add as needed)
   - cartopy
+  - cf_pandas
   - cf_xarray
   - extract_model
   # - jupyter

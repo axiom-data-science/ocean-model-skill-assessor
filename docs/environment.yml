@@ -10,6 +10,7 @@ dependencies:
    # - ipython
    # - jupyter
    # - jupyterlab
+   - cf_pandas
    - cf_xarray
    - extract_model
    - numpy

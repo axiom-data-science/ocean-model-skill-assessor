@@ -228,8 +228,9 @@ def make_local_catalog(
     import mimetypes
 
     sources = []
-    for filename in filenames:
-        if "csv" in mimetypes.guess_type(filename)[0]:
+    for filename in cfp.astype(filenames, list):
+        mtype = mimetypes.guess_type(filename)[0]
+        if (mtype is not None and "csv" in mtype) or ".csv" in filename:
             sources.append(getattr(intake, "open_csv")(filename))
         elif "netcdf" in mimetypes.guess_type(filename)[0]:
             sources.append(getattr(intake, "open_netcdf")(filename))
@@ -241,7 +242,7 @@ def make_local_catalog(
     entries = {
         f"source{i}": LocalCatalogEntry(
             name=f"source{i}",
-            description=source.description,
+            description=source.description if source.description is not None else "",
             driver=source._yaml()["sources"][source.name]["driver"],
             args=source._yaml()["sources"][source.name]["args"],
             metadata=source.metadata,
@@ -254,7 +255,7 @@ def make_local_catalog(
         entries,
         name="Input files",
         description="full_cat_description",
-        metadata="full_cat_metadata",
+        metadata={},
     )
     return cat
 
@@ -334,25 +335,30 @@ def make_catalog(
     #     raise KeyError("Input `filenames` or `erddap_server` or `axds_type` but not more than one.")
 
     if catalog_type == "local":
+        catalog_name = "local_cat" if catalog_name is None else catalog_name
         if "filenames" not in kwargs:
             raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
         cat = make_local_catalog(kwargs["filenames"])
 
     elif catalog_type == "erddap":
-        if "erddap_server" not in kwargs:
+        # import pdb; pdb.set_trace()
+        if "server" not in kwargs:
             raise ValueError(
-                "For `catalog_type=='erddap'`, must input `erddap_server`."
+                "For `catalog_type=='erddap'`, must input `server`."
             )
         if vocab is not None:
+            # import pdb; pdb.set_trace()
             with cfp.set_options(custom_criteria=vocab.vocab):
                 cat = intake.open_erddap_cat(
-                    kwargs["erddap_server"],
+                    # server=kwargs["server"],
                     kwargs_search=kwargs_search,
-                    category_search=["standard_name", nickname],
+                    # category_search=[kwargs["category_search"][0], kwargs["category_search"][1]],
+                    **kwargs
                 )
         else:
             cat = intake.open_erddap_cat(
-                kwargs["erddap_server"], kwargs_search=kwargs_search
+                # kwargs["erddap_server"], 
+                kwargs_search=kwargs_search, **kwargs
             )
         catalog_name = "erddap_cat" if catalog_name is None else catalog_name
 
@@ -376,7 +382,7 @@ def make_catalog(
 
 def run2(
     catalog_paths: Union[Sequence, str, pathlib.PurePath],
-    nickname: str,
+    key: str,
     model_url: str,
     project_name: Optional[str] = None,
     vocab: Optional[DefaultDict[str, Dict[str, str]]] = None,
@@ -387,7 +393,7 @@ def run2(
     ----------
     catalog_paths : Union[Sequence[str,pathlib.PurePath],str,pathlib.PurePath]
         _description_
-    nickname : str
+    key : str
         _description_
     model_url : str
         _description_
@@ -400,70 +406,92 @@ def run2(
     if vocab is None:
         # READ IN DEFAULT AND SET VOCAB
         vocab = cfp.Vocab("vocabs/general")
+    elif isinstance(vocab, str):
+        vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
 
     if project_name is None:
         project_name is cfp.astype(catalog_paths, list)[0].parent
 
     # read in model output
-    dsm = (
-        xr.open_mfdataset(model_url, em.preprocess)
-        if cfp.astype(model_url, list)
-        else xr.open_dataset(model_url, em.preprocess)
-    )
+    dsm = xr.open_mfdataset(cfp.astype(model_url, list), preprocess=em.preprocess)#, 
+                            # drop_variables="ocean_time", chunks={"time": 1})
+    
+    # dsm = (
+    #     xr.open_mfdataset(model_url, em.preprocess)
+    #     if cfp.astype(model_url, list)
+    #     else xr.open_dataset(model_url, em.preprocess)
+    # )
 
     # use only one variable from model
-    dam = dsm.cf[nickname]
+    dam = dsm.cf[key]
 
-    cats = [intake.open_catalog(catalog_path) for catalog_path in catalog_paths]
+    # import pdb; pdb.set_trace()
+    cats = [intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name)) for catalog_name in catalog_paths]
+
+    # Deal with potentially big cats here
+    # ONLY USE FIRST 2 DATASETS
+
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
     for cat in cats:
-        for source_name in list(cat):
-            min_lon, max_lon = (
-                cat[source_name].metadata["min_lon"],
-                cat[source_name].metadata["max_lon"],
-            )
-            min_lat, max_lat = (
-                cat[source_name].metadata["min_lat"],
-                cat[source_name].metadata["max_lat"],
-            )
-            min_time, max_time = (
-                cat[source_name].metadata["min_time"],
-                cat[source_name].metadata["max_time"],
-            )
+        for source_name in list(cat)[::10]:
+
+            min_lon = cat[source_name].metadata["minLongitude"]
+            max_lon = cat[source_name].metadata["maxLongitude"]
+            min_lat = cat[source_name].metadata["minLatitude"]
+            max_lat = cat[source_name].metadata["maxLatitude"]
+
             maps.append([min_lon, max_lon, min_lat, max_lat, source_name])
 
             if min_lon != max_lon or min_lat != max_lat:
+                # import pdb; pdb.set_trace()
                 warnings.warn(
                     f"Source {source_name} in catalog {cat.name} is not stationary so not plotting."
                 )
                 continue
+            
+            # take time constraints as min/max if available
+            if "time>=" in cat[source_name].describe()['args']['constraints']:
+                min_time = cat[source_name].describe()['args']['constraints']["time>="]
+                max_time = cat[source_name].describe()['args']['constraints']["time<="]
+            else:
+                min_time = cat[source_name].metadata["minTime"]
+                max_time = cat[source_name].metadata["maxTime"]
 
             # Pull out nearest model output to data
             # use extract_model
             kwargs = dict(
                 longitude=min_lon,
                 latitude=min_lat,
-                iT=slice(min_time, max_time),
+                # iT=slice(min_time, max_time),
+                T=slice(min_time, max_time),
                 # T=cat[source_name],
                 Z=0,
                 method="nearest",
             )
             # if T is not None:
             #     kwargs["T"] = T
-
             # xoak doesn't work for 1D lon/lat coords
             if dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 1:
                 model_var = dam.cf.sel(**kwargs)  # .to_dataset()
 
             elif dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 2:
-                model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+                if isinstance(kwargs["T"], slice):
+                    Targ = kwargs.pop("T")
+                    model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+                    import pdb; pdb.set_trace()
+                    model_var = model_var.cf.sel(T=Targ)
+                else:
+                    model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+                
 
             # Combine and align the two time series of variable
-            df = omsa.stats._align(
-                cat[source_name].to_dask().cf[nickname], model_var
-            )  # .cf[variable])
+            with cfp.set_options(custom_criteria=vocab.vocab):
+                import pdb; pdb.set_trace()
+                df = omsa.stats._align(cat[source_name].read().cf[key], model_var)
+                    # cat[source_name].to_dask().cf[key], model_var
+                # )  # .cf[variable])
 
             # pull out depth at surface
 
@@ -472,7 +500,7 @@ def run2(
             stats = df.omsa.compute_stats
 
             # Write stats on plot
-            figname = f"{source_name}_{nickname}.png"
+            figname = f"{source_name}_{key}.png"
             df.omsa.plot(
                 title=f"{source_name}",
                 ylabel=dam.name,

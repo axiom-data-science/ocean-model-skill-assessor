@@ -15,11 +15,21 @@ Which returns something like `/Users/kthyng/Library/Caches/ocean-model-skill-ass
 
 ## 1. Make one or more catalogs
 
+### Local catalog
+
+Make a catalog with known local or remote file(s).
+
+    python CLI.py make_catalog --project_name test1 --catalog_type local --kwargs filenames="[file1,file2]"
+
+    python CLI.py make_catalog --project_name test1 --catalog_type local --kwargs filenames=https://researchworkspace.com/files/8114311/ecofoci_2011CHAOZ_CTD_Nutrient_mb1101.csv 
+
+
 ### ERDDAP Catalog
 
 Make a catalog in subdirectory project directory "test2" of the datasets available from server https://erddap.sensors.ioos.us/erddap, and any resulting data should be read into xarray Datasets. To read into pandas `DataFrames` instead, substitute "dataframe" for "xarray".
 
-    python CLI.py make_catalog --project_name test1 --erddap_server https://erddap.sensors.ioos.us/erddap --container xarray
+    python CLI.py make_catalog --project_name test1 --catalog_type erddap --kwargs erddap_server=https://erddap.sensors.ioos.us/erddap --bbox -180 50 -158 66 --time_range 2022-1-1 2022-1-5 category_search="(standard_name, temp)"
+
 
 
 ### Catalog for Axiom assets
@@ -50,4 +60,19 @@ Alternatively, filter returned datasets for variables using the variable nicknam
 * erddap catalog, Coastwatch: vocab_name erddap_coastwatch
 * local catalog: vocab_name general
 
-    python CLI.py make_catalog --project_name test1 --catalog_type axds --vocab_name standard_names --kwargs keys_to_match="[temp,salt]"
+```
+python CLI.py make_catalog --project_name test1 --catalog_type axds --vocab_name standard_names --kwargs keys_to_match="[temp,salt]"
+```
+
+
+## 2. Run model-data comparison
+
+### BLAH
+
+    python CLI.py run --project_name test1 --catalog_names local_cat --vocab_name general --key temp --model_path https://thredds.aoos.org/thredds/dodsC/NOAA_COOPS_OFS_CIOFS.nc 
+
+
+    python CLI.py run --project_name test1 --catalog_names erddap_cat --vocab_name erddap_ioos --key temp --model_path https://thredds.aoos.org/thredds/dodsC/NOAA_COOPS_OFS_CIOFS.nc 
+
+    python CLI.py run --project_name test1 --catalog_names axds_test_cat --vocab_name standard_names --key temp --model_path https://thredds.aoos.org/thredds/dodsC/NOAA_COOPS_OFS_CIOFS.nc 
+

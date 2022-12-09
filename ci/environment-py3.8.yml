@@ -5,6 +5,7 @@ dependencies:
   - python=3.8
   ############## These will have to be adjusted to your specific project
   - cartopy
+  - cf_pandas
   - cf_xarray
   - extract_model
   - matplotlib-base
@@ -16,6 +17,10 @@ dependencies:
   ##############
   - pytest
   - pip:
+    - git+https://github.com/intake/intake
+    - intake-axds
+    - intake-erddap
+    - intake-xarray
     - codecov
     - pytest-cov
     - coverage[toml]

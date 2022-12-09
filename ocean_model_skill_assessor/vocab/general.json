@@ -1,0 +1,1 @@
+{"temp": {"name": "^(?!.*(air|qc|status|atmospheric))(?=.*temp)"}, "salt": {"name": "^(?!.*(soil|qc|status))(?=.*sal)"}, "ssh": {"name": "^(?!.*(qc|status))(?=.*sea_surface_height)(?=.*surface_elevation)"}, "T": {"name": "(?=.*time)"}, "longitude": {"name": "(?=.*lon)"}, "latitude": {"name": "(?=.*lat)"}}

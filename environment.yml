@@ -6,10 +6,11 @@ dependencies:
   - pytest
   # Examples (remove and add as needed)
   - cartopy
+  - cf_pandas
   - cf_xarray
   - extract_model
-  - jupyter
-  - jupyterlab
+  # - jupyter
+  # - jupyterlab
   - matplotlib-base
   # - numpy
   - ocean_data_gateway
@@ -21,6 +22,10 @@ dependencies:
   - pandas
   - xarray
   - pip:
+    - git+https://github.com/intake/intake
+    - intake-axds
+    - intake-erddap
+    - intake-xarray
   #   # use these from github to include recent changes while packages are changing a lot
   #   # - git+git://github.com/axiom-data-science/extract_model#egg=extract_model
   #  - git+git://github.com/axiom-data-science/ocean-model-skill-assessor#egg=ocean-model-skill-assessor

@@ -6,6 +6,7 @@ dependencies:
   ############## These will have to be adjusted to your specific project
   - cartopy
   - cf_xarray
+  - cf_pandas
   - extract_model
   - matplotlib-base
   - numpy
@@ -16,6 +17,10 @@ dependencies:
   ##############
   - pytest
   - pip:
+    - git+https://github.com/intake/intake
+    - intake-axds
+    - intake-erddap
+    - intake-xarray
     - codecov
     - pytest-cov
     - coverage[toml]

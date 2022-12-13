@@ -92,8 +92,8 @@ def main():
     elif args.action == "run":
         omsa.main.run(
             project_name=args.project_name,
-            catalog_paths=args.catalog_names,
-            vocab=args.vocab_names,
+            catalog_names=args.catalog_names,
+            vocabs=args.vocab_names,
             key=args.key,
             model_path=args.model_path,
             ndatasets=args.ndatasets,

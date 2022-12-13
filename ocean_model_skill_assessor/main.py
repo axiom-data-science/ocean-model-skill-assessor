@@ -321,5 +321,5 @@ def run(
 
     # map of model domain with data locations
     figname = omsa.PROJ_DIR(project_name) / "map.png"
-    omsa.plot.map.plot_map(maps, project_name, figname, dam, alpha=20, res="10m")
+    omsa.plot.map.plot_map(maps, project_name, figname, dam)
     print(f"Finished analysis. Find plots in {omsa.PROJ_DIR(project_name)}.")

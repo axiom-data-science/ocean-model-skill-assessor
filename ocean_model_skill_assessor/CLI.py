@@ -90,7 +90,7 @@ def main():
 
     # Run model-data comparison.
     elif args.action == "run":
-        omsa.main.run2(
+        omsa.main.run(
             project_name=args.project_name,
             catalog_paths=args.catalog_names,
             vocab=args.vocab_names,

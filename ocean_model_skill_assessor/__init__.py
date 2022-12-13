@@ -11,7 +11,7 @@ from pkg_resources import DistributionNotFound, get_distribution
 
 import ocean_model_skill_assessor.accessor  # noqa: F401
 
-from .main import find_bbox, make_catalog, prep_plot
+from .main import make_catalog, run
 from .plot import map, time_series
 from .stats import (  # noqa: F401
     compute_bias,
@@ -23,7 +23,6 @@ from .stats import (  # noqa: F401
     compute_root_mean_square_error,
     compute_stats,
 )
-from .utils import set_criteria
 
 
 try:

@@ -12,6 +12,7 @@ from pkg_resources import DistributionNotFound, get_distribution
 import ocean_model_skill_assessor.accessor  # noqa: F401
 
 from .main import find_bbox, make_catalog, prep_plot
+from .plot import map, time_series
 from .stats import (  # noqa: F401
     compute_bias,
     compute_correlation_coefficient,
@@ -26,7 +27,7 @@ from .utils import set_criteria
 
 
 try:
-    __version__ = get_distribution("ocean_model_skill_assessor").version
+    __version__ = get_distribution("ocean-model-skill-assessor").version
 except DistributionNotFound:
     # package is not installed
     __version__ = "unknown"
@@ -38,7 +39,7 @@ dirs = AppDirs("ocean-model-skill-assessor", "axiom-data-science")
 cache_dir = Path(dirs.user_cache_dir)
 VOCAB_DIR = cache_dir / "vocab"
 VOCAB_DIR.mkdir(parents=True, exist_ok=True)
-VOCAB_DIR_INIT = Path.cwd() / "vocab"
+VOCAB_DIR_INIT = Path(__path__[0]) / "vocab" # NEED THIS TO BE THE BASE PATH
 
 # copy vocab files to vocab cache location
 [shutil.copy(vocab_path, VOCAB_DIR) for vocab_path in VOCAB_DIR_INIT.glob("*.json")]

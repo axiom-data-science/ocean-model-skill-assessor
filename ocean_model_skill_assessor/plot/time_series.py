@@ -51,9 +51,10 @@ def plot(
             stat_sum += f"{type}: {stats[type]:.1f}  "
         title = f"{title}: {stat_sum}"
 
-    ax.set_title(title, fontsize=fs_title)
+    ax.set_title(title, fontsize=fs_title, loc='left')
     ax.set_xlabel("", fontsize=fs)  # don't need time label
     if ylabel:
         ax.set_ylabel(ylabel, fontsize=fs)
     plt.legend(loc="best")
+    
     fig.savefig(figname, dpi=dpi, bbox_inches="tight")

@@ -27,102 +27,106 @@ class ParseKwargs(argparse.Action):
             getattr(namespace, self.dest)[key] = value
 
 
-parser = argparse.ArgumentParser()
+def main():
 
-parser.add_argument("action", help="make_catalog")
-parser.add_argument(
-    "--project_name",
-    help="All saved items will be stored in a subdirectory call `project_name` in the user application cache.",
-)
-parser.add_argument(
-    "--catalog_type",
-    help="Which type of catalog to make? Options include erddap, axds, local.",
-)
-# parser.add_argument("--axds_type", default="platform2")
-# parser.add_argument("--kwargs")
+    parser = argparse.ArgumentParser()
 
-# parser = argparse.ArgumentParser()
-parser.add_argument(
-    "-k",
-    "--kwargs",
-    nargs="*",
-    action=ParseKwargs,
-    default={},
-    help="Format for list items is e.g. standard_names='[sea_water_practical_salinity,sea_water_temperature]'. For a description, input within quotes.",
-)
+    parser.add_argument("action", help="make_catalog")
+    parser.add_argument(
+        "--project_name",
+        help="All saved items will be stored in a subdirectory call `project_name` in the user application cache.",
+    )
+    parser.add_argument(
+        "--catalog_type",
+        help="Which type of catalog to make? Options include erddap, axds, local.",
+    )
+    # parser.add_argument("--axds_type", default="platform2")
+    # parser.add_argument("--kwargs")
 
-parser.add_argument(
-    # "-k",
-    "--kwargs_search",
-    nargs="*",
-    action=ParseKwargs,
-    default={},
-    help="Format for list items is e.g. standard_names='[sea_water_practical_salinity,sea_water_temperature]'. For a description, input within quotes. UPDATE",
-)
+    # parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-k",
+        "--kwargs",
+        nargs="*",
+        action=ParseKwargs,
+        default={},
+        help="Format for list items is e.g. standard_names='[sea_water_practical_salinity,sea_water_temperature]'. For a description, input within quotes.",
+    )
 
-# parser.add_argument("--erddap_server")
-# parser.add_argument("--nickname")
-# parser.add_argument("--bbox", nargs=4, help="min_lon min_lat max_lon max_lat")
-# parser.add_argument("--time_range", nargs=2, help="min_time max_time")
-# parser.add_argument("--container", help="dataframe or xarray")
-parser.add_argument("--catalog_name")
-parser.add_argument("--vocab_name")
-# parser.add_argument("--page_size", help="max number of datasets")
+    parser.add_argument(
+        # "-k",
+        "--kwargs_search",
+        nargs="*",
+        action=ParseKwargs,
+        default={},
+        help="Format for list items is e.g. standard_names='[sea_water_practical_salinity,sea_water_temperature]'. For a description, input within quotes. UPDATE. Can also input model_path to match spatial box and time range.",
+    )
 
-
-# For running comparison
-parser.add_argument("--catalog_names", nargs="*", help="catalog1 catalog2")
-parser.add_argument("--key", help="key from vocab representing the variable to compare")
-parser.add_argument("--model_path")
+    # parser.add_argument("--erddap_server")
+    # parser.add_argument("--nickname")
+    # parser.add_argument("--bbox", nargs=4, help="min_lon min_lat max_lon max_lat")
+    # parser.add_argument("--time_range", nargs=2, help="min_time max_time")
+    # parser.add_argument("--container", help="dataframe or xarray")
+    parser.add_argument("--catalog_name")
+    parser.add_argument("--vocab_names", nargs="*")
+    # parser.add_argument("--page_size", help="max number of datasets")
 
 
-args = parser.parse_args()
-# print(args)
-# import pdb; pdb.set_trace()
+    # For running comparison
+    parser.add_argument("--catalog_names", nargs="*", help="catalog1 catalog2")
+    parser.add_argument("--key", help="key from vocab representing the variable to compare")
+    parser.add_argument("--model_path")
+    parser.add_argument("--ndatasets", type=int, help="Max number of datasets from input catalog(s) to use.")
 
-# if args.bbox is not None:
-#     kwargs_search = {
-#         "min_lon": args.bbox[0],
-#         "min_lat": args.bbox[1],
-#         "max_lon": args.bbox[2],
-#         "max_lat": args.bbox[3],
-#     }
-# else:
-#     kwargs_search = None
 
-if args.action == "make_catalog":
+    args = parser.parse_args()
+    # print(args)
     # import pdb; pdb.set_trace()
-    omsa.make_catalog(
-        catalog_type=args.catalog_type,
-        project_name=args.project_name,
-        catalog_name=args.catalog_name,
-        # nickname=args.nickname,
-        #  filenames: Optional[Union[Sequence,str]] = None,
-        # erddap_server=args.erddap_server,
-        # axds_type=args.axds_type,
-        kwargs=args.kwargs,
-        kwargs_search=args.kwargs_search,
-        vocab=args.vocab_name,
-        # page_size=args.page_size,
-        save_cat=True,
-    )
 
-elif args.action == "proj_path":
-    print(omsa.PROJ_DIR(args.project_name))
+    # if args.bbox is not None:
+    #     kwargs_search = {
+    #         "min_lon": args.bbox[0],
+    #         "min_lat": args.bbox[1],
+    #         "max_lon": args.bbox[2],
+    #         "max_lat": args.bbox[3],
+    #     }
+    # else:
+    #     kwargs_search = None
 
-elif args.action == "vocabs":
-    # print available vocabularies
-    print([path.stem for path in omsa.VOCAB_DIR.glob("*")])
+    if args.action == "make_catalog":
+        # import pdb; pdb.set_trace()
+        omsa.make_catalog(
+            catalog_type=args.catalog_type,
+            project_name=args.project_name,
+            catalog_name=args.catalog_name,
+            # nickname=args.nickname,
+            #  filenames: Optional[Union[Sequence,str]] = None,
+            # erddap_server=args.erddap_server,
+            # axds_type=args.axds_type,
+            kwargs=args.kwargs,
+            kwargs_search=args.kwargs_search,
+            vocab=args.vocab_names,
+            # page_size=args.page_size,
+            save_cat=True,
+        )
 
-elif args.action == "run":
-    
-    omsa.main.run2(
-        project_name=args.project_name,
-        catalog_paths=args.catalog_names,
-        vocab=args.vocab_name,
-        key=args.key,
-        model_url=args.model_path,
-    )
+    elif args.action == "proj_path":
+        print(omsa.PROJ_DIR(args.project_name))
+
+    elif args.action == "vocabs":
+        # print available vocabularies
+        print([path.stem for path in omsa.VOCAB_DIR.glob("*")])
+
+    elif args.action == "run":
+        
+        omsa.main.run2(
+            project_name=args.project_name,
+            catalog_paths=args.catalog_names,
+            vocab=args.vocab_names,
+            key=args.key,
+            model_path=args.model_path,
+            ndatasets=args.ndatasets,
+        )
 
 
 # parser = argparse.ArgumentParser()

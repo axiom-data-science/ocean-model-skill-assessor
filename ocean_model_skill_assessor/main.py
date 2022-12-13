@@ -20,6 +20,9 @@ from intake.catalog.local import LocalCatalogEntry
 
 import ocean_model_skill_assessor as omsa
 
+from ocean_model_skill_assessor.plot import map, time_series
+from .utils import kwargs_search_from_model
+
 
 def make_kw(bbox, time_range):
     """Make kw for search.
@@ -312,13 +315,19 @@ def make_catalog(
 
     kwargs_search : Dict[str, Union[str, int, float]], optional
         _description_, by default None
+        
+        * LIST OUT
+        
     vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
         _description_, by default None
     """
 
-    if kwargs is None:
-        kwargs = {}
-
+    kwargs = {} if kwargs is None else kwargs
+    kwargs_search = {} if kwargs_search is None else kwargs_search
+    
+    # get spatial and/or temporal search terms from model if desired
+    kwargs_search = kwargs_search_from_model(kwargs_search)
+    
     # Should I require vocab if nickname is not None?
     # if vocab is None:
     #     # READ IN DEFAULT AND SET VOCAB
@@ -383,9 +392,10 @@ def make_catalog(
 def run2(
     catalog_paths: Union[Sequence, str, pathlib.PurePath],
     key: str,
-    model_url: str,
+    model_path: str,
     project_name: Optional[str] = None,
-    vocab: Optional[DefaultDict[str, Dict[str, str]]] = None,
+    vocab: Optional[Union[str, list, DefaultDict[str, Dict[str, str]]]] = None,
+    ndatasets: int = -1,
 ):
     """_summary_
 
@@ -395,12 +405,14 @@ def run2(
         _description_
     key : str
         _description_
-    model_url : str
+    model_path : str
         _description_
     project_name : str, optional
         If not input, will use the the parent to catalog_paths as the project directory, but can be overridden by inputting this keyword.
     vocab : Optional[DefaultDict[str, Dict[str, str]]], optional
         _description_, by default None
+    ndatasets : int
+        Max number of datasets from input catalog(s) to use.
     """
 
     if vocab is None:
@@ -408,35 +420,52 @@ def run2(
         vocab = cfp.Vocab("vocabs/general")
     elif isinstance(vocab, str):
         vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
+    elif isinstance(vocab, list):
+        vocabs = []
+        for v in vocab:
+            vocabs.append(cfp.Vocab(omsa.VOCAB_PATH(v)))
+        vocab = cfp.merge(vocabs)
 
     if project_name is None:
         project_name is cfp.astype(catalog_paths, list)[0].parent
 
     # read in model output
-    dsm = xr.open_mfdataset(cfp.astype(model_url, list), preprocess=em.preprocess)#, 
+    dsm = xr.open_mfdataset(cfp.astype(model_path, list), preprocess=em.preprocess)#, 
                             # drop_variables="ocean_time", chunks={"time": 1})
-    
-    # dsm = (
-    #     xr.open_mfdataset(model_url, em.preprocess)
-    #     if cfp.astype(model_url, list)
-    #     else xr.open_dataset(model_url, em.preprocess)
-    # )
-
+        
     # use only one variable from model
     dam = dsm.cf[key]
+
+    # shift if 0 to 360 
+    if dam.cf["longitude"].max() > 180:
+        lkey = dam.cf["longitude"].name
+        # import pdb; pdb.set_trace()
+        dam[lkey] = dam[lkey] - 360
+    # for lkey in dsm.cf.coordinates["longitude"]:
+    #     dsm[lkey] = dsm[lkey].where(dsm[lkey] < 180, dsm[lkey] - 360)
 
     # import pdb; pdb.set_trace()
     cats = [intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name)) for catalog_name in catalog_paths]
 
-    # Deal with potentially big cats here
-    # ONLY USE FIRST 2 DATASETS
-
-
+    # Warning about number of datasets
+    # import pdb; pdb.set_trace()
+    ndata = np.sum([len(list(cat)) for cat in cats])
+    if ndatasets != -1:
+        print(f"Note that we are using {ndatasets} datasets of {ndata} datasets. This might take awhile.")
+    else:
+        print(f"Note that there are {ndata} datasets to use. This might take awhile.")
+    
+    
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
-    for cat in cats:
-        for source_name in list(cat)[::10]:
-
+    
+    from tqdm import tqdm
+    count = 0  # track datasets since count is used to match on map
+    for cat in tqdm(cats):
+        print(f"Catalog {cat}.")
+        # for source_name in tqdm(list(cat)[-ndatasets:]):
+        for source_name in tqdm(list(cat)[:ndatasets]):
+            
             min_lon = cat[source_name].metadata["minLongitude"]
             max_lon = cat[source_name].metadata["maxLongitude"]
             min_lat = cat[source_name].metadata["minLatitude"]
@@ -444,12 +473,12 @@ def run2(
 
             maps.append([min_lon, max_lon, min_lat, max_lat, source_name])
 
-            if min_lon != max_lon or min_lat != max_lat:
-                # import pdb; pdb.set_trace()
-                warnings.warn(
-                    f"Source {source_name} in catalog {cat.name} is not stationary so not plotting."
-                )
-                continue
+            # if min_lon != max_lon or min_lat != max_lat:
+            #     # import pdb; pdb.set_trace()
+            #     warnings.warn(
+            #         f"Source {source_name} in catalog {cat.name} is not stationary so not plotting."
+            #     )
+            #     continue
             
             # take time constraints as min/max if available
             if "time>=" in cat[source_name].describe()['args']['constraints']:
@@ -470,28 +499,50 @@ def run2(
                 Z=0,
                 method="nearest",
             )
-            # if T is not None:
-            #     kwargs["T"] = T
+            
             # xoak doesn't work for 1D lon/lat coords
             if dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 1:
-                model_var = dam.cf.sel(**kwargs)  # .to_dataset()
+                # time slices can't be used with `method="nearest"`, so separate out
+                if isinstance(kwargs["T"], slice):
+                    Targ = kwargs.pop("T")
+                    model_var = dam.cf.sel(**kwargs)  # .to_dataset()
+                    # import pdb; pdb.set_trace()
+                    model_var = model_var.cf.sel(T=Targ)
+                else:
+                    model_var = dam.cf.sel(**kwargs)  # .to_dataset()
+                    # model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
 
             elif dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 2:
+                # time slices can't be used with `method="nearest"`, so separate out
                 if isinstance(kwargs["T"], slice):
                     Targ = kwargs.pop("T")
                     model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
-                    import pdb; pdb.set_trace()
+                    # import pdb; pdb.set_trace()
                     model_var = model_var.cf.sel(T=Targ)
                 else:
                     model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+            
+            # set model output to UTC
+            # import pdb; pdb.set_trace()
+            tkey = model_var.cf["T"].name
+            model_var[tkey] = model_var[tkey].to_index().tz_localize("UTC")
                 
 
             # Combine and align the two time series of variable
+            # have this happen before gathering metadata so that we don't gather metadata we don't use
             with cfp.set_options(custom_criteria=vocab.vocab):
-                import pdb; pdb.set_trace()
-                df = omsa.stats._align(cat[source_name].read().cf[key], model_var)
-                    # cat[source_name].to_dask().cf[key], model_var
-                # )  # .cf[variable])
+                print("source name: ", source_name)
+                # try:
+                dfd = cat[source_name].read()
+                # import pdb; pdb.set_trace()
+                dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
+                dfd.set_index(dfd.cf["T"], inplace=True)
+                df = omsa.stats._align(dfd.cf[key], model_var)
+                # except Exception:
+                #     maps.pop(-1)  # remove this metadata entry if data not available
+                #     raise UserWarning(f"Could not find data for dataset {source_name}.")
+                #     # cat[source_name].to_dask().cf[key], model_var
+                # # )  # .cf[variable])
 
             # pull out depth at surface
 
@@ -500,16 +551,33 @@ def run2(
             stats = df.omsa.compute_stats
 
             # Write stats on plot
-            figname = f"{source_name}_{key}.png"
+            
+            figname = omsa.PROJ_DIR(project_name) / f"{source_name}_{key}.png"
             df.omsa.plot(
-                title=f"{source_name}",
+                title=f"{count}: {source_name}",
                 ylabel=dam.name,
-                figname=figname_data_prefix + figname,
+                figname=figname,
                 stats=stats,
             )
+            
+            count += 1
 
     # map of model domain with data locations
-    plot_map(maps, project_name)
+    # import pdb; pdb.set_trace()
+    figname = omsa.PROJ_DIR(project_name) / "map.png"
+    omsa.plot.map.plot_map(maps, project_name, figname, dam, alpha=20, res="10m")
+    print(f"Finished analysis. Find plots in {omsa.PROJ_DIR(project_name)}.")
+
+#     omsa.plots.map.plot(
+#         lls_stations=lls_stations,
+#         names_stations=names_stations,
+#         lls_boxes=lls_box,
+#         names_boxes=names_boxes,
+#         boundary=boundary,
+#         res="10m",
+#         figname=figname_map,
+#         proj=proj,
+#     )
 
 
 # def run(

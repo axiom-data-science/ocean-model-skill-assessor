@@ -57,7 +57,7 @@ class SkillAssessorAccessor:
 
     def plot(self, **kwargs):
         """Plot."""
-        ocean_model_skill_assessor.plots.time_series.plot(
+        ocean_model_skill_assessor.plot.time_series.plot(
             self.df["obs"], self.df["model"], **kwargs
         )
 

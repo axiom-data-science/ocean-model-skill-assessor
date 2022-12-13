@@ -2,6 +2,7 @@
 Utility functions.
 """
 
+from typing import Dict, Union
 import cf_xarray
 
 import ocean_model_skill_assessor as omsa
@@ -9,28 +10,16 @@ import numpy as np
 import xarray as xr
 import cf_pandas as cfp
 import extract_model as em
+import shapely.geometry
+import alphashape
 
 
-# import ocean_data_gateway as odg
-
-
-def set_criteria(criteria):
-    """Set up criteria."""
-    pass
-
-    # if isinstance(criteria, str) and criteria[:4] == "http":
-    #     criteria = odg.return_response(criteria)
-
-    cf_xarray.set_options(custom_criteria=criteria)
-    omsa.criteria = criteria
-
-
-def find_bbox(ds, dd=None, alpha=None):
+def find_bbox(ds: xr.DataArray, dd: int=1, alpha: int=5) -> list:
     """Determine bounds and boundary of model.
     
     Parameters
     ----------
-    ds: Dataset
+    ds: DataArray
         xarray Dataset containing model output.
     dd: int, optional
         Number to decimate model output lon/lat, as a stride.
@@ -46,8 +35,6 @@ def find_bbox(ds, dd=None, alpha=None):
     -----
     This is from the package model_catalogs.
     """
-
-    import shapely.geometry
 
     hasmask = False
 
@@ -107,8 +94,6 @@ def find_bbox(ds, dd=None, alpha=None):
         assert dd is not None and alpha is not None, assertion
 
         # need to calculate concave hull or alphashape of grid
-        import alphashape
-
         # low res, same as convex hull
         p0 = alphashape.alphashape(list(zip(lon, lat)), 0.0)
         # downsample a bit to save time, still should clearly see shape of domain
@@ -119,18 +104,25 @@ def find_bbox(ds, dd=None, alpha=None):
     return lonkey, latkey, list(p0.bounds), p1
 
 
-def kwargs_search_from_model(kwargs_search):
-    """_summary_
+def kwargs_search_from_model(kwargs_search: Dict[str,Union[str,float]]) -> dict:
+    """Adds spatial and/or temporal range from model output to dict.
+    
+    Examines model output and uses the bounding box of the model as the search spatial range if needed, and the time range of the model as the search time search if needed. They are added into `kwargs_search` and the dict is returned.
 
     Parameters
     ----------
-    kwargs_search : _type_
-        _description_
+    kwargs_search : dict
+        Keyword arguments to input to search on the server before making the catalog.
+    
+    Returns
+    -------
+    dict
+        kwargs_search but with modifications if relevant.
 
     Raises
     ------
     KeyError
-        _description_
+        If all of `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time` are already specified along with `model_path`.
     """
 
     # if model_path input, use it to select the search kwargs
@@ -146,7 +138,7 @@ def kwargs_search_from_model(kwargs_search):
             raise KeyError("Can input `model_path` to `kwargs_search` to determine the spatial and/or temporal search box OR specify `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time`. Can also do a combination of the two.")
 
         # read in model output
-        dsm = xr.open_mfdataset(cfp.astype(kwargs_search["model_path"], list), preprocess=em.preprocess)#, 
+        dsm = xr.open_mfdataset(cfp.astype(kwargs_search["model_path"], list), preprocess=em.preprocess) 
 
         kwargs_search.pop("model_path")
         

@@ -4,10 +4,7 @@ Time series plots.
 
 
 import matplotlib.pyplot as plt
-
-
-# matplotlib.use('agg')  # noqa
-
+from pandas import DataFrame
 
 fs = 14
 fs_title = 16
@@ -17,7 +14,7 @@ col_obs = "k"
 
 
 def plot(
-    reference, sample, title, ylabel=None, figname="figure.png", dpi=100, stats=None
+    reference: DataFrame, sample: DataFrame, title: str, ylabel: str=None, figname: str="figure.png", dpi: int=100, stats: dict=None
 ):
     """Plot time series
 

@@ -2,6 +2,7 @@
 Main run functions.
 """
 
+import mimetypes
 import pathlib
 import warnings
 
@@ -17,14 +18,12 @@ import xarray as xr
 
 from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
-from intake.catalog import Catalog
-from intake.catalog.local import LocalCatalogEntry
 from tqdm import tqdm
 
 import ocean_model_skill_assessor as omsa
-import mimetypes
 
 from ocean_model_skill_assessor.plot import map, time_series
+
 from .utils import kwargs_search_from_model
 
 
@@ -112,16 +111,18 @@ def make_catalog(
     save_cat: bool, optional
         Save catalog to disk into project directory under catalog_name.
     """
-    
+
     if kwargs_search is not None and catalog_type == "local":
-        raise UserWarning("`kwargs_search` were input but will not be used since `catalog_type=='local'`.")
+        raise UserWarning(
+            "`kwargs_search` were input but will not be used since `catalog_type=='local'`."
+        )
 
     kwargs = {} if kwargs is None else kwargs
     kwargs_search = {} if kwargs_search is None else kwargs_search
-    
+
     # get spatial and/or temporal search terms from model if desired
     kwargs_search = kwargs_search_from_model(kwargs_search)
-    
+
     # Should I require vocab if nickname is not None?
     # if vocab is None:
     #     # READ IN DEFAULT AND SET VOCAB
@@ -141,19 +142,12 @@ def make_catalog(
 
     elif catalog_type == "erddap":
         if "server" not in kwargs:
-            raise ValueError(
-                "For `catalog_type=='erddap'`, must input `server`."
-            )
+            raise ValueError("For `catalog_type=='erddap'`, must input `server`.")
         if vocab is not None:
             with cfp.set_options(custom_criteria=vocab.vocab):
-                cat = intake.open_erddap_cat(
-                    kwargs_search=kwargs_search,
-                    **kwargs
-                )
+                cat = intake.open_erddap_cat(kwargs_search=kwargs_search, **kwargs)
         else:
-            cat = intake.open_erddap_cat(
-                kwargs_search=kwargs_search, **kwargs
-            )
+            cat = intake.open_erddap_cat(kwargs_search=kwargs_search, **kwargs)
         catalog_name = "erddap_cat" if catalog_name is None else catalog_name
 
     elif catalog_type == "axds":
@@ -214,25 +208,30 @@ def run(
 
     # read in model output
     dsm = xr.open_mfdataset(cfp.astype(model_path, list), preprocess=em.preprocess)
-        
+
     # use only one variable from model
     dam = dsm.cf[key_variable]
 
-    # shift if 0 to 360 
+    # shift if 0 to 360
     if dam.cf["longitude"].max() > 180:
         lkey = dam.cf["longitude"].name
         dam[lkey] = dam[lkey] - 360
 
     # Open catalogs.
-    cats = [intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name)) for catalog_name in cfp.astype(catalog_names, list)]
+    cats = [
+        intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name))
+        for catalog_name in cfp.astype(catalog_names, list)
+    ]
 
     # Warning about number of datasets
     ndata = np.sum([len(list(cat)) for cat in cats])
     if ndatasets != -1:
-        print(f"Note that we are using {ndatasets} datasets of {ndata} datasets. This might take awhile.")
+        print(
+            f"Note that we are using {ndatasets} datasets of {ndata} datasets. This might take awhile."
+        )
     else:
         print(f"Note that there are {ndata} datasets to use. This might take awhile.")
-    
+
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
     count = 0  # track datasets since count is used to match on map
@@ -240,7 +239,7 @@ def run(
         print(f"Catalog {cat}.")
         # for source_name in tqdm(list(cat)[-ndatasets:]):
         for source_name in tqdm(list(cat)[:ndatasets]):
-            
+
             min_lon = cat[source_name].metadata["minLongitude"]
             max_lon = cat[source_name].metadata["maxLongitude"]
             min_lat = cat[source_name].metadata["minLatitude"]
@@ -254,11 +253,11 @@ def run(
             #         f"Source {source_name} in catalog {cat.name} is not stationary so not plotting."
             #     )
             #     continue
-            
+
             # take time constraints as min/max if available
-            if "time>=" in cat[source_name].describe()['args']['constraints']:
-                min_time = cat[source_name].describe()['args']['constraints']["time>="]
-                max_time = cat[source_name].describe()['args']['constraints']["time<="]
+            if "time>=" in cat[source_name].describe()["args"]["constraints"]:
+                min_time = cat[source_name].describe()["args"]["constraints"]["time>="]
+                max_time = cat[source_name].describe()["args"]["constraints"]["time<="]
             else:
                 min_time = cat[source_name].metadata["minTime"]
                 max_time = cat[source_name].metadata["maxTime"]
@@ -271,7 +270,7 @@ def run(
                 Z=0,
                 method="nearest",
             )
-            
+
             # xoak doesn't work for 1D lon/lat coords
             if dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 1:
                 # time slices can't be used with `method="nearest"`, so separate out
@@ -290,10 +289,10 @@ def run(
                     model_var = model_var.cf.sel(T=Targ)
                 else:
                     model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
-            
+
             # set model output to UTC
             tkey = model_var.cf["T"].name
-            model_var[tkey] = model_var[tkey].to_index().tz_localize("UTC")                
+            model_var[tkey] = model_var[tkey].to_index().tz_localize("UTC")
 
             # Combine and align the two time series of variable
             with cfp.set_options(custom_criteria=vocab.vocab):
@@ -316,7 +315,7 @@ def run(
                 figname=figname,
                 stats=stats,
             )
-            
+
             count += 1
 
     # map of model domain with data locations

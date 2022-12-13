@@ -7,9 +7,5 @@ setup(
         "write_to_template": '__version__ = "{version}"',
         "tag_regex": r"^(?P<prefix>v)?(?P<version>[^\+]+)(?P<suffix>.*)?$",
     },
-    entry_points={
-        'console_scripts': [
-            'omsa=ocean_model_skill_assessor.CLI:main'
-        ]
-    }
+    entry_points={"console_scripts": ["omsa=ocean_model_skill_assessor.CLI:main"]},
 )

@@ -38,7 +38,7 @@ dirs = AppDirs("ocean-model-skill-assessor", "axiom-data-science")
 cache_dir = Path(dirs.user_cache_dir)
 VOCAB_DIR = cache_dir / "vocab"
 VOCAB_DIR.mkdir(parents=True, exist_ok=True)
-VOCAB_DIR_INIT = Path(__path__[0]) / "vocab" # NEED THIS TO BE THE BASE PATH
+VOCAB_DIR_INIT = Path(__path__[0]) / "vocab"  # NEED THIS TO BE THE BASE PATH
 
 # copy vocab files to vocab cache location
 [shutil.copy(vocab_path, VOCAB_DIR) for vocab_path in VOCAB_DIR_INIT.glob("*.json")]

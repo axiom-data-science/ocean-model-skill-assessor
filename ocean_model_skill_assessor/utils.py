@@ -3,20 +3,21 @@ Utility functions.
 """
 
 from typing import Dict, Union
+
+import alphashape
+import cf_pandas as cfp
 import cf_xarray
+import extract_model as em
+import numpy as np
+import shapely.geometry
+import xarray as xr
 
 import ocean_model_skill_assessor as omsa
-import numpy as np
-import xarray as xr
-import cf_pandas as cfp
-import extract_model as em
-import shapely.geometry
-import alphashape
 
 
-def find_bbox(ds: xr.DataArray, dd: int=1, alpha: int=5) -> list:
+def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> list:
     """Determine bounds and boundary of model.
-    
+
     Parameters
     ----------
     ds: DataArray
@@ -57,7 +58,7 @@ def find_bbox(ds: xr.DataArray, dd: int=1, alpha: int=5) -> list:
         lon = ds[lonkey].values
         lat = ds[latkey].values
 
-    # this function is being used on DataArrays instead of Datasets, and the model I'm using as 
+    # this function is being used on DataArrays instead of Datasets, and the model I'm using as
     # an example doesn't have a mask, so bring this back when I have a relevant example.
     # # check for corresponding mask (rectilinear and curvilinear grids)
     # if any([var for var in ds.data_vars if "mask" in var]):
@@ -104,16 +105,16 @@ def find_bbox(ds: xr.DataArray, dd: int=1, alpha: int=5) -> list:
     return lonkey, latkey, list(p0.bounds), p1
 
 
-def kwargs_search_from_model(kwargs_search: Dict[str,Union[str,float]]) -> dict:
+def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dict:
     """Adds spatial and/or temporal range from model output to dict.
-    
+
     Examines model output and uses the bounding box of the model as the search spatial range if needed, and the time range of the model as the search time search if needed. They are added into `kwargs_search` and the dict is returned.
 
     Parameters
     ----------
     kwargs_search : dict
         Keyword arguments to input to search on the server before making the catalog.
-    
+
     Returns
     -------
     dict
@@ -135,37 +136,61 @@ def kwargs_search_from_model(kwargs_search: Dict[str,Union[str,float]]) -> dict:
             "min_time",
             "max_time",
         }:
-            raise KeyError("Can input `model_path` to `kwargs_search` to determine the spatial and/or temporal search box OR specify `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time`. Can also do a combination of the two.")
+            raise KeyError(
+                "Can input `model_path` to `kwargs_search` to determine the spatial and/or temporal search box OR specify `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time`. Can also do a combination of the two."
+            )
 
         # read in model output
-        dsm = xr.open_mfdataset(cfp.astype(kwargs_search["model_path"], list), preprocess=em.preprocess) 
+        dsm = xr.open_mfdataset(
+            cfp.astype(kwargs_search["model_path"], list), preprocess=em.preprocess
+        )
 
         kwargs_search.pop("model_path")
-        
+
         # if none of these present, read from model output
-        if kwargs_search.keys().isdisjoint({
-            "max_lon",
-            "min_lon",
-            "min_lat",
-            "max_lat",
-        }):
-            min_lon, max_lon = float(dsm.cf["longitude"].min()), float(dsm.cf["longitude"].max())
-            min_lat, max_lat = float(dsm.cf["latitude"].min()), float(dsm.cf["latitude"].max())
-        
+        if kwargs_search.keys().isdisjoint(
+            {
+                "max_lon",
+                "min_lon",
+                "min_lat",
+                "max_lat",
+            }
+        ):
+            min_lon, max_lon = float(dsm.cf["longitude"].min()), float(
+                dsm.cf["longitude"].max()
+            )
+            min_lat, max_lat = float(dsm.cf["latitude"].min()), float(
+                dsm.cf["latitude"].max()
+            )
+
             if abs(min_lon) > 180 or abs(max_lon) > 180:
                 min_lon -= 360
                 max_lon -= 360
 
-            kwargs_search.update({
-                                "min_lon": min_lon, "max_lon": max_lon,
-                                "min_lat": min_lat, "max_lat": max_lat,})
-        
-        if kwargs_search.keys().isdisjoint({
-            "max_time",
-            "min_time",
-        }):
-            min_time, max_time = str(dsm.cf["T"].min().values), str(dsm.cf["T"].max().values)
-        
-            kwargs_search.update({"min_time": min_time, "max_time": max_time,}) 
-    
+            kwargs_search.update(
+                {
+                    "min_lon": min_lon,
+                    "max_lon": max_lon,
+                    "min_lat": min_lat,
+                    "max_lat": max_lat,
+                }
+            )
+
+        if kwargs_search.keys().isdisjoint(
+            {
+                "max_time",
+                "min_time",
+            }
+        ):
+            min_time, max_time = str(dsm.cf["T"].min().values), str(
+                dsm.cf["T"].max().values
+            )
+
+            kwargs_search.update(
+                {
+                    "min_time": min_time,
+                    "max_time": max_time,
+                }
+            )
+
     return kwargs_search

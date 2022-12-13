@@ -3,13 +3,16 @@ Plot map.
 """
 
 import pathlib
+
+from pathlib import PurePath
 from typing import Union
+
 import cartopy
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
-from xarray import Dataset, DataArray
-from pathlib import PurePath
+
+from xarray import DataArray, Dataset
 
 from ..utils import find_bbox
 
@@ -35,11 +38,11 @@ def plot_map(maps: list, figname: Union[str, PurePath], ds: Union[DataArray, Dat
         Model output.
     """
 
-    maps = np.asarray(maps)  
-    station_names = list(np.asarray(maps)[:,-1])
-    min_lons, max_lons = maps[:,0].astype(float), maps[:,1].astype(float)
-    min_lats, max_lats = maps[:,2].astype(float), maps[:,3].astype(float)
-    
+    maps = np.asarray(maps)
+    station_names = list(np.asarray(maps)[:, -1])
+    min_lons, max_lons = maps[:, 0].astype(float), maps[:, 1].astype(float)
+    min_lats, max_lats = maps[:, 2].astype(float), maps[:, 3].astype(float)
+
     central_longitude = min_lons.mean()
     proj = cartopy.crs.Mercator(central_longitude=float(central_longitude))
     fig = plt.figure(figsize=(8, 7), dpi=100)
@@ -53,20 +56,28 @@ def plot_map(maps: list, figname: Union[str, PurePath], ds: Union[DataArray, Dat
     gl.right_labels = False
     ax.coastlines(resolution=res)
     ax.add_feature(land_10m, facecolor="0.8")
-    
+
     # alphashape
     _, _, bbox, p = find_bbox(ds, dd=10, alpha=5)
-    ax.add_geometries([p], crs=pc, facecolor='none', edgecolor='r', linestyle="-")
+    ax.add_geometries([p], crs=pc, facecolor="none", edgecolor="r", linestyle="-")
 
     # plot stations
     # if min_lons == max_lons:  #  check these are stations
-    ax.plot(min_lons, min_lats, marker="o", markersize=1, transform=pc, ls="", color=col_label)
+    ax.plot(
+        min_lons,
+        min_lats,
+        marker="o",
+        markersize=1,
+        transform=pc,
+        ls="",
+        color=col_label,
+    )
 
     # annotate stations
     for i, (lon, lat) in enumerate(zip(min_lons, min_lats)):
         xyproj = ax.projection.transform_point(lon, lat, pc)
         ax.annotate(i, xy=xyproj, xytext=xyproj, color=col_label)
-    
+
     # [min lon, max lon, min lat, max lat]
     extent = [bbox[0] - 0.1, bbox[2] + 0.1, bbox[1] - 0.1, bbox[3] + 0.1]
     ax.set_extent(extent, pc)

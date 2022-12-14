@@ -6,7 +6,8 @@ import mimetypes
 import pathlib
 import warnings
 
-from typing import DefaultDict, Dict, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import DefaultDict, Dict, List, Optional, Union
 
 import cf_pandas as cfp
 import cf_xarray
@@ -28,7 +29,7 @@ from .utils import kwargs_search_from_model
 
 
 def make_local_catalog(
-    filenames: Union[Sequence, str, pathlib.PurePath],
+    filenames: List[pathlib.PurePath],
     name: str = "Local catalog",
     description: str = "Catalog of user files.",
     metadata: dict = None,
@@ -37,7 +38,7 @@ def make_local_catalog(
 
     Parameters
     ----------
-    filenames: Union[Sequence, str, PurePath]
+    filenames : list of paths
         Where to find dataset(s) from which to make local catalog.
     name : str, optional
         Name for catalog.
@@ -148,10 +149,17 @@ def make_catalog(
         if "filenames" not in kwargs:
             raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
         # filenames: Sequence = kwargs["filenames"]
-        filenames: Union[Sequence, str, pathlib.PurePath] = kwargs["filenames"]
-        # assert isinstance(filenames, (str, pathlib.PurePath, Sequence))
-        cat = make_local_catalog(filenames)
-        # cat = make_local_catalog(filenames, **kwargs)
+        filenames = kwargs["filenames"]
+        if isinstance(filenames, str):
+            cat = make_local_catalog([pathlib.PurePath(filenames)])
+        elif isinstance(filenames, Sequence):
+            cat = make_local_catalog([pathlib.PurePath(i) for i in filenames])
+        elif isinstance(filenames, pathlib.PurePath):
+            cat = make_local_catalog([filenames])
+        else:
+            raise TypeError(
+                f"received unexpected type for filenames argument {type(filenames)} expecting list of paths."
+            )
 
     elif catalog_type == "erddap":
         if "server" not in kwargs:

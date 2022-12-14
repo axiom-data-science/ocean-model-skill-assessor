@@ -29,6 +29,9 @@ from .utils import kwargs_search_from_model
 
 def make_local_catalog(
     filenames: Union[Sequence, str, pathlib.PurePath],
+    name: str = "Local catalog",
+    description: str = "Catalog of user files.",
+    metadata: dict = None,
 ) -> Catalog:
     """Make an intake catalog from specified data files.
 
@@ -36,6 +39,12 @@ def make_local_catalog(
     ----------
     filenames: Union[Sequence, str, PurePath]
         Where to find dataset(s) from which to make local catalog.
+    name : str, optional
+        Name for catalog.
+    description : str, optional
+        Description for catalog.
+    metadata : dict, optional
+        Metadata for catalog.
 
     Returns
     -------
@@ -66,9 +75,9 @@ def make_local_catalog(
     # create catalog
     cat = Catalog.from_dict(
         entries,
-        name="Input files",
-        description="full_cat_description",
-        metadata={},
+        name=name,
+        description=description,
+        metadata=metadata,
     )
     return cat
 
@@ -142,6 +151,7 @@ def make_catalog(
         filenames: Union[Sequence, str, pathlib.PurePath] = kwargs["filenames"]
         # assert isinstance(filenames, (str, pathlib.PurePath, Sequence))
         cat = make_local_catalog(filenames)
+        # cat = make_local_catalog(filenames, **kwargs)
 
     elif catalog_type == "erddap":
         if "server" not in kwargs:

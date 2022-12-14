@@ -29,7 +29,7 @@ from .utils import kwargs_search_from_model
 
 
 def make_local_catalog(
-    filenames: List[pathlib.PurePath],
+    filenames: List[str],
     name: str = "local_catalog",
     description: str = "Catalog of user files.",
     metadata: dict = None,
@@ -55,12 +55,21 @@ def make_local_catalog(
 
     sources = []
     for filename in filenames:
-        filename_str = str(filename)
-        mtype = mimetypes.guess_type(filename_str)[0]
-        if (mtype is not None and "csv" in mtype) or ".csv" in filename_str:
-            sources.append(getattr(intake, "open_csv")(filename_str))
-        elif (mtype is not None and "netcdf" in mtype) or ".netcdf" in filename_str:
-            sources.append(getattr(intake, "open_netcdf")(filename_str))
+        mtype = mimetypes.guess_type(filename)[0]
+        if (mtype is not None and "csv" in mtype) or ".csv" in filename:
+            source = getattr(intake, "open_csv")(filename)   
+        elif (mtype is not None and "netcdf" in mtype) or ".netcdf" in filename:
+            source = getattr(intake, "open_netcdf")(filename)
+        dd = source.read()
+        # set up some basic metadata for each source
+        source.metadata = {"minLongitude": float(dd.cf["longitude"].min()),
+                    "minLatitude": float(dd.cf["latitude"].min()),
+                    "maxLongitude": float(dd.cf["longitude"].max()),
+                    "maxLatitude": float(dd.cf["latitude"].max()),
+                    "minTime": str(dd.cf["T"].min()),
+                    "maxTime": str(dd.cf["T"].max()),
+                    }
+        sources.append(source)
 
     # create dictionary of catalog entries
     entries = {
@@ -91,7 +100,7 @@ def make_catalog(
     catalog_name: Optional[str] = None,
     description: Optional[str] = None,
     metadata: Optional[dict] = None,
-    kwargs: Dict[str, Union[str, float, Sequence, pathlib.PurePath]] = None,
+    kwargs: Dict[str, Union[str, float, Sequence]] = None,
     kwargs_search: Dict[str, Union[str, int, float]] = None,
     vocab: Optional[Union[cfp.Vocab, str, pathlib.PurePath]] = None,
     return_cat: bool = True,
@@ -129,9 +138,7 @@ def make_catalog(
     """
 
     if kwargs_search is not None and catalog_type == "local":
-        raise UserWarning(
-            "`kwargs_search` were input but will not be used since `catalog_type=='local'`."
-        )
+        warnings.warn("`kwargs_search` were input but will not be used since `catalog_type=='local'`.", UserWarning)
 
     kwargs = {} if kwargs is None else kwargs
     kwargs_search = {} if kwargs_search is None else kwargs_search
@@ -156,25 +163,25 @@ def make_catalog(
         description = f"Catalog of type {catalog_type}."
     # if metadata is None:
     #     metadata = {}
-
+    # import pdb; pdb.set_trace()
     if catalog_type == "local":
         catalog_name = "local_cat" if catalog_name is None else catalog_name
         if "filenames" not in kwargs:
             raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
         filenames = kwargs["filenames"]
         kwargs.pop("filenames")
-        if isinstance(filenames, str):
-            filenames = [pathlib.PurePath(filenames)]
-        elif isinstance(filenames, Sequence):
-            filenames = [pathlib.PurePath(i) for i in filenames]
-        elif isinstance(filenames, pathlib.PurePath):
-            filenames = [filenames]
-        else:
-            raise TypeError(
-                f"received unexpected type for filenames argument {type(filenames)} expecting list of paths."
-            )
+        # if isinstance(filenames, str):
+        #     filenames = [pathlib.PurePath(filenames)]
+        # elif isinstance(filenames, Sequence):
+        #     filenames = [pathlib.PurePath(i) for i in filenames]
+        # elif isinstance(filenames, pathlib.PurePath):
+        #     filenames = [filenames]
+        # else:
+        #     raise TypeError(
+        #         f"received unexpected type for filenames argument {type(filenames)} expecting list of paths."
+        #     )
         cat = make_local_catalog(
-            filenames,
+            cfp.astype(filenames, list),
             name=catalog_name,
             description=description,
             metadata=metadata,
@@ -246,7 +253,7 @@ def run(
     catalog_names : str, Path, list
         Catalog name(s) or path(s). Datasets will be accessed from catalog entries.
     project_name : str
-        If not input, will use the the parent to catalog_names as the project directory, but can be overridden by inputting this keyword.
+        Subdirectory in cache dir to store files associated together.
     key_variable : str
         Key in vocab(s) representing variable to compare between model and datasets.
     model_path : str, Path
@@ -262,10 +269,10 @@ def run(
         vocab = cfp.Vocab(omsa.VOCAB_PATH(vocabs))
     elif isinstance(vocabs, Sequence):
         if isinstance(vocabs[0], str):
-            vocabs = []
-            for v in vocabs:
-                vocabs.append(cfp.Vocab(omsa.VOCAB_PATH(v)))
-            vocab = cfp.merge(vocabs)
+            # vocabs = []
+            # for v in vocabs:
+            #     vocabs.append(cfp.Vocab(omsa.VOCAB_PATH(v)))
+            vocab = cfp.merge([cfp.Vocab(omsa.VOCAB_PATH(v)) for v in vocabs])
         elif isinstance(vocab[0], cfp.Vocab):
             vocab = cfp.merge(vocabs)
 
@@ -318,9 +325,13 @@ def run(
             #     continue
 
             # take time constraints as min/max if available
-            if "time>=" in cat[source_name].describe()["args"]["constraints"]:
+            if "constraints" in cat[source_name].describe()["args"]:
                 min_time = cat[source_name].describe()["args"]["constraints"]["time>="]
                 max_time = cat[source_name].describe()["args"]["constraints"]["time<="]
+            # use kwargs_search min/max times if available
+            elif "kwargs_search" in cat.metadata and "min_time" in cat.metadata["kwargs_search"]:
+                min_time = cat.metadata["kwargs_search"]["min_time"]
+                max_time = cat.metadata["kwargs_search"]["max_time"]
             else:
                 min_time = cat[source_name].metadata["minTime"]
                 max_time = cat[source_name].metadata["maxTime"]
@@ -340,6 +351,7 @@ def run(
                 if isinstance(kwargs["T"], slice):
                     Targ = kwargs.pop("T")
                     model_var = dam.cf.sel(**kwargs)  # .to_dataset()
+                    # import pdb; pdb.set_trace()
                     model_var = model_var.cf.sel(T=Targ)
                 else:
                     model_var = dam.cf.sel(**kwargs)  # .to_dataset()
@@ -353,9 +365,17 @@ def run(
                 else:
                     model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
 
-            # set model output to UTC
-            tkey = model_var.cf["T"].name
-            model_var[tkey] = model_var[tkey].to_index().tz_localize("UTC")
+            # # set model output to UTC
+            # tkey = model_var.cf["T"].name
+            # model_var[tkey] = model_var[tkey].to_index().tz_localize("UTC")
+            # instead turn off time zone for data
+            
+            if model_var.size == 0:
+                # model output isn't available to match data
+                # data must not be in the space/time range of model
+                maps.pop(-1)
+                warnings.warn(f"Model output is not present to match dataset {source_name}.", RuntimeWarning)
+                continue
 
             # Combine and align the two time series of variable
             with cfp.set_options(custom_criteria=vocab.vocab):
@@ -363,6 +383,9 @@ def run(
                 dfd = cat[source_name].read()
                 dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
                 dfd.set_index(dfd.cf["T"], inplace=True)
+                if dfd.index.tz is not None:
+                    dfd.index = dfd.index.tz_convert(None)
+                # import pdb; pdb.set_trace()
                 df = omsa.stats._align(dfd.cf[key_variable], model_var)
 
             # pull out depth at surface?

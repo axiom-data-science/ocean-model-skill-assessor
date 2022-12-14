@@ -17,7 +17,8 @@ class ParseKwargs(argparse.Action):
         for value in values:
             key, value = value.split("=")
             # catch list case
-            if "[" in value and "]" in value:
+            if value.startswith("[") and value.endswith("]"):
+            # if "[" in value and "]" in value:
                 value = value.strip("][").split(",")
             getattr(namespace, self.dest)[key] = value
 
@@ -60,6 +61,10 @@ def main():
         "--catalog_name", help="Catalog name, with or without suffix of yaml."
     )
     parser.add_argument(
+        "--description", help="Catalog description."
+    )
+    
+    parser.add_argument(
         "--vocab_names",
         nargs="*",
         help="Name of vocabulary file, must be in the vocab user directory.",
@@ -89,6 +94,7 @@ def main():
             catalog_type=args.catalog_type,
             project_name=args.project_name,
             catalog_name=args.catalog_name,
+            description=args.description,
             kwargs=args.kwargs,
             kwargs_search=args.kwargs_search,
             vocab=args.vocab_names,
@@ -109,7 +115,7 @@ def main():
             project_name=args.project_name,
             catalog_names=args.catalog_names,
             vocabs=args.vocab_names,
-            key=args.key,
+            key_variable=args.key,
             model_path=args.model_path,
             ndatasets=args.ndatasets,
         )

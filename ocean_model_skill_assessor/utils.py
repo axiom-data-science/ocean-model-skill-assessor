@@ -15,7 +15,7 @@ import xarray as xr
 import ocean_model_skill_assessor as omsa
 
 
-def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> list:
+def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
     """Determine bounds and boundary of model.
 
     Parameters

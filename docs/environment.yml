@@ -14,7 +14,6 @@ dependencies:
    - cf_xarray
    - extract_model
    - numpy
-   - ocean_data_gateway
    - pandas
    - xarray
    # - xarray

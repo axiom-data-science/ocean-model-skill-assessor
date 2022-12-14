@@ -1,78 +1,147 @@
 # Using OMSA through Command Line Interface
 
 
-## 0. Utilities
-
-### Check location of project
-
-    python CLI.py proj_path --project_name test1
-
-Which returns something like `/Users/kthyng/Library/Caches/ocean-model-skill-assessor/test1`. Once you have that, you can check all of the project-related files you've created.
-
-### Check available vocabularies
-
-    python CLI.py vocabs
-
-## 1. Make one or more catalogs
+## Make one or more catalogs
 
 ### Local catalog
 
 Make a catalog with known local or remote file(s).
 
-    python CLI.py make_catalog --project_name test1 --catalog_type local --kwargs filenames="[file1,file2]"
 
-    python CLI.py make_catalog --project_name test1 --catalog_type local --kwargs filenames=https://researchworkspace.com/files/8114311/ecofoci_2011CHAOZ_CTD_Nutrient_mb1101.csv 
+#### Available options
+
+    omsa make_catalog --project_name PROJ_NAME --catalog_type local --catalog_name CATALOG_NAME --description "Catalog description" --kwargs filenames="[FILE1,FILE2]" 
+
+* `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
+* `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
+* `catalog_name`: Name for catalog.
+* `description`: Description for catalog.
+* `metadata`: Metadata for catalog.
+* `kwargs`: Keyword arguments to make the local catalog. See `omsa.main.make_local_catalog()` for more details.
+  * `filenames`: (Required) Where to find dataset(s) from which to make local catalog.
+
+#### Examples
+
+    omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://researchworkspace.com/files/8114311/ecofoci_2011CHAOZ_CTD_Nutrient_mb1101.csv]" 
 
 
 ### ERDDAP Catalog
 
-Make a catalog in subdirectory project directory "test2" of the datasets available from server https://erddap.sensors.ioos.us/erddap, and any resulting data should be read into xarray Datasets. To read into pandas `DataFrames` instead, substitute "dataframe" for "xarray".
+Make a catalog from datasets available from an ERDDAP server using `intake-erddap`.
 
-    python CLI.py make_catalog --project_name test1 --catalog_type erddap --kwargs erddap_server=https://erddap.sensors.ioos.us/erddap --bbox -180 50 -158 66 --time_range 2022-1-1 2022-1-5 category_search="(standard_name, temp)"
+#### Available options
 
+    omsa make_catalog --project_name PROJ_NAME --catalog_type erddap --catalog_name CATALOG_NAME --description "Catalog description" --kwargs server=SERVER --kwargs_search min_lon=MIN_LON min_lat=MIN_LAT max_lon=MAX_LON max_lat=MAX_LAT min_time=MIN_TIME max_time=MAX_TIME search_for=SEARCH_TEXT
+
+* `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
+* `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
+* `catalog_name`: Name for catalog.
+* `description`: Description for catalog.
+* `metadata`: Metadata for catalog.
+* `kwargs`: Keyword arguments to make the ERDDAP catalog. See `intake-erddap.erddap_cat()` for more details.
+  * `server`: ERDDAP server address, for example: "http://erddap.sensors.ioos.us/erddap"
+  * `category_search`: 
+  * `erddap_client`: 
+  * `use_source_constraints`: 
+  * `protocol`: 
+  * `metadata`: 
+  * other keyword arguments can be passed into the intake `Catalog` class
+* `kwargs_search`: Keyword arguments to input to search on the server before making the catalog.
+  * `min_lon`, `min_lat`, `max_lon`, `max_lat`: search for datasets within this spatial box
+  * `min_time`, `max_time`: search for datasets with data within this time range
+  * `model_path`: input a path to the model output to instead select the space and time search specifications based on the model. This input is specific to OMSA, not `intake-erddap`.
+  * `search_for`: text-based search
+
+#### Examples
+
+Select a box and time range over which to search catalog:
+
+    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalog --description "Example ERDDAP catalog description" --kwargs server=https://erddap.sensors.ioos.us/erddap --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2022-1-1 max_time=2022-1-2
+
+Input model output to use to create the space search range, but choose time search range:
+
+    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalog --description "Example ERDDAP catalog description" --kwargs server=https://erddap.sensors.ioos.us/erddap --kwargs_search model_path=https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc min_time=2022-1-1 max_time=2022-1-2
 
 
 ### Catalog for Axiom assets
 
-Make a catalog in subdirectory project directory "test1" of the first 12 platform datasets. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
+Make a catalog of Axiom Data Science-stored assets using `intake-axds`.
 
-    python CLI.py make_catalog --project_name test1 --catalog_type axds --kwargs page_size=12
+#### Available options
 
-Make a catalog of the first 10 platform datasets located in the spatial box and with data during the requested time range, and with `verbose=True`:
+    omsa make_catalog --project_name PROJ_NAME --catalog_type axds --catalog_name CATALOG_NAME --description "Catalog description" --kwargs datatype="platform2 standard_names="[STANDARD_NAME1,STANDARD_NAME2]" page_size=PAGE_SIZE verbose=BOOL --kwargs_search min_lon=MIN_LON min_lat=MIN_LAT max_lon=MAX_LON max_lat=MAX_LAT min_time=MIN_TIME max_time=MAX_TIME search_for=SEARCH_TEXT
 
-    python CLI.py make_catalog --project_name test1 --catalog_type axds --kwargs verbose=True --bbox -180 50 -158 66 --time_range 2022-1-1 2022-1-5
+* `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
+* `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
+* `catalog_name`: Name for catalog.
+* `description`: Description for catalog.
+* `metadata`: Metadata for catalog.
+* `kwargs`: Keyword arguments to make the ERDDAP catalog. See `intake-erddap.erddap_cat()` for more details.
+  * `datatype`: Which type of Axiom asset to search for? Currently only "platform2" works and that is the default.
+  * `keys_to_match`: Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+  * `standard_names`: Standard names to select from Axiom search parameterNames. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.
+  * `page_size`: Number of results. Fewer is faster. Note that default is 10. Note that if you want to make sure you get all available datasets, you should input a large number like 50000.
+  * `verbose`: Set to True for helpful information.
+  * other keyword arguments can be passed into the intake `Catalog` class
+* `kwargs_search`: Keyword arguments to input to search on the server before making the catalog.
+  * `min_lon`, `min_lat`, `max_lon`, `max_lat`: search for datasets within this spatial box
+  * `min_time`, `max_time`: search for datasets with data within this time range
+  * `model_path`: input a path to the model output to instead select the space and time search specifications based on the model. This input is specific to OMSA, not `intake-axds`.
+  * `search_for`: text-based search
 
-Input catalog name to be used in both file name and within the catalog:
+#### Examples
 
-    python CLI.py make_catalog --project_name test1 --catalog_type axds --catalog_name axds_test_cat
+Select a box and time range over which to search catalog:
 
-Input catalog description to be used within the catalog:
+    omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog --description "Example AXDS catalog description" --kwargs standard_names='[sea_water_practical_salinity,sea_water_temperature]' verbose=True  --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2000-1-1 max_time=2002-1-1 search_for=Bering
 
-    python CLI.py make_catalog --project_name test1 --catalog_type axds --kwargs description="Description of this catalog."
+Input model output to use to create the space search range, but choose time search range:
 
-Filter returned datasets for variables by standard_names. Note the syntax for inputting a list of standard_names through the command line interface.
+    omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog --description "Example AXDS catalog description" --kwargs standard_names='[sea_water_practical_salinity,sea_water_temperature]' verbose=True --kwargs_search model_path=https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc min_time=2022-1-1 max_time=2022-1-2
 
-    python CLI.py make_catalog --project_name test1 --catalog_type axds --kwargs standard_names='[sea_water_practical_salinity,sea_water_temperature]'
 
-Alternatively, filter returned datasets for variables using the variable nicknames along with a vocabulary of regular expressions for matching what "counts" as a variable. To save a custom vocabulary to a location for this command, use the `Vocab` class in `cf-pandas` ([docs](https://cf-pandas.readthedocs.io/en/latest/demo_vocab.html#save-to-file)). A premade set of vocabularies is also available to use by name; see them with command `python CLI.py vocabs`. Suggested uses:
+Alternatively, filter returned datasets for variables using the variable nicknames along with a vocabulary of regular expressions for matching what "counts" as a variable. To save a custom vocabulary to a location for this command, use the `Vocab` class in `cf-pandas` ([docs](https://cf-pandas.readthedocs.io/en/latest/demo_vocab.html#save-to-file)). A premade set of vocabularies is also available to use by name; see them with command `omsa vocabs`. Suggested uses:
 * axds catalog: vocab_name standard_names
 * erddap catalog, IOOS: vocab_name erddap_ioos
 * erddap catalog, Coastwatch: vocab_name erddap_coastwatch
 * local catalog: vocab_name general
 
 ```
-python CLI.py make_catalog --project_name test1 --catalog_type axds --vocab_name standard_names --kwargs keys_to_match="[temp,salt]"
+omsa make_catalog --project_name test1 --catalog_type axds --vocab_name standard_names --kwargs keys_to_match="[temp,salt]"
 ```
 
 
-## 2. Run model-data comparison
 
-### BLAH
+## Run model-data comparison
 
-    python CLI.py run --project_name test1 --catalog_names local_cat --vocab_name general --key temp --model_path https://thredds.aoos.org/thredds/dodsC/NOAA_COOPS_OFS_CIOFS.nc 
+#### Available options
+
+    omsa run --project_name test1 --catalog_names CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
+
+* `project_name`: Subdirectory in cache dir to store files associated together.
+* `catalog_names`: Catalog name(s). Datasets will be accessed from catalog entries.
+* `vocab_names`: Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
+* `key`: Key in vocab(s) representing variable to compare between model and datasets.
+* `model_path`: Where to find model output. Must be readable by xarray.open_mfdataset() (will be converted to list if needed).
+* `ndatasets`: Max number of datasets from each input catalog to use.
+
+#### Examples
+
+DESCRIPTION
+
+    omsa run --project_name test1 --catalog_names example_local_catalog example_erddap_catalog example_axds_catalog --vocab_name erddap_ioos general --key temp --model_path https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc --ndatasets 3
 
 
-    python CLI.py run --project_name test1 --catalog_names erddap_cat --vocab_name erddap_ioos --key temp --model_path https://thredds.aoos.org/thredds/dodsC/NOAA_COOPS_OFS_CIOFS.nc 
 
-    python CLI.py run --project_name test1 --catalog_names axds_test_cat --vocab_name standard_names --key temp --model_path https://thredds.aoos.org/thredds/dodsC/NOAA_COOPS_OFS_CIOFS.nc 
 
+## Utilities
+
+### Check location of project
+
+    omsa proj_path --project_name test1
+
+Which returns something like `/Users/kthyng/Library/Caches/ocean-model-skill-assessor/test1`. Once you have that, you can check all of the project-related files you've created.
+
+### Check available vocabularies
+
+    omsa vocabs

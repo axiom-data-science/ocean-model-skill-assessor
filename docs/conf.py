@@ -35,7 +35,7 @@ project = "ocean-model-skill-assessor"
 copyright = "2021-2022, Axiom Data Science"
 author = "Axiom Data Science"
 
-release = get_distribution("ocean_model_skill_assessor").version
+release = get_distribution("ocean-model-skill-assessor").version
 # for example take major/minor
 version = ".".join(release.split(".")[:2])
 

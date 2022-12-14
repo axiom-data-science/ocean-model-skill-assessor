@@ -154,8 +154,8 @@ def make_catalog(
 
     if description is None:
         description = f"Catalog of type {catalog_type}."
-    if metadata is None:
-        metadata = {}
+    # if metadata is None:
+    #     metadata = {}
 
     if catalog_type == "local":
         catalog_name = "local_cat" if catalog_name is None else catalog_name

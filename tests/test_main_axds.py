@@ -72,11 +72,20 @@ def test_make_catalog_axds_platform2(mock_requests, mock_cat_path, tmpdir):
         catalog_type="axds",
         project_name="projectA",
         catalog_name="catA",
+        description="description of catalog",
+        kwargs_search={"min_time": "2022-1-1", "max_time": "2022-1-2"},
         return_cat=True,
         save_cat=True,
     )
 
     assert os.path.exists(catloc2)
+    assert sorted(list(cat1)) == ["test_platform_csv", "test_platform_parquet"]
+    assert cat1.name == "catA"
+    assert cat1["test_platform_csv"].urlpath == "fake.csv.gz"
+    assert cat1["test_platform_parquet"].describe()["driver"] == ["parquet"]
+    assert cat1.description == "description of catalog"
+    assert cat1.metadata["kwargs_search"]["min_time"] == "2022-1-1"
+    assert cat1.metadata["kwargs_search"]["max_time"] == "2022-1-2"
 
     mock_requests.side_effect = [FakeResponse()]
     cat2 = intake.open_axds_cat()

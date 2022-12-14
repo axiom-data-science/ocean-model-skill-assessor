@@ -159,9 +159,6 @@ def make_catalog(
 
     if catalog_type == "local":
         catalog_name = "local_cat" if catalog_name is None else catalog_name
-        # kwargs.update(
-        #     {"name": catalog_name, "description": description, "metadata": metadata}
-        # )
         if "filenames" not in kwargs:
             raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
         filenames = kwargs["filenames"]

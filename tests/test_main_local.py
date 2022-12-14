@@ -4,6 +4,7 @@ import pathlib
 from unittest import mock
 
 import intake
+import pytest
 
 import ocean_model_skill_assessor as omsa
 
@@ -58,3 +59,9 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
         save_cat=False,
     )
     assert sorted(list(cat4)) == ["source0", "source1"]
+
+    with pytest.raises(ValueError):
+        omsa.make_catalog(
+            catalog_type="local",
+            project_name="projectA",
+        )

@@ -30,7 +30,7 @@ from .utils import kwargs_search_from_model
 
 def make_local_catalog(
     filenames: List[pathlib.PurePath],
-    name: str = "Local catalog",
+    name: str = "local_catalog",
     description: str = "Catalog of user files.",
     metadata: dict = None,
 ) -> Catalog:
@@ -54,12 +54,13 @@ def make_local_catalog(
     """
 
     sources = []
-    for filename in cfp.astype(filenames, list):
-        mtype = mimetypes.guess_type(filename)[0]
-        if (mtype is not None and "csv" in mtype) or ".csv" in filename:
-            sources.append(getattr(intake, "open_csv")(filename))
-        elif (mtype is not None and "netcdf" in mtype) or ".netcdf" in filename:
-            sources.append(getattr(intake, "open_netcdf")(filename))
+    for filename in filenames:
+        filename_str = str(filename)
+        mtype = mimetypes.guess_type(filename_str)[0]
+        if (mtype is not None and "csv" in mtype) or ".csv" in filename_str:
+            sources.append(getattr(intake, "open_csv")(filename_str))
+        elif (mtype is not None and "netcdf" in mtype) or ".netcdf" in filename_str:
+            sources.append(getattr(intake, "open_netcdf")(filename_str))
 
     # create dictionary of catalog entries
     entries = {
@@ -69,6 +70,7 @@ def make_local_catalog(
             driver=source._yaml()["sources"][source.name]["driver"],
             args=source._yaml()["sources"][source.name]["args"],
             metadata=source.metadata,
+            direct_access="allow",
         )
         for i, source in enumerate(sources)
     }
@@ -87,6 +89,8 @@ def make_catalog(
     catalog_type: str,
     project_name: str,
     catalog_name: Optional[str] = None,
+    description: Optional[str] = None,
+    metadata: Optional[dict] = None,
     kwargs: Dict[str, Union[str, float, Sequence, pathlib.PurePath]] = None,
     kwargs_search: Dict[str, Union[str, int, float]] = None,
     vocab: Optional[Union[cfp.Vocab, str, pathlib.PurePath]] = None,
@@ -103,6 +107,10 @@ def make_catalog(
         Subdirectory in cache dir to store files associated together.
     catalog_name : str, optional
         Catalog name, with or without suffix of yaml. Otherwise a default name based on the catalog type will be used.
+    description : str, optional
+        Description for catalog.
+    metadata : dict, optional
+        Catalog metadata.
     kwargs : dict, optional
         Available keyword arguments for catalog types. Find more information about options in the original docs for each type. Some inputs might be required, depending on the catalog type.
     kwargs_search : dict, optional
@@ -144,41 +152,78 @@ def make_catalog(
     elif isinstance(vocab, pathlib.PurePath):
         vocab = cfp.Vocab(vocab)
 
+    if description is None:
+        description = f"Catalog of type {catalog_type}."
+    if metadata is None:
+        metadata = {}
+
     if catalog_type == "local":
         catalog_name = "local_cat" if catalog_name is None else catalog_name
+        # kwargs.update(
+        #     {"name": catalog_name, "description": description, "metadata": metadata}
+        # )
         if "filenames" not in kwargs:
             raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
-        # filenames: Sequence = kwargs["filenames"]
         filenames = kwargs["filenames"]
+        kwargs.pop("filenames")
         if isinstance(filenames, str):
-            cat = make_local_catalog([pathlib.PurePath(filenames)])
+            filenames = [pathlib.PurePath(filenames)]
         elif isinstance(filenames, Sequence):
-            cat = make_local_catalog([pathlib.PurePath(i) for i in filenames])
+            filenames = [pathlib.PurePath(i) for i in filenames]
         elif isinstance(filenames, pathlib.PurePath):
-            cat = make_local_catalog([filenames])
+            filenames = [filenames]
         else:
             raise TypeError(
                 f"received unexpected type for filenames argument {type(filenames)} expecting list of paths."
             )
+        cat = make_local_catalog(
+            filenames,
+            name=catalog_name,
+            description=description,
+            metadata=metadata,
+        )
 
     elif catalog_type == "erddap":
+        catalog_name = "erddap_cat" if catalog_name is None else catalog_name
         if "server" not in kwargs:
             raise ValueError("For `catalog_type=='erddap'`, must input `server`.")
         if vocab is not None:
             with cfp.set_options(custom_criteria=vocab.vocab):
-                cat = intake.open_erddap_cat(kwargs_search=kwargs_search, **kwargs)
+                cat = intake.open_erddap_cat(
+                    kwargs_search=kwargs_search,
+                    name=catalog_name,
+                    description=description,
+                    metadata=metadata,
+                    **kwargs,
+                )
         else:
-            cat = intake.open_erddap_cat(kwargs_search=kwargs_search, **kwargs)
-        catalog_name = "erddap_cat" if catalog_name is None else catalog_name
+            cat = intake.open_erddap_cat(
+                kwargs_search=kwargs_search,
+                name=catalog_name,
+                description=description,
+                metadata=metadata,
+                **kwargs,
+            )
 
     elif catalog_type == "axds":
         catalog_name = "axds_cat" if catalog_name is None else catalog_name
-        kwargs["name"] = catalog_name
         if vocab is not None:
             with cfp.set_options(custom_criteria=vocab.vocab):
-                cat = intake.open_axds_cat(kwargs_search=kwargs_search, **kwargs)
+                cat = intake.open_axds_cat(
+                    kwargs_search=kwargs_search,
+                    name=catalog_name,
+                    description=description,
+                    metadata=metadata,
+                    **kwargs,
+                )
         else:
-            cat = intake.open_axds_cat(kwargs_search=kwargs_search, **kwargs)
+            cat = intake.open_axds_cat(
+                kwargs_search=kwargs_search,
+                name=catalog_name,
+                description=description,
+                metadata=metadata,
+                **kwargs,
+            )
 
     if save_cat:
         # save cat to file

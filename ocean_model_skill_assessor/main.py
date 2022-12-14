@@ -48,7 +48,7 @@ def make_local_catalog(
         mtype = mimetypes.guess_type(filename)[0]
         if (mtype is not None and "csv" in mtype) or ".csv" in filename:
             sources.append(getattr(intake, "open_csv")(filename))
-        elif "netcdf" in mimetypes.guess_type(filename)[0]:
+        elif (mtype is not None and "netcdf" in mtype) or ".netcdf" in filename:
             sources.append(getattr(intake, "open_netcdf")(filename))
 
     # create dictionary of catalog entries
@@ -77,11 +77,9 @@ def make_catalog(
     catalog_type: str,
     project_name: str,
     catalog_name: Optional[str] = None,
-    kwargs: Dict[str, Union[str, int, float]] = None,
+    kwargs: Dict[str, Union[str, float, Sequence, pathlib.PurePath]] = None,
     kwargs_search: Dict[str, Union[str, int, float]] = None,
-    vocab: Optional[
-        Union[DefaultDict[str, Dict[str, str]], str, pathlib.PurePath]
-    ] = None,
+    vocab: Optional[Union[cfp.Vocab, str, pathlib.PurePath]] = None,
     return_cat: bool = True,
     save_cat: bool = False,
 ):
@@ -133,12 +131,17 @@ def make_catalog(
 
     if isinstance(vocab, str):
         vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
+    elif isinstance(vocab, pathlib.PurePath):
+        vocab = cfp.Vocab(vocab)
 
     if catalog_type == "local":
         catalog_name = "local_cat" if catalog_name is None else catalog_name
         if "filenames" not in kwargs:
             raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
-        cat = make_local_catalog(kwargs["filenames"])
+        # filenames: Sequence = kwargs["filenames"]
+        filenames: Union[Sequence, str, pathlib.PurePath] = kwargs["filenames"]
+        # assert isinstance(filenames, (str, pathlib.PurePath, Sequence))
+        cat = make_local_catalog(filenames)
 
     elif catalog_type == "erddap":
         if "server" not in kwargs:
@@ -320,5 +323,5 @@ def run(
 
     # map of model domain with data locations
     figname = omsa.PROJ_DIR(project_name) / "map.png"
-    omsa.plot.map.plot_map(maps, project_name, figname, dam)
+    omsa.plot.map.plot_map(np.asarray(maps), figname, dam)
     print(f"Finished analysis. Find plots in {omsa.PROJ_DIR(project_name)}.")

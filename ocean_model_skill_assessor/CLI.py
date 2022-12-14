@@ -46,7 +46,6 @@ def main():
         "--kwargs",
         nargs="*",
         action=ParseKwargs,
-        default={},
         help="Input keyword arguments for the catalog. Available options are specific to the `catalog_type`. Dictionary-style input. More information on options can be found in `omsa.main.make_catalog` docstrings. Format for list items is e.g. standard_names='[sea_water_practical_salinity,sea_water_temperature]'.",
     )
 
@@ -54,7 +53,6 @@ def main():
         "--kwargs_search",
         nargs="*",
         action=ParseKwargs,
-        default={},
         help="Input keyword arguments for the search specification. Dictionary-style input. More information on options can be found in `omsa.main.make_catalog` docstrings. Format for list items is e.g. standard_names='[sea_water_practical_salinity,sea_water_temperature]'.",
     )
 

@@ -25,12 +25,14 @@ land_10m = cartopy.feature.NaturalEarthFeature(
 res = "10m"
 
 
-def plot_map(maps: list, figname: Union[str, PurePath], ds: Union[DataArray, Dataset]):
+def plot_map(
+    maps: np.array, figname: Union[str, PurePath], ds: Union[DataArray, Dataset]
+):
     """Plot and save to file map of model domain and data locations.
 
     Parameters
     ----------
-    maps : list
+    maps : array
         Info about datasets. [min_lon, max_lon, min_lat, max_lat, source_name]
     figname : Union[str, PurePath]
         Map will be saved here.
@@ -38,8 +40,6 @@ def plot_map(maps: list, figname: Union[str, PurePath], ds: Union[DataArray, Dat
         Model output.
     """
 
-    maps = np.asarray(maps)
-    station_names = list(np.asarray(maps)[:, -1])
     min_lons, max_lons = maps[:, 0].astype(float), maps[:, 1].astype(float)
     min_lats, max_lats = maps[:, 2].astype(float), maps[:, 3].astype(float)
 

@@ -18,7 +18,7 @@ class ParseKwargs(argparse.Action):
             key, value = value.split("=")
             # catch list case
             if value.startswith("[") and value.endswith("]"):
-            # if "[" in value and "]" in value:
+                # if "[" in value and "]" in value:
                 value = value.strip("][").split(",")
             getattr(namespace, self.dest)[key] = value
 
@@ -60,10 +60,8 @@ def main():
     parser.add_argument(
         "--catalog_name", help="Catalog name, with or without suffix of yaml."
     )
-    parser.add_argument(
-        "--description", help="Catalog description."
-    )
-    
+    parser.add_argument("--description", help="Catalog description.")
+
     parser.add_argument(
         "--vocab_names",
         nargs="*",

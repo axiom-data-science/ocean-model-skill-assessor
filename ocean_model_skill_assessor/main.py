@@ -7,7 +7,7 @@ import pathlib
 import warnings
 
 from collections.abc import Sequence
-from typing import DefaultDict, Dict, List, Optional, Union
+from typing import Any, DefaultDict, Dict, List, Optional, Union
 
 import cf_pandas as cfp
 import cf_xarray
@@ -60,19 +60,20 @@ def make_local_catalog(
     for filename in filenames:
         mtype = mimetypes.guess_type(filename)[0]
         if (mtype is not None and "csv" in mtype) or ".csv" in filename:
-            source = getattr(intake, "open_csv")(filename)   
+            source = getattr(intake, "open_csv")(filename)
         elif (mtype is not None and "netcdf" in mtype) or ".netcdf" in filename:
             source = getattr(intake, "open_netcdf")(filename)
         if not skip_entry_metadata:
             dd = source.read()
             # set up some basic metadata for each source
-            source.metadata = {"minLongitude": float(dd.cf["longitude"].min()),
-                        "minLatitude": float(dd.cf["latitude"].min()),
-                        "maxLongitude": float(dd.cf["longitude"].max()),
-                        "maxLatitude": float(dd.cf["latitude"].max()),
-                        "minTime": str(dd.cf["T"].min()),
-                        "maxTime": str(dd.cf["T"].max()),
-                        }
+            source.metadata = {
+                "minLongitude": float(dd.cf["longitude"].min()),
+                "minLatitude": float(dd.cf["latitude"].min()),
+                "maxLongitude": float(dd.cf["longitude"].max()),
+                "maxLatitude": float(dd.cf["latitude"].max()),
+                "minTime": str(dd.cf["T"].min()),
+                "maxTime": str(dd.cf["T"].max()),
+            }
         sources.append(source)
 
     # create dictionary of catalog entries
@@ -104,8 +105,8 @@ def make_catalog(
     catalog_name: Optional[str] = None,
     description: Optional[str] = None,
     metadata: Optional[dict] = None,
-    kwargs: Dict[str, Union[str, float, Sequence]] = None,
-    kwargs_search: Dict[str, Union[str, int, float]] = None,
+    kwargs: Optional[Dict[str, Any]] = None,
+    kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
     vocab: Optional[Union[cfp.Vocab, str, pathlib.PurePath]] = None,
     return_cat: bool = True,
     save_cat: bool = False,
@@ -142,7 +143,10 @@ def make_catalog(
     """
 
     if kwargs_search is not None and catalog_type == "local":
-        warnings.warn("`kwargs_search` were input but will not be used since `catalog_type=='local'`.", UserWarning)
+        warnings.warn(
+            "`kwargs_search` were input but will not be used since `catalog_type=='local'`.",
+            UserWarning,
+        )
 
     kwargs = {} if kwargs is None else kwargs
     kwargs_search = {} if kwargs_search is None else kwargs_search
@@ -165,25 +169,13 @@ def make_catalog(
 
     if description is None:
         description = f"Catalog of type {catalog_type}."
-    # if metadata is None:
-    #     metadata = {}
-    # import pdb; pdb.set_trace()
+
     if catalog_type == "local":
         catalog_name = "local_cat" if catalog_name is None else catalog_name
         if "filenames" not in kwargs:
             raise ValueError("For `catalog_type=='local'`, must input `filenames`.")
         filenames = kwargs["filenames"]
         kwargs.pop("filenames")
-        # if isinstance(filenames, str):
-        #     filenames = [pathlib.PurePath(filenames)]
-        # elif isinstance(filenames, Sequence):
-        #     filenames = [pathlib.PurePath(i) for i in filenames]
-        # elif isinstance(filenames, pathlib.PurePath):
-        #     filenames = [filenames]
-        # else:
-        #     raise TypeError(
-        #         f"received unexpected type for filenames argument {type(filenames)} expecting list of paths."
-        #     )
         cat = make_local_catalog(
             cfp.astype(filenames, list),
             name=catalog_name,
@@ -252,7 +244,7 @@ def run(
     ndatasets: int = -1,
 ):
     """Run the model-data comparison.
-    
+
     Note that timezones are assumed to match between the model output and data.
 
     Parameters
@@ -336,7 +328,10 @@ def run(
                 min_time = cat[source_name].describe()["args"]["constraints"]["time>="]
                 max_time = cat[source_name].describe()["args"]["constraints"]["time<="]
             # use kwargs_search min/max times if available
-            elif "kwargs_search" in cat.metadata and "min_time" in cat.metadata["kwargs_search"]:
+            elif (
+                "kwargs_search" in cat.metadata
+                and "min_time" in cat.metadata["kwargs_search"]
+            ):
                 min_time = cat.metadata["kwargs_search"]["min_time"]
                 max_time = cat.metadata["kwargs_search"]["max_time"]
             else:
@@ -376,12 +371,15 @@ def run(
             # tkey = model_var.cf["T"].name
             # model_var[tkey] = model_var[tkey].to_index().tz_localize("UTC")
             # instead turn off time zone for data
-            
+
             if model_var.size == 0:
                 # model output isn't available to match data
                 # data must not be in the space/time range of model
                 maps.pop(-1)
-                warnings.warn(f"Model output is not present to match dataset {source_name}.", RuntimeWarning)
+                warnings.warn(
+                    f"Model output is not present to match dataset {source_name}.",
+                    RuntimeWarning,
+                )
                 continue
 
             # Combine and align the two time series of variable
@@ -391,7 +389,10 @@ def run(
                 dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
                 dfd.set_index(dfd.cf["T"], inplace=True)
                 if dfd.index.tz is not None:
-                    warnings.warn(f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.", RuntimeWarning)
+                    warnings.warn(
+                        f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.",
+                        RuntimeWarning,
+                    )
                     dfd.index = dfd.index.tz_convert(None)
 
                 # import pdb; pdb.set_trace()

@@ -15,7 +15,7 @@ Make a catalog with known local or remote file(s).
 
 #### Available options
 
-    omsa make_catalog --project_name PROJ_NAME --catalog_type local --catalog_name CATALOG_NAME --description "Catalog description" --kwargs filenames="[FILE1,FILE2]" 
+    omsa make_catalog --project_name PROJ_NAME --catalog_type local --catalog_name CATALOG_NAME --description "Catalog description" --kwargs filenames="[FILE1,FILE2]"
 
 * `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
 * `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
@@ -30,19 +30,19 @@ Make a catalog with known local or remote file(s).
 
 
 
-    
 
 
 
-   
 
 
 
-    
 
 
 
-    
+
+
+
+
 
 
 
@@ -52,7 +52,7 @@ Make a catalog with known local or remote file(s).
 #### Examples
 
 ```{code-cell} ipython3
-!omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://researchworkspace.com/files/8114311/ecofoci_2011CHAOZ_CTD_Nutrient_mb1101.csv]" 
+!omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://researchworkspace.com/files/8114311/ecofoci_2011CHAOZ_CTD_Nutrient_mb1101.csv]"
 ```
 
 ### ERDDAP Catalog
@@ -70,11 +70,11 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 * `metadata`: Metadata for catalog.
 * `kwargs`: Keyword arguments to make the ERDDAP catalog. See `intake-erddap.erddap_cat()` for more details.
   * `server`: ERDDAP server address, for example: "http://erddap.sensors.ioos.us/erddap"
-  * `category_search`: 
-  * `erddap_client`: 
-  * `use_source_constraints`: 
-  * `protocol`: 
-  * `metadata`: 
+  * `category_search`:
+  * `erddap_client`:
+  * `use_source_constraints`:
+  * `protocol`:
+  * `metadata`:
   * other keyword arguments can be passed into the intake `Catalog` class
 * `kwargs_search`: Keyword arguments to input to search on the server before making the catalog.
   * `min_lon`, `min_lat`, `max_lon`, `max_lat`: search for datasets within this spatial box

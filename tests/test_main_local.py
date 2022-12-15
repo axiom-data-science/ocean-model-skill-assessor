@@ -3,9 +3,9 @@ import os
 from unittest import mock
 
 import intake
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
 
 import ocean_model_skill_assessor as omsa
 
@@ -49,7 +49,10 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
     assert cat3["filenamenc"].urlpath == "filenamenc.nc"
     assert cat3["filenamenc"].describe()["driver"] == ["netcdf"]
 
-    kwargs = {"filenames": ["filenamenc.nc", "filename.csv"], "skip_entry_metadata": True}
+    kwargs = {
+        "filenames": ["filenamenc.nc", "filename.csv"],
+        "skip_entry_metadata": True,
+    }
     cat4 = omsa.make_catalog(
         catalog_type="local",
         project_name="projectA",
@@ -70,10 +73,12 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
 
 @mock.patch("intake.source.csv.CSVSource.read")
 def test_make_catalog_local_read(read):
-    
+
     source = intake.open_csv("filename.csv")
-    
-    df = pd.DataFrame(data={"time": np.arange(9), "longitude": np.arange(9), "latitude": np.arange(9)})
+
+    df = pd.DataFrame(
+        data={"time": np.arange(9), "longitude": np.arange(9), "latitude": np.arange(9)}
+    )
     read.return_value = df
 
     kwargs = {"filenames": "filename.csv", "skip_entry_metadata": False}
@@ -86,5 +91,4 @@ def test_make_catalog_local_read(read):
     )
     assert cat["filename"].metadata["minLongitude"] == 0.0
     assert cat["filename"].metadata["maxLatitude"] == 8.0
-    assert cat["filename"].metadata["minTime"] == '0'
-    
+    assert cat["filename"].metadata["minTime"] == "0"

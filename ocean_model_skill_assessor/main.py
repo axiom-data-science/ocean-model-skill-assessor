@@ -252,6 +252,8 @@ def run(
     ndatasets: int = -1,
 ):
     """Run the model-data comparison.
+    
+    Note that timezones are assumed to match between the model output and data.
 
     Parameters
     ----------
@@ -389,7 +391,9 @@ def run(
                 dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
                 dfd.set_index(dfd.cf["T"], inplace=True)
                 if dfd.index.tz is not None:
+                    warnings.warn(f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.", RuntimeWarning)
                     dfd.index = dfd.index.tz_convert(None)
+
                 # import pdb; pdb.set_trace()
                 df = omsa.stats._align(dfd.cf[key_variable], model_var)
 

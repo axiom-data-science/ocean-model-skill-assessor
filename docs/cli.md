@@ -150,6 +150,8 @@ omsa make_catalog --project_name test1 --catalog_type axds --vocab_name standard
 
 ## Run model-data comparison
 
+Note that if any datasets have timezones attached, they are removed before comparison with the assumption that the model output and data are in the same time zone.
+
 #### Available options
 
     omsa run --project_name test1 --catalog_names CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
@@ -163,16 +165,7 @@ omsa make_catalog --project_name test1 --catalog_type axds --vocab_name standard
 
 #### Examples
 
-DESCRIPTION
-
-    
-
-
-
-
-
-    
-
+Run a model-data comparison for the first 3 datasets in each of the 3 catalogs that we created previously in this notebook. Use vocabularies `erddap_ioos` and `general` for variable matching. Match on the temperature variable.
 
 ```{code-cell} ipython3
 !omsa run --project_name test1 --catalog_names example_local_catalog example_erddap_catalog example_axds_catalog --vocab_name erddap_ioos general --key temp --model_path https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc --ndatasets 3

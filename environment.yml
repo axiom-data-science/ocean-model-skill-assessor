@@ -5,6 +5,7 @@ dependencies:
   # Required for full project functionality (dont remove)
   - pytest
   # Examples (remove and add as needed)
+  - aiohttp
   - alphashape
   - cartopy
   - cf_pandas
@@ -22,6 +23,7 @@ dependencies:
   # - ocean_model_skill_assessor
   - pandas
   - pip
+  - requests
   - scipy
   - tqdm
   # - dask

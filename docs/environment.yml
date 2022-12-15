@@ -10,6 +10,7 @@ dependencies:
    # - ipython
    # - jupyter
    # - jupyterlab
+   - aiohttp
    - cf_pandas
    - cf_xarray
    - extract_model
@@ -20,6 +21,7 @@ dependencies:
    # These are needed for the docs themselves
    - jupytext
    - numpydoc
+   - requests
    - sphinx
    - sphinx-markdown-tables
    - ipython

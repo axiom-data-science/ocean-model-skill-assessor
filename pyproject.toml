@@ -23,7 +23,7 @@ quiet = false
 color = true
 
 [tool.isort]
-known_third_party = ["alphashape", "cartopy", "cf_pandas", "cf_xarray", "extract_model", "intake", "intake-axds", "intake-erddap", "matplotlib", "numpy", "pandas", "pkg_resources", "setuptools", "tqdm",  "xarray", "yaml"]
+known_third_party = ["aiohttp", "alphashape", "cartopy", "cf_pandas", "cf_xarray", "extract_model", "intake", "intake-axds", "intake-erddap", "matplotlib", "numpy", "pandas", "pkg_resources", "requests", "setuptools", "tqdm",  "xarray", "yaml"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"

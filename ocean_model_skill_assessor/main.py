@@ -33,6 +33,7 @@ def make_local_catalog(
     name: str = "local_catalog",
     description: str = "Catalog of user files.",
     metadata: dict = None,
+    skip_entry_metadata: bool = False,
 ) -> Catalog:
     """Make an intake catalog from specified data files.
 
@@ -46,6 +47,8 @@ def make_local_catalog(
         Description for catalog.
     metadata : dict, optional
         Metadata for catalog.
+    skip_entry_metadata : bool, optional
+        This is useful for testing in which case we don't want to actually read the file.
 
     Returns
     -------
@@ -60,21 +63,22 @@ def make_local_catalog(
             source = getattr(intake, "open_csv")(filename)   
         elif (mtype is not None and "netcdf" in mtype) or ".netcdf" in filename:
             source = getattr(intake, "open_netcdf")(filename)
-        dd = source.read()
-        # set up some basic metadata for each source
-        source.metadata = {"minLongitude": float(dd.cf["longitude"].min()),
-                    "minLatitude": float(dd.cf["latitude"].min()),
-                    "maxLongitude": float(dd.cf["longitude"].max()),
-                    "maxLatitude": float(dd.cf["latitude"].max()),
-                    "minTime": str(dd.cf["T"].min()),
-                    "maxTime": str(dd.cf["T"].max()),
-                    }
+        if not skip_entry_metadata:
+            dd = source.read()
+            # set up some basic metadata for each source
+            source.metadata = {"minLongitude": float(dd.cf["longitude"].min()),
+                        "minLatitude": float(dd.cf["latitude"].min()),
+                        "maxLongitude": float(dd.cf["longitude"].max()),
+                        "maxLatitude": float(dd.cf["latitude"].max()),
+                        "minTime": str(dd.cf["T"].min()),
+                        "maxTime": str(dd.cf["T"].max()),
+                        }
         sources.append(source)
 
     # create dictionary of catalog entries
     entries = {
-        f"source{i}": LocalCatalogEntry(
-            name=f"source{i}",
+        pathlib.PurePath(source._urlpath).stem: LocalCatalogEntry(
+            name=pathlib.PurePath(source._urlpath).stem,
             description=source.description if source.description is not None else "",
             driver=source._yaml()["sources"][source.name]["driver"],
             args=source._yaml()["sources"][source.name]["args"],
@@ -185,6 +189,7 @@ def make_catalog(
             name=catalog_name,
             description=description,
             metadata=metadata,
+            **kwargs,
         )
 
     elif catalog_type == "erddap":

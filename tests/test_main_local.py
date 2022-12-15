@@ -1,5 +1,4 @@
 import os
-import pathlib
 
 from unittest import mock
 
@@ -15,7 +14,7 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
     catloc2 = tmpdir / "projectA" / "catAlocal.yaml"
     mock_cat_path.return_value = catloc2
 
-    kwargs = {"filenames": "filename.csv"}
+    kwargs = {"filenames": "filename.csv", "skip_entry_metadata": True}
     cat1 = omsa.make_catalog(
         catalog_type="local",
         project_name="projectA",
@@ -26,16 +25,16 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
         save_cat=True,
     )
     assert os.path.exists(catloc2)
-    assert list(cat1) == ["source0"]
+    assert list(cat1) == ["filename"]
     assert cat1.name == "catAlocal"
-    assert cat1["source0"].urlpath == "filename.csv"
-    assert cat1["source0"].describe()["driver"] == ["csv"]
+    assert cat1["filename"].urlpath == "filename.csv"
+    assert cat1["filename"].describe()["driver"] == ["csv"]
     assert cat1.description == "test local description"
 
     cat2 = intake.open_catalog(catloc2)
-    assert cat1["source0"].describe() == cat2["source0"].describe()
+    assert cat1["filename"].describe() == cat2["filename"].describe()
 
-    kwargs = {"filenames": pathlib.PurePath("filename.nc")}
+    kwargs = {"filenames": "filenamenc.nc", "skip_entry_metadata": True}
     cat3 = omsa.make_catalog(
         catalog_type="local",
         project_name="projectA",
@@ -45,10 +44,10 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
         return_cat=True,
         save_cat=False,
     )
-    assert cat3["source0"].urlpath == "filename.nc"
-    assert cat3["source0"].describe()["driver"] == ["netcdf"]
+    assert cat3["filenamenc"].urlpath == "filenamenc.nc"
+    assert cat3["filenamenc"].describe()["driver"] == ["netcdf"]
 
-    kwargs = {"filenames": ["filename.nc", "filename.csv"]}
+    kwargs = {"filenames": ["filenamenc.nc", "filename.csv"], "skip_entry_metadata": True}
     cat4 = omsa.make_catalog(
         catalog_type="local",
         project_name="projectA",
@@ -58,7 +57,7 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
         return_cat=True,
         save_cat=False,
     )
-    assert sorted(list(cat4)) == ["source0", "source1"]
+    assert sorted(list(cat4)) == ["filename", "filenamenc"]
 
     with pytest.raises(ValueError):
         omsa.make_catalog(

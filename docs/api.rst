@@ -9,6 +9,7 @@ API
    :recursive:
 
    main
+   utils
    accessor
    stats
    plot.map

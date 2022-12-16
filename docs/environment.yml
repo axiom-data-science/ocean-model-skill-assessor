@@ -10,17 +10,21 @@ dependencies:
    # - ipython
    # - jupyter
    # - jupyterlab
+   - aiohttp
+   - cartopy
    - cf_pandas
    - cf_xarray
    - extract_model
+   - intake
+   - intake-xarray
    - numpy
-   - ocean_data_gateway
    - pandas
    - xarray
    # - xarray
    # These are needed for the docs themselves
    - jupytext
    - numpydoc
+   - requests
    - sphinx
    - sphinx-markdown-tables
    - ipython
@@ -31,11 +35,13 @@ dependencies:
    - pip
    - recommonmark
    - pip:
-     - git+https://github.com/intake/intake
+     - alphashape
+    #  - git+https://github.com/intake/intake
      - intake-axds
      - intake-erddap
-     - intake-xarray
-     - cf-pandas
+    #  - intake-xarray
+     - tqdm
+    #  - cf-pandas
      - docrep<=0.2.7
      - furo
      - nbsphinx

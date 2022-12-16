@@ -5,22 +5,25 @@ dependencies:
   - python=3.8
   ############## These will have to be adjusted to your specific project
   - cartopy
-  - cf_pandas
+  # - cf_pandas
   - cf_xarray
   - extract_model
+  - intake
+  # - intake-axds
+  # - intake-erddap
   - matplotlib-base
   - numpy
-  - ocean_data_gateway
   - pandas
   - scipy
   - xarray
   ##############
   - pytest
   - pip:
-    - git+https://github.com/intake/intake
+    - alphashape
+    - cf_pandas
     - intake-axds
     - intake-erddap
-    - intake-xarray
+    - tqdm
     - codecov
     - pytest-cov
     - coverage[toml]

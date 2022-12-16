@@ -1,11 +1,7 @@
 [build-system]
 # https://github.com/pypa/setuptools/issues/3199
-requires = ["setuptools", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools<=60.10.0", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
-
-[project]
-name = "ocean-model-skill-assessor"
-python_requires = ">=3.7" #Python version
 
 [tool.setuptools_scm]
 

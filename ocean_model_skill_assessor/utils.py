@@ -4,7 +4,6 @@ Utility functions.
 
 from typing import Dict, Union
 
-import alphashape
 import cf_pandas as cfp
 import cf_xarray
 import extract_model as em
@@ -93,6 +92,9 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
             "dd and alpha need to be defined in the catalog metadata for this model."
         )
         assert dd is not None and alpha is not None, assertion
+
+        # this leads to a circular import error if read in at top level bc of other packages brought in.
+        import alphashape
 
         # need to calculate concave hull or alphashape of grid
         # low res, same as convex hull

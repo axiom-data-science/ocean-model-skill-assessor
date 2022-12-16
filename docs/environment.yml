@@ -12,7 +12,7 @@ dependencies:
    # - jupyterlab
    - aiohttp
    - cartopy
-   - cf_pandas
+  #  - cf_pandas
    - cf_xarray
    - extract_model
    - intake
@@ -37,6 +37,7 @@ dependencies:
    - pip:
      - alphashape
     #  - git+https://github.com/intake/intake
+     - cf_pandas
      - intake-axds
      - intake-erddap
     #  - intake-xarray

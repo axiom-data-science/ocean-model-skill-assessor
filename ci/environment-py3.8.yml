@@ -4,7 +4,6 @@ channels:
 dependencies:
   - python=3.8
   ############## These will have to be adjusted to your specific project
-  - alphashape
   - cartopy
   - cf_pandas
   - cf_xarray
@@ -16,13 +15,14 @@ dependencies:
   - numpy
   - pandas
   - scipy
-  - tqdm
   - xarray
   ##############
   - pytest
   - pip:
+    - alphashape
     - intake-axds
     - intake-erddap
+    - tqdm
     - codecov
     - pytest-cov
     - coverage[toml]

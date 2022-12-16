@@ -11,6 +11,7 @@ dependencies:
    # - jupyter
    # - jupyterlab
    - aiohttp
+   - cartopy
    - cf_pandas
    - cf_xarray
    - extract_model

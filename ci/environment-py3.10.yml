@@ -2,9 +2,9 @@ name: test_env_model_assessor
 channels:
   - conda-forge
 dependencies:
-  - python=3.7
+  - python=3.10
   ############## These will have to be adjusted to your specific project
-  - cartopy
+  # - cartopy
   - cf_xarray
   - extract_model
   - intake

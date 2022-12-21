@@ -6,7 +6,7 @@ dependencies:
   - pytest
   # Examples (remove and add as needed)
   - aiohttp
-  - cartopy
+  # - cartopy
   - cf_pandas
   - cf_xarray
   - extract_model

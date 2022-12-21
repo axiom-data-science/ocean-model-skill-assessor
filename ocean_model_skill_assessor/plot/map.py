@@ -7,7 +7,6 @@ import pathlib
 from pathlib import PurePath
 from typing import Union
 
-import cartopy
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,14 +14,6 @@ import numpy as np
 from xarray import DataArray, Dataset
 
 from ..utils import find_bbox
-
-
-pc = cartopy.crs.PlateCarree()
-col_label = "k"  # "r"
-land_10m = cartopy.feature.NaturalEarthFeature(
-    "physical", "land", "10m", edgecolor="face", facecolor="0.8"
-)
-res = "10m"
 
 
 def plot_map(
@@ -39,6 +30,15 @@ def plot_map(
     ds : Union[DataArray, Dataset]
         Model output.
     """
+
+    import cartopy
+
+    pc = cartopy.crs.PlateCarree()
+    col_label = "k"  # "r"
+    land_10m = cartopy.feature.NaturalEarthFeature(
+        "physical", "land", "10m", edgecolor="face", facecolor="0.8"
+    )
+    res = "10m"
 
     min_lons, max_lons = maps[:, 0].astype(float), maps[:, 1].astype(float)
     min_lats, max_lats = maps[:, 2].astype(float), maps[:, 3].astype(float)

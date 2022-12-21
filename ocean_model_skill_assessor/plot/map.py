@@ -7,7 +7,6 @@ import pathlib
 from pathlib import PurePath
 from typing import Union
 
-import cartopy
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,6 +38,8 @@ def plot_map(
     ds : Union[DataArray, Dataset]
         Model output.
     """
+    
+    import cartopy
 
     min_lons, max_lons = maps[:, 0].astype(float), maps[:, 1].astype(float)
     min_lats, max_lats = maps[:, 2].astype(float), maps[:, 3].astype(float)

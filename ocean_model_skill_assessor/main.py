@@ -27,6 +27,13 @@ from ocean_model_skill_assessor.plot import map, time_series
 
 from .utils import kwargs_search_from_model
 
+try:
+    import cartopy
+
+    CARTOPY_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    CARTOPY_AVAILABLE = False  # pragma: no cover
+
 
 def make_local_catalog(
     filenames: List[str],
@@ -415,6 +422,9 @@ def run(
             count += 1
 
     # map of model domain with data locations
-    figname = omsa.PROJ_DIR(project_name) / "map.png"
-    omsa.plot.map.plot_map(np.asarray(maps), figname, dam)
+    if CARTOPY_AVAILABLE:
+        figname = omsa.PROJ_DIR(project_name) / "map.png"
+        omsa.plot.map.plot_map(np.asarray(maps), figname, dam)
+    else:
+        print("Not plotting map since cartopy is not installed.")
     print(f"Finished analysis. Find plots in {omsa.PROJ_DIR(project_name)}.")

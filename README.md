@@ -6,6 +6,7 @@ ocean-model-skill-assessor
 [![Documentation Status](https://img.shields.io/readthedocs/ocean-model-skill-assessor/latest.svg?style=for-the-badge)](https://ocean-model-skill-assessor.readthedocs.io/en/latest/?badge=latest)
 [![Code Style Status](https://img.shields.io/github/actions/workflow/status/axiom-data-science/ocean-model-skill-assessor/linting.yaml?branch=main&label=Code%20Style&style=for-the-badge)](https://github.com/axiom-data-science/ocean-model-skill-assessor/actions/workflows/linting.yaml)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/ocean_model_skill_assessor.svg?style=for-the-badge)](https://anaconda.org/conda-forge/ocean_model_skill_assessor)
+[![Python Package Index](https://img.shields.io/pypi/v/ocean_model_skill_assessor.svg?style=for-the-badge)](https://pypi.org/project/ocean_model_skill_assessor)
 
 
 

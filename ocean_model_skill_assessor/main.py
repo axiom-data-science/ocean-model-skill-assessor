@@ -27,6 +27,7 @@ from ocean_model_skill_assessor.plot import map, time_series
 
 from .utils import kwargs_search_from_model
 
+
 try:
     import cartopy
 

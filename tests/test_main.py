@@ -76,3 +76,30 @@ def test_run_variable(mock_ds, mock_read):
         vocabs=vocab,
         ndatasets=None,
         )
+
+
+def test_run_errors():
+    
+    # incorrect vocab type
+    with pytest.raises(ValueError):
+        omsa.run(
+        catalog_names="",
+        project_name="projectB",
+        key_variable="temp",
+        model_path="fake.nc",
+        vocabs=[dict()],
+        ndatasets=None,
+        )
+    
+    vocab = cfp.Vocab()
+    vocab.make_entry("temp", "temp", attr="name")
+    # incorrect catalog type
+    with pytest.raises(ValueError):
+        omsa.run(
+        catalog_names=[dict()],
+        project_name="projectB",
+        key_variable="temp",
+        model_path="fake.nc",
+        vocabs=vocab,
+        ndatasets=None,
+        )

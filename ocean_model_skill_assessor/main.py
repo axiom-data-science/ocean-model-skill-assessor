@@ -291,17 +291,6 @@ def run(
     #     elif isinstance(vocab[0], cfp.Vocab):
     #         vocab = cfp.merge(vocabs)
 
-    # read in model output
-    dsm = xr.open_mfdataset(cfp.astype(model_path, list), preprocess=em.preprocess)
-
-    # use only one variable from model
-    dam = dsm.cf[key_variable]
-
-    # shift if 0 to 360
-    if dam.cf["longitude"].max() > 180:
-        lkey = dam.cf["longitude"].name
-        dam[lkey] = dam[lkey] - 360
-
     # Open catalogs.
     # catalog_names = cfp.astype(catalog_names, list)
     catalog_names = cfp.always_iterable(catalog_names)
@@ -323,6 +312,17 @@ def run(
         )
     else:
         print(f"Note that there are {ndata} datasets to use. This might take awhile.")
+
+    # read in model output
+    dsm = xr.open_mfdataset(cfp.astype(model_path, list), preprocess=em.preprocess)
+
+    # use only one variable from model
+    dam = dsm.cf[key_variable]
+
+    # shift if 0 to 360
+    if dam.cf["longitude"].max() > 180:
+        lkey = dam.cf["longitude"].name
+        dam[lkey] = dam[lkey] - 360
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []

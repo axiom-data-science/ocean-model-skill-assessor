@@ -3,13 +3,14 @@ Main run functions.
 """
 
 import mimetypes
-import pathlib
+from pathlib import PurePath
 import warnings
 
 from collections.abc import Sequence
 from typing import Any, DefaultDict, Dict, List, Optional, Union
 
 import cf_pandas as cfp
+from cf_pandas import Vocab
 import cf_xarray
 import extract_model as em
 import intake
@@ -86,8 +87,8 @@ def make_local_catalog(
 
     # create dictionary of catalog entries
     entries = {
-        pathlib.PurePath(source._urlpath).stem: LocalCatalogEntry(
-            name=pathlib.PurePath(source._urlpath).stem,
+        PurePath(source._urlpath).stem: LocalCatalogEntry(
+            name=PurePath(source._urlpath).stem,
             description=source.description if source.description is not None else "",
             driver=source._yaml()["sources"][source.name]["driver"],
             args=source._yaml()["sources"][source.name]["args"],
@@ -115,7 +116,7 @@ def make_catalog(
     metadata: Optional[dict] = None,
     kwargs: Optional[Dict[str, Any]] = None,
     kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
-    vocab: Optional[Union[cfp.Vocab, str, pathlib.PurePath]] = None,
+    vocab: Optional[Union[cfp.Vocab, str, PurePath]] = None,
     return_cat: bool = True,
     save_cat: bool = False,
 ):
@@ -172,7 +173,7 @@ def make_catalog(
 
     if isinstance(vocab, str):
         vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
-    elif isinstance(vocab, pathlib.PurePath):
+    elif isinstance(vocab, PurePath):
         vocab = cfp.Vocab(vocab)
 
     if description is None:
@@ -244,12 +245,12 @@ def make_catalog(
 
 
 def run(
-    catalog_names: Union[Sequence, str, pathlib.PurePath],
+    catalog_names: Union[str, Catalog, Sequence],
     project_name: str,
     key_variable: str,
     model_path: str,
-    vocabs: Union[str, list, cfp.Vocab],
-    ndatasets: int = -1,
+    vocabs: Union[str, Vocab, Sequence],
+    ndatasets: Optional[int] = None,
 ):
     """Run the model-data comparison.
 
@@ -257,31 +258,38 @@ def run(
 
     Parameters
     ----------
-    catalog_names : str, Path, list
-        Catalog name(s) or path(s). Datasets will be accessed from catalog entries.
+    catalog_names : str, list, Catalog
+        Catalog name(s) or list of names, or catalog object or list of catalog objects. Datasets will be accessed from catalog entries.
     project_name : str
         Subdirectory in cache dir to store files associated together.
     key_variable : str
         Key in vocab(s) representing variable to compare between model and datasets.
     model_path : str, Path
         Where to find model output. Must be readable by xarray.open_mfdataset() (will be converted to list if needed).
-    vocabs : str, list, optional
+    vocabs : str, list, Vocab, optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     ndatasets : int, optional
         Max number of datasets from each input catalog to use.
     """
 
     # After this, we have a single Vocab object with vocab stored in vocab.vocab
-    if isinstance(vocabs, str):
-        vocab = cfp.Vocab(omsa.VOCAB_PATH(vocabs))
-    elif isinstance(vocabs, Sequence):
-        if isinstance(vocabs[0], str):
-            # vocabs = []
-            # for v in vocabs:
-            #     vocabs.append(cfp.Vocab(omsa.VOCAB_PATH(v)))
-            vocab = cfp.merge([cfp.Vocab(omsa.VOCAB_PATH(v)) for v in vocabs])
-        elif isinstance(vocab[0], cfp.Vocab):
-            vocab = cfp.merge(vocabs)
+    vocabs = cfp.always_iterable(vocabs)
+    # vocabs = cfp.astype(vocabs, list)
+    if isinstance(vocabs[0], str):
+        vocab = cfp.merge([Vocab(omsa.VOCAB_PATH(v)) for v in vocabs])
+    elif isinstance(vocabs[0], Vocab):
+        vocab = cfp.merge(vocabs)
+    else:
+        raise ValueError("Vocab(s) should be input as string paths or Vocab objects or Sequence thereof.")
+    #     vocab = cfp.Vocab(omsa.VOCAB_PATH(vocabs))
+    # elif isinstance(vocabs, Sequence):
+    #     if isinstance(vocabs[0], str):
+    #         # vocabs = []
+    #         # for v in vocabs:
+    #         #     vocabs.append(cfp.Vocab(omsa.VOCAB_PATH(v)))
+    #         vocab = cfp.merge([cfp.Vocab(omsa.VOCAB_PATH(v)) for v in vocabs])
+    #     elif isinstance(vocab[0], cfp.Vocab):
+    #         vocab = cfp.merge(vocabs)
 
     # read in model output
     dsm = xr.open_mfdataset(cfp.astype(model_path, list), preprocess=em.preprocess)
@@ -295,10 +303,17 @@ def run(
         dam[lkey] = dam[lkey] - 360
 
     # Open catalogs.
-    cats = [
-        intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name))
-        for catalog_name in cfp.astype(catalog_names, list)
-    ]
+    # catalog_names = cfp.astype(catalog_names, list)
+    catalog_names = cfp.always_iterable(catalog_names)
+    if isinstance(catalog_names[0], str):
+        cats = [
+            intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name))
+            for catalog_name in cfp.astype(catalog_names, list)
+        ]
+    elif isinstance(catalog_names[0], Catalog):
+        cats = catalog_names
+    else:
+        raise ValueError("Catalog(s) should be input as string paths or Catalog objects or Sequence thereof.")
 
     # Warning about number of datasets
     ndata = np.sum([len(list(cat)) for cat in cats])
@@ -346,6 +361,27 @@ def run(
                 min_time = cat[source_name].metadata["minTime"]
                 max_time = cat[source_name].metadata["maxTime"]
 
+            # Combine and align the two time series of variable
+            with cfp.set_options(custom_criteria=vocab.vocab):
+                print("source name: ", source_name)
+                dfd = cat[source_name].read()
+                if key_variable not in dfd.cf:
+                    warnings.warn(
+                        f"Key variable {key_variable} cannot be identified in dataset {source_name}. Skipping dataset.",
+                        RuntimeWarning,
+                    )
+                    maps.pop(-1)
+                    continue
+                    
+                dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
+                dfd.set_index(dfd.cf["T"], inplace=True)
+                if dfd.index.tz is not None:
+                    warnings.warn(
+                        f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.",
+                        RuntimeWarning,
+                    )
+                    dfd.index = dfd.index.tz_convert(None)
+
             # Pull out nearest model output to data
             kwargs = dict(
                 longitude=min_lon,
@@ -392,16 +428,17 @@ def run(
 
             # Combine and align the two time series of variable
             with cfp.set_options(custom_criteria=vocab.vocab):
-                print("source name: ", source_name)
-                dfd = cat[source_name].read()
-                dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
-                dfd.set_index(dfd.cf["T"], inplace=True)
-                if dfd.index.tz is not None:
-                    warnings.warn(
-                        f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.",
-                        RuntimeWarning,
-                    )
-                    dfd.index = dfd.index.tz_convert(None)
+            #     print("source name: ", source_name)
+            #     dfd = cat[source_name].read()
+            #     import pdb; pdb.set_trace()
+            #     dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
+            #     dfd.set_index(dfd.cf["T"], inplace=True)
+            #     if dfd.index.tz is not None:
+            #         warnings.warn(
+            #             f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.",
+            #             RuntimeWarning,
+            #         )
+            #         dfd.index = dfd.index.tz_convert(None)
 
                 # import pdb; pdb.set_trace()
                 df = omsa.stats._align(dfd.cf[key_variable], model_var)
@@ -423,9 +460,9 @@ def run(
             count += 1
 
     # map of model domain with data locations
-    if CARTOPY_AVAILABLE:
+    if CARTOPY_AVAILABLE and len(maps) > 0:
         figname = omsa.PROJ_DIR(project_name) / "map.png"
         omsa.plot.map.plot_map(np.asarray(maps), figname, dam)
     else:
-        print("Not plotting map since cartopy is not installed.")
+        print("Not plotting map since cartopy is not installed or no datasets to work with.")
     print(f"Finished analysis. Find plots in {omsa.PROJ_DIR(project_name)}.")

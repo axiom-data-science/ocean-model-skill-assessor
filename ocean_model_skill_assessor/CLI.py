@@ -58,6 +58,10 @@ def main():
     )
 
     parser.add_argument(
+        "--vocab_name", help="Vocab file name, must be in the vocab user directory."
+    )
+
+    parser.add_argument(
         "--catalog_name", help="Catalog name, with or without suffix of yaml."
     )
     parser.add_argument("--description", help="Catalog description.")
@@ -95,7 +99,7 @@ def main():
             description=args.description,
             kwargs=args.kwargs,
             kwargs_search=args.kwargs_search,
-            vocab=args.vocab_names,
+            vocab=args.vocab_name,
             save_cat=True,
         )
 

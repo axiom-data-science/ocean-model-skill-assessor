@@ -238,7 +238,7 @@ def make_catalog(
     if save_cat:
         # save cat to file
         cat.save(omsa.CAT_PATH(catalog_name, project_name))
-        print(f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)}.")
+        print(f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries.")
 
     if return_cat:
         return cat

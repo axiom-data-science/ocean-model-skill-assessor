@@ -154,7 +154,7 @@ Note that if any datasets have timezones attached, they are removed before compa
 
 #### Available options
 
-    omsa run --project_name test1 --catalog_names CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
+    omsa run --project_name test1 --catalogs CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
 
 * `project_name`: Subdirectory in cache dir to store files associated together.
 * `catalog_names`: Catalog name(s). Datasets will be accessed from catalog entries.

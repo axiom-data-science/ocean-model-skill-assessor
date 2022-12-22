@@ -2,7 +2,6 @@ import os
 
 from unittest import mock
 
-
 import intake
 
 import ocean_model_skill_assessor as omsa

@@ -4,7 +4,7 @@ channels:
 dependencies:
   - python=3.10
   ############## These will have to be adjusted to your specific project
-  - cf_pandas
+  # - cf_pandas
   - cf_xarray
   - extract_model
   - intake
@@ -19,6 +19,7 @@ dependencies:
   - pytest
   - pip:
     - alphashape
+    - cf_pandas
     - intake-axds
     - intake-erddap
     - tqdm

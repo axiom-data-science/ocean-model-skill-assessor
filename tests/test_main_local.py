@@ -74,8 +74,6 @@ def test_make_catalog_local(mock_cat_path, tmpdir):
 @mock.patch("intake.source.csv.CSVSource.read")
 def test_make_catalog_local_read(read):
 
-    # source = intake.open_csv("filename.csv")
-
     df = pd.DataFrame(
         data={"time": np.arange(9), "lon": np.arange(9), "lat": np.arange(9)}
     )

@@ -6,7 +6,7 @@ dependencies:
   - pytest
   # Examples (remove and add as needed)
   - aiohttp
-  - cf_pandas
+  # - cf_pandas
   - cf_xarray
   - extract_model
   - intake
@@ -21,6 +21,7 @@ dependencies:
   - xarray
   - pip:
     - alphashape
+    - cf_pandas
     - intake-axds
     - intake-erddap
   #   - git+https://github.com/intake/intake

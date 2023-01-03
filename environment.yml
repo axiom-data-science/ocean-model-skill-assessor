@@ -10,8 +10,8 @@ dependencies:
   - cf_xarray
   - extract_model
   - intake
-  - intake-axds
-  - intake-erddap
+  # - intake-axds
+  # - intake-erddap
   - intake-xarray
   - matplotlib-base
   - pandas
@@ -21,6 +21,8 @@ dependencies:
   - xarray
   - pip:
     - alphashape
+    - intake-axds
+    - intake-erddap
   #   - git+https://github.com/intake/intake
     - tqdm
   #   # use these from github to include recent changes while packages are changing a lot

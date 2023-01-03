@@ -251,6 +251,7 @@ def run(
     model_path: str,
     vocabs: Union[str, Vocab, Sequence],
     ndatasets: Optional[int] = None,
+    kwargs_xarray: Optional[Dict] = None,
 ):
     """Run the model-data comparison.
 
@@ -270,6 +271,8 @@ def run(
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     ndatasets : int, optional
         Max number of datasets from each input catalog to use.
+    kwargs_xarray : dict, optional
+        Keyword arguments to pass on to xr.open_mfdataset call.
     """
 
     # After this, we have a single Vocab object with vocab stored in vocab.vocab
@@ -307,7 +310,7 @@ def run(
         print(f"Note that there are {ndata} datasets to use. This might take awhile.")
 
     # read in model output
-    dsm = xr.open_mfdataset(cfp.astype(model_path, list), preprocess=em.preprocess)
+    dsm = xr.open_mfdataset(cfp.astype(model_path, list), preprocess=em.preprocess, **kwargs_xarray)
 
     # use only one variable from model
     dam = dsm.cf[key_variable]
@@ -410,6 +413,7 @@ def run(
             # instead turn off time zone for data
 
             if model_var.size == 0:
+                import pdb; pdb.set_trace()
                 # model output isn't available to match data
                 # data must not be in the space/time range of model
                 maps.pop(-1)

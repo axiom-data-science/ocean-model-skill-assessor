@@ -144,7 +144,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
 
         # read in model output
         dsm = xr.open_mfdataset(
-            cfp.astype(kwargs_search["model_path"], list), preprocess=em.preprocess
+            cfp.astype(kwargs_search["model_path"], list), preprocess=em.preprocess, **kwargs_xarray
         )
 
         kwargs_search.pop("model_path")

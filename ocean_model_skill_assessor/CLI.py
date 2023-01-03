@@ -88,6 +88,13 @@ def main():
         help="Max number of datasets from input catalog(s) to use.",
     )
 
+    parser.add_argument(
+        "--kwargs_xarray",
+        nargs="*",
+        action=ParseKwargs,
+        help="Input keyword arguments to be passed onto xarray open_mfdataset.",
+    )
+
     args = parser.parse_args()
 
     # Make a catalog.
@@ -101,6 +108,7 @@ def main():
             kwargs_search=args.kwargs_search,
             vocab=args.vocab_name,
             save_cat=True,
+            kwargs_xarray=args.kwargs_xarray,
         )
 
     # Print path for project name.
@@ -120,4 +128,5 @@ def main():
             key_variable=args.key,
             model_path=args.model_path,
             ndatasets=args.ndatasets,
+            kwargs_xarray=args.kwargs_xarray,
         )

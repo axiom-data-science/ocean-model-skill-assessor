@@ -8,8 +8,8 @@ dependencies:
   - cf_xarray
   - extract_model
   - intake
-  - intake-axds
-  - intake-erddap
+  - intake_axds
+  - intake_erddap
   - matplotlib-base
   - numpy
   - pandas

@@ -7,7 +7,7 @@ dependencies:
    # If your docs code examples depend on other packages add them here
    - aiohttp
    - cartopy
-   - cf_pandas
+  #  - cf_pandas
    - cf_xarray
    - extract_model
    - intake
@@ -33,6 +33,7 @@ dependencies:
    - pip:
      - alphashape
     #  - git+https://github.com/intake/intake
+     - cf_pandas
      - tqdm
      - docrep<=0.2.7
      - furo

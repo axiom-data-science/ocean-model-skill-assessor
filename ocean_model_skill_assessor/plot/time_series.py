@@ -53,7 +53,7 @@ def plot(
         stat_sum = ""
         types = ["bias", "corr", "ioa", "mse", "mss", "rmse"]
         for type in types:
-            stat_sum += f"{type}: {stats[type]:.1f}  "
+            stat_sum += f"{type}: {stats[type]['value']:.1f}  "
         title = f"{title}: {stat_sum}"
 
     ax.set_title(title, fontsize=fs_title, loc="left")

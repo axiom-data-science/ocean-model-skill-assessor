@@ -6,9 +6,12 @@ from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from pandas import DataFrame
 from xarray import DataArray
+
+import ocean_model_skill_assessor as omsa
 
 
 def _align(
@@ -58,14 +61,14 @@ def _align(
 
 
 def compute_bias(obs: DataFrame, model: DataFrame) -> DataFrame:
-    """Given obs and model signals return bias (or, MSD in some communities)."""
+    """Given obs and model signals return bias."""
 
     # check if aligned already
     if (len(obs) != len(model)) or (obs.index != model.index).any():
         aligned_signals = _align(obs, model)
         obs = aligned_signals["obs"]
         model = aligned_signals["model"]
-    return (model - obs).mean()
+    return float((model - obs).mean())
 
 
 def compute_correlation_coefficient(obs: DataFrame, model: DataFrame) -> DataFrame:
@@ -78,7 +81,7 @@ def compute_correlation_coefficient(obs: DataFrame, model: DataFrame) -> DataFra
         model = aligned_signals["model"]
     # can't send nan's in
     inds = obs.notnull() * model.notnull()
-    return np.corrcoef(obs[inds], model[inds])[0, 1]
+    return float(np.corrcoef(obs[inds], model[inds])[0, 1])
 
 
 def compute_index_of_agreement(obs: DataFrame, model: DataFrame) -> DataFrame:
@@ -98,13 +101,13 @@ def compute_index_of_agreement(obs: DataFrame, model: DataFrame) -> DataFrame:
     # handle underfloat
     if denom < 1e-16:
         return 1
-    return 1 - num / denom
+    return float(1 - num / denom)
 
 
 def compute_mean_square_error(
     obs: DataFrame, model: DataFrame, centered=False
 ) -> DataFrame:
-    """Given obs and model signals, return mean square error (MSE)"""
+    """Given obs and model signals, return mean squared error (MSE)"""
 
     # check if aligned
     if (len(obs) != len(model)) or (obs.index != model.index).any():
@@ -115,7 +118,7 @@ def compute_mean_square_error(
     error = obs - model
     if centered:
         error += -obs.mean() + model.mean()
-    return (error**2).mean()
+    return float((error**2).mean())
 
 
 def compute_murphy_skill_score(
@@ -141,7 +144,7 @@ def compute_murphy_skill_score(
     mse_obs_model = compute_mean_square_error(obs_model, obs, centered=False)
     if mse_obs_model <= 0:
         return -1
-    return 1 - mse_model / mse_obs_model
+    return float(1 - mse_model / mse_obs_model)
 
 
 def compute_root_mean_square_error(
@@ -156,12 +159,19 @@ def compute_root_mean_square_error(
         model = aligned_signals["model"]
 
     mse = compute_mean_square_error(obs, model, centered=centered)
-    return np.sqrt(mse)
+    return float(np.sqrt(mse))
 
 
-def compute_descriptive_statistics(model: DataFrame, ddof=0) -> Tuple:
+def compute_descriptive_statistics(model: DataFrame, ddof=0) -> list:
     """Given obs and model signals, return the standard deviation"""
-    return (model.max(), model.min(), model.mean(), model.std(ddof=ddof))
+    return list(
+        [
+            float(model.max()),
+            float(model.min()),
+            float(model.mean()),
+            float(model.std(ddof=ddof)),
+        ]
+    )
 
 
 def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
@@ -182,3 +192,48 @@ def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
         "rmse": compute_root_mean_square_error(obs, model),
         "descriptive": compute_descriptive_statistics(model),
     }
+
+
+def save_stats(source_name: str, stats: dict, project_name: str):
+    """Save computed stats to file."""
+
+    stats["bias"] = {
+        "value": stats["bias"],
+        "name": "Bias",
+        "long_name": "Bias or MSD",
+    }
+    stats["corr"] = {
+        "value": stats["corr"],
+        "name": "Correlation Coefficient",
+        "long_name": "Pearson product-moment correlation coefficient",
+    }
+    stats["ioa"] = {
+        "value": stats["ioa"],
+        "name": "Index of Agreement",
+        "long_name": "Index of Agreement (Willmott 1981)",
+    }
+    stats["mse"] = {
+        "value": stats["mse"],
+        "name": "Mean Squared Error",
+        "long_name": "Mean Squared Error (MSE)",
+    }
+    stats["mss"] = {
+        "value": stats["mss"],
+        "name": "Murphy Skill Score",
+        "long_name": "Murphy Skill Score (Murphy 1988)",
+    }
+    stats["rmse"] = {
+        "value": stats["rmse"],
+        "name": "RMSE",
+        "long_name": "Root Mean Square Error (RMSE)",
+    }
+    stats["descriptive"] = {
+        "value": stats["descriptive"],
+        "name": "Descriptive Statistics",
+        "long_name": "Max, Min, Mean, Standard Deviation",
+    }
+
+    with open(
+        omsa.PROJ_DIR(project_name) / f"stats_{source_name}.yaml", "w"
+    ) as outfile:
+        yaml.dump(stats, outfile, default_flow_style=False)

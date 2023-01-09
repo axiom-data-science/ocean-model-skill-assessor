@@ -7,6 +7,24 @@ import argparse
 import ocean_model_skill_assessor as omsa
 
 
+def is_int(s):
+    """Check if string is actually int."""
+    try:
+        int(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def is_float(s):
+    """Check if string is actually float."""
+    try:
+        float(s)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
 # https://sumit-ghosh.com/articles/parsing-dictionary-key-value-pairs-kwargs-argparse-python/
 class ParseKwargs(argparse.Action):
     """With can user can input dicts on CLI."""
@@ -15,11 +33,17 @@ class ParseKwargs(argparse.Action):
         """With can user can input dicts on CLI."""
         setattr(namespace, self.dest, dict())
         for value in values:
-            key, value = value.split("=")
+            # maxsplit helps in case righthand side of input has = in it, like filenames can have
+            key, value = value.split("=", maxsplit=1)
             # catch list case
             if value.startswith("[") and value.endswith("]"):
                 # if "[" in value and "]" in value:
                 value = value.strip("][").split(",")
+            # change numbers to numbers but with attention to decimals and negative numbers
+            if is_int(value):
+                value = int(value)
+            elif is_float(value):
+                value = float(value)
             getattr(namespace, self.dest)[key] = value
 
 
@@ -58,6 +82,10 @@ def main():
     )
 
     parser.add_argument(
+        "--vocab_name", help="Vocab file name, must be in the vocab user directory."
+    )
+
+    parser.add_argument(
         "--catalog_name", help="Catalog name, with or without suffix of yaml."
     )
     parser.add_argument("--description", help="Catalog description.")
@@ -77,11 +105,35 @@ def main():
     parser.add_argument(
         "--key", help="Key from vocab representing the variable to compare."
     )
-    parser.add_argument("--model_path", help="Path for model output.")
+    parser.add_argument(
+        "--model_name",
+        help="Name of catalog for model output, created in a `make_Catalog` command.",
+    )
     parser.add_argument(
         "--ndatasets",
         type=int,
         help="Max number of datasets from input catalog(s) to use.",
+    )
+
+    parser.add_argument(
+        "--kwargs_open",
+        nargs="*",
+        action=ParseKwargs,
+        help="Input keyword arguments to be passed onto xarray open_mfdataset or pandas read_csv.",
+    )
+
+    parser.add_argument(
+        "--metadata",
+        nargs="*",
+        action=ParseKwargs,
+        help="Metadata to be passed into catalog.",
+    )
+
+    parser.add_argument(
+        "--kwargs_map",
+        nargs="*",
+        action=ParseKwargs,
+        help="Input keyword arguments to be passed onto map plot.",
     )
 
     args = parser.parse_args()
@@ -93,9 +145,11 @@ def main():
             project_name=args.project_name,
             catalog_name=args.catalog_name,
             description=args.description,
+            metadata=args.metadata,
             kwargs=args.kwargs,
             kwargs_search=args.kwargs_search,
-            vocab=args.vocab_names,
+            kwargs_open=args.kwargs_open,
+            vocab=args.vocab_name,
             save_cat=True,
         )
 
@@ -111,9 +165,10 @@ def main():
     elif args.action == "run":
         omsa.main.run(
             project_name=args.project_name,
-            catalog_names=args.catalog_names,
+            catalogs=args.catalog_names,
             vocabs=args.vocab_names,
             key_variable=args.key,
-            model_path=args.model_path,
+            model_name=args.model_name,
             ndatasets=args.ndatasets,
+            kwargs_map=args.kwargs_map,
         )

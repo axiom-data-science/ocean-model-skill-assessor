@@ -51,7 +51,7 @@ repos:
   rev: v0.982
   hooks:
   - id: mypy
-    additional_dependencies: [types-setuptools]
+    additional_dependencies: [types-setuptools, types-PyYAML]
     exclude: docs/source/conf.py
     args: [--ignore-missing-imports]
 

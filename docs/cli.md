@@ -84,7 +84,7 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 
 #### Examples
 
-Select a box and time range over which to search catalog:
+Select a spatial box and time range over which to search catalog:
 
 ```{code-cell} ipython3
 !omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalog --description "Example ERDDAP catalog description" --kwargs server=https://erddap.sensors.ioos.us/erddap --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2022-1-1 max_time=2022-1-2
@@ -94,6 +94,40 @@ Input model output to use to create the space search range, but choose time sear
 
 ```{code-cell} ipython3
 !omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalog --description "Example ERDDAP catalog description" --kwargs server=https://erddap.sensors.ioos.us/erddap --kwargs_search model_path=https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc min_time=2022-1-1 max_time=2022-1-2
+```
+
+Narrow your search by variable. For `intake-erddap` you can filter by the CF `standard_name` of the variable directly with:
+
+```{code-cell} ipython3
+!omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat1 --kwargs server=https://erddap.sensors.ioos.us/erddap standard_names="[sea_surface_temperature,sea_water_temperature,surface_temperature]"
+```
+
+You can return equivalent results in your catalog by searching with a variable nickname (the keys in the dictionary) along with a dictionary defining a vocabulary of regular expressions for matching what "counts" as a particular variable. To save a custom vocabulary to a location for this command, use the `Vocab` class in `cf-pandas` ([docs](https://cf-pandas.readthedocs.io/en/latest/demo_vocab.html#save-to-file)). A premade set of vocabularies aimed at use by ocean modelers is also available to use by name; see them with command `omsa vocabs`. Suggested uses:
+* axds catalog: vocab_name standard_names
+* erddap catalog, IOOS: vocab_name erddap_ioos
+* erddap catalog, Coastwatch: vocab_name erddap_coastwatch
+* local catalog: vocab_name general
+
+This is more complicated than simply defining the desired standard_names as shown in the previous example. However, it becomes useful when using other data files or model output which might have different variable names but could be reocgnized with variable matching through the vocabulary.
+
+The example below uses the pre-defined vocabulary "erddap_ioos" since we are using the IOOS ERDDAP server, and will search for matching variables by standard_name and matching the variable nickname "temp". The "erddap_ioos" vocabulary can be investigated as shown here and contains exactly the same standard_names as in the previous example. The regular expressions are set up to match exactly those standard_names. This is why we return the same results from either approach.
+
+```{code-cell} ipython3
+import ocean_model_skill_assessor as omsa
+import cf_pandas as cfp
+
+vocab = cfp.Vocab(omsa.VOCAB_PATH("erddap_ioos"))
+vocab
+```
+
+```{code-cell} ipython3
+!omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat3 --kwargs server=https://erddap.sensors.ioos.us/erddap category_search="[standard_name,temp]" --vocab_name erddap_ioos
+```
+
+You can additionally narrow your search by a text term by adding the `search_for` and `query_type` keyword inputs. This example searches for datasets containing the varaible "sea_surface_temperature" and, somewhere in the dataset metadata, the term "Timeseries". If we had wanted datasets that contain one OR the other, we could use `query_type=union`.
+
+```{code-cell} ipython3
+!omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat2 --kwargs server=https://erddap.sensors.ioos.us/erddap standard_names="[sea_surface_temperature]" search_for="[Timeseries]" query_type=intersection
 ```
 
 ### Catalog for Axiom assets
@@ -136,25 +170,13 @@ Input model output to use to create the space search range, but choose time sear
 !omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog --description "Example AXDS catalog description" --kwargs standard_names='[sea_water_practical_salinity,sea_water_temperature]' verbose=True --kwargs_search model_path=https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc min_time=2022-1-1 max_time=2022-1-2
 ```
 
-Alternatively, filter returned datasets for variables using the variable nicknames along with a vocabulary of regular expressions for matching what "counts" as a variable. To save a custom vocabulary to a location for this command, use the `Vocab` class in `cf-pandas` ([docs](https://cf-pandas.readthedocs.io/en/latest/demo_vocab.html#save-to-file)). A premade set of vocabularies is also available to use by name; see them with command `omsa vocabs`. Suggested uses:
-* axds catalog: vocab_name standard_names
-* erddap catalog, IOOS: vocab_name erddap_ioos
-* erddap catalog, Coastwatch: vocab_name erddap_coastwatch
-* local catalog: vocab_name general
-
-```
-omsa make_catalog --project_name test1 --catalog_type axds --vocab_name standard_names --kwargs keys_to_match="[temp,salt]"
-```
-
-+++
-
 ## Run model-data comparison
 
 Note that if any datasets have timezones attached, they are removed before comparison with the assumption that the model output and data are in the same time zone.
 
 #### Available options
 
-    omsa run --project_name test1 --catalog_names CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
+    omsa run --project_name test1 --catalogs CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
 
 * `project_name`: Subdirectory in cache dir to store files associated together.
 * `catalog_names`: Catalog name(s). Datasets will be accessed from catalog entries.

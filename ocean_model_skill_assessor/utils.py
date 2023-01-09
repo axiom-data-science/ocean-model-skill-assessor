@@ -2,11 +2,12 @@
 Utility functions.
 """
 
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import cf_pandas as cfp
 import cf_xarray
 import extract_model as em
+import intake
 import numpy as np
 import shapely.geometry
 import xarray as xr
@@ -59,21 +60,21 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
 
     # this function is being used on DataArrays instead of Datasets, and the model I'm using as
     # an example doesn't have a mask, so bring this back when I have a relevant example.
-    # # check for corresponding mask (rectilinear and curvilinear grids)
-    # if any([var for var in ds.data_vars if "mask" in var]):
-    #     if ("mask_rho" in ds) and (lonkey == "lon_rho"):
-    #         maskkey = lonkey.replace("lon", "mask")
-    #     elif "mask" in ds:
-    #         maskkey = "mask"
-    #     else:
-    #         maskkey = None
-    #     if maskkey in ds:
-    #         lon = ds[lonkey].where(ds[maskkey] == 1).values
-    #         lon = lon[~np.isnan(lon)].flatten()
-    #         lat = ds[latkey].where(ds[maskkey] == 1).values
-    #         lat = lat[~np.isnan(lat)].flatten()
-    #         hasmask = True
-
+    # check for corresponding mask (rectilinear and curvilinear grids)
+    if any([var for var in ds.data_vars if "mask" in var]):
+        if ("mask_rho" in ds) and (lonkey == "lon_rho"):
+            maskkey = lonkey.replace("lon", "mask")
+        elif "mask" in ds:
+            maskkey = "mask"
+        else:
+            maskkey = None
+        if maskkey in ds:
+            lon = ds[lonkey].where(ds[maskkey] == 1).values
+            lon = lon[~np.isnan(lon)].flatten()
+            lat = ds[latkey].where(ds[maskkey] == 1).values
+            lat = lat[~np.isnan(lat)].flatten()
+            hasmask = True
+    # import pdb; pdb.set_trace()
     # This is structured, rectilinear
     # GFS, RTOFS, HYCOM
     if (lon.ndim == 1) and ("nele" not in ds.dims) and not hasmask:
@@ -96,12 +97,30 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
         # this leads to a circular import error if read in at top level bc of other packages brought in.
         import alphashape
 
+        lon, lat = lon[::dd], lat[::dd]
+        pts = list(zip(lon, lat))
+
         # need to calculate concave hull or alphashape of grid
         # low res, same as convex hull
-        p0 = alphashape.alphashape(list(zip(lon, lat)), 0.0)
+        p0 = alphashape.alphashape(pts, 0.0)
         # downsample a bit to save time, still should clearly see shape of domain
-        pts = shapely.geometry.MultiPoint(list(zip(lon[::dd], lat[::dd])))
+        # import pdb; pdb.set_trace()
+        # pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
         p1 = alphashape.alphashape(pts, alpha)
+
+    # else:  # 2D coordinates
+
+    #     # this leads to a circular import error if read in at top level bc of other packages brought in.
+    #     import alphashape
+
+    #     lon, lat = lon.flatten()[::dd], lat.flatten()[::dd]
+
+    #     # need to calculate concave hull or alphashape of grid
+    #     # low res, same as convex hull
+    #     p0 = alphashape.alphashape(list(zip(lon, lat)), 0.0)
+    #     # downsample a bit to save time, still should clearly see shape of domain
+    #     pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
+    #     p1 = alphashape.alphashape(pts, alpha)
 
     # useful things to look at: p.wkt  #shapely.geometry.mapping(p)
     return lonkey, latkey, list(p0.bounds), p1
@@ -125,11 +144,11 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
     Raises
     ------
     KeyError
-        If all of `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time` are already specified along with `model_path`.
+        If all of `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time` are already specified along with `model_name`.
     """
 
-    # if model_path input, use it to select the search kwargs
-    if "model_path" in kwargs_search:
+    # if model_name input, use it to select the search kwargs
+    if "model_name" in kwargs_search:
         if kwargs_search.keys() >= {
             "max_lon",
             "min_lon",
@@ -139,15 +158,17 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
             "max_time",
         }:
             raise KeyError(
-                "Can input `model_path` to `kwargs_search` to determine the spatial and/or temporal search box OR specify `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time`. Can also do a combination of the two."
+                "Can input `model_name` to `kwargs_search` to determine the spatial and/or temporal search box OR specify `max_lon`, `min_lon`, `max_lat`, `min_lat` and `min_time`, `max_time`. Can also do a combination of the two."
             )
 
         # read in model output
-        dsm = xr.open_mfdataset(
-            cfp.astype(kwargs_search["model_path"], list), preprocess=em.preprocess
+        model_cat = intake.open_catalog(
+            omsa.CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
         )
+        dsm = model_cat[list(model_cat)[0]].to_dask()
 
-        kwargs_search.pop("model_path")
+        kwargs_search.pop("model_name")
+        kwargs_search.pop("project_name")
 
         # if none of these present, read from model output
         if kwargs_search.keys().isdisjoint(
@@ -158,12 +179,12 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
                 "max_lat",
             }
         ):
-            min_lon, max_lon = float(dsm.cf["longitude"].min()), float(
-                dsm.cf["longitude"].max()
-            )
-            min_lat, max_lat = float(dsm.cf["latitude"].min()), float(
-                dsm.cf["latitude"].max()
-            )
+            min_lon, max_lon = float(
+                dsm[dsm.cf.coordinates["longitude"][0]].min()
+            ), float(dsm[dsm.cf.coordinates["longitude"][0]].max())
+            min_lat, max_lat = float(
+                dsm[dsm.cf.coordinates["latitude"][0]].min()
+            ), float(dsm[dsm.cf.coordinates["latitude"][0]].max())
 
             if abs(min_lon) > 180 or abs(max_lon) > 180:
                 min_lon -= 360

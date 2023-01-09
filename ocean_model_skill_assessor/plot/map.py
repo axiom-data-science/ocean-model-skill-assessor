@@ -17,7 +17,11 @@ from ..utils import find_bbox
 
 
 def plot_map(
-    maps: np.array, figname: Union[str, PurePath], ds: Union[DataArray, Dataset]
+    maps: np.array,
+    figname: Union[str, PurePath],
+    ds: Union[DataArray, Dataset],
+    alpha: int = 5,
+    dd: int = 2,
 ):
     """Plot and save to file map of model domain and data locations.
 
@@ -58,7 +62,7 @@ def plot_map(
     ax.add_feature(land_10m, facecolor="0.8")
 
     # alphashape
-    _, _, bbox, p = find_bbox(ds, dd=10, alpha=5)
+    _, _, bbox, p = find_bbox(ds, dd=dd, alpha=alpha)
     ax.add_geometries([p], crs=pc, facecolor="none", edgecolor="r", linestyle="-")
 
     # plot stations

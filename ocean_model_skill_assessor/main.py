@@ -47,9 +47,9 @@ def make_local_catalog(
     kwargs_open: Optional[Dict] = None,
 ) -> Catalog:
     """Make an intake catalog from specified data files, including model output locations.
-    
+
     Pass keywords for xarray for model output into the catalog through kwargs_xarray.
-    
+
     kwargs_open and metadata must be the same for all filenames. If it is not, make multiple catalogs and you can input them individually into the run command.
 
     Parameters
@@ -73,42 +73,50 @@ def make_local_catalog(
     -------
     Catalog
         Intake catalog with an entry for each dataset represented by a filename.
-    
+
     Examples
     --------
-    
+
     Make catalog to represent local or remote files with specific locations:
-    
+
     >>> make_local_catalog([filename1, filename2])
-    
+
     Make catalog to represent model output:
-    
+
     >>> make_local_catalog([model output location], skip_entry_metadata=True, kwargs_open={"drop_variables": "tau"})
     """
-    
+
     metadata = metadata or {}
     metadata_catalog = metadata_catalog or {}
-    
+
     kwargs_open = kwargs_open or {}
-    
+
     # if any of kwargs_open came in with "None" instead of None because of CLI, change back to None
     kwargs_open.update({key: None for key, val in kwargs_open.items() if val == "None"})
 
     sources = []
     for filename in filenames:
         mtype = mimetypes.guess_type(filename)[0]
-        if (mtype is not None and ("csv" in mtype or "text" in mtype)) or "csv" in filename or "text" in filename:
+        if (
+            (mtype is not None and ("csv" in mtype or "text" in mtype))
+            or "csv" in filename
+            or "text" in filename
+        ):
             source = getattr(intake, "open_csv")(filename, csv_kwargs=kwargs_open)
         elif "thredds" in filename and "dodsC" in filename:
             # use netcdf4 engine if not input in kwargs_xarray
             kwargs_open.setdefault("engine", "netcdf4")
             source = getattr(intake, "open_opendap")(filename, **kwargs_open)
-        elif (mtype is not None and "netcdf" in mtype) or "netcdf" in filename or ".nc" in filename:
+        elif (
+            (mtype is not None and "netcdf" in mtype)
+            or "netcdf" in filename
+            or ".nc" in filename
+        ):
             source = getattr(intake, "open_netcdf")(filename, **kwargs_open)
-        
+
         # combine input metadata with source metadata
         source.metadata.update(metadata)
-        
+
         sources.append(source)
 
     # create dictionary of catalog entries
@@ -144,8 +152,8 @@ def make_local_catalog(
                 "minLatitude",
                 "maxLatitude",
             }:
-                dd['longitude'] = cat[source].metadata["minLongitude"]
-                dd['latitude'] = cat[source].metadata["minLatitude"]
+                dd["longitude"] = cat[source].metadata["minLongitude"]
+                dd["latitude"] = cat[source].metadata["minLatitude"]
                 cat[source].metadata = {
                     "minLongitude": cat[source].metadata["minLongitude"],
                     "minLatitude": cat[source].metadata["minLatitude"],
@@ -171,10 +179,12 @@ def make_local_catalog(
                 )
                 dd.index = dd.index.tz_convert(None)
                 dd.cf["T"] = dd.index
-            metadata.update({
-                "minTime": str(dd.cf["T"].min()),
-                "maxTime": str(dd.cf["T"].max()),
-            })
+            metadata.update(
+                {
+                    "minTime": str(dd.cf["T"].min()),
+                    "maxTime": str(dd.cf["T"].max()),
+                }
+            )
 
             cat[source].metadata.update(metadata)
             cat[source]._entry._metadata.update(metadata)
@@ -347,7 +357,9 @@ def make_catalog(
     if save_cat:
         # save cat to file
         cat.save(omsa.CAT_PATH(catalog_name, project_name))
-        print(f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries.")
+        print(
+            f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
+        )
 
     if return_cat:
         return cat
@@ -434,8 +446,10 @@ def run(
         dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
         # rotate arrays so that the locations and values are -180 to 180
         # instead of 0 to 180 to -180 to 0
-        dam = dam.roll(lon=int((dam[lkey]<0).sum()), roll_coords=True)
-        print("Longitudes are being shifted because they look like they are not -180 to 180.")
+        dam = dam.roll(lon=int((dam[lkey] < 0).sum()), roll_coords=True)
+        print(
+            "Longitudes are being shifted because they look like they are not -180 to 180."
+        )
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
@@ -525,7 +539,6 @@ def run(
                     model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
 
             if model_var.size == 0:
-                import pdb; pdb.set_trace()
                 # model output isn't available to match data
                 # data must not be in the space/time range of model
                 maps.pop(-1)

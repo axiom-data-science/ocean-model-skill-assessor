@@ -5,13 +5,13 @@ Statistics functions.
 from typing import Tuple, Union
 
 import numpy as np
-import ocean_model_skill_assessor as omsa
 import pandas as pd
 import yaml
 
-
 from pandas import DataFrame
 from xarray import DataArray
+
+import ocean_model_skill_assessor as omsa
 
 
 def _align(
@@ -162,9 +162,16 @@ def compute_root_mean_square_error(
     return float(np.sqrt(mse))
 
 
-def compute_descriptive_statistics(model: DataFrame, ddof=0) -> Tuple:
+def compute_descriptive_statistics(model: DataFrame, ddof=0) -> list:
     """Given obs and model signals, return the standard deviation"""
-    return list([float(model.max()), float(model.min()), float(model.mean()), float(model.std(ddof=ddof))])
+    return list(
+        [
+            float(model.max()),
+            float(model.min()),
+            float(model.mean()),
+            float(model.std(ddof=ddof)),
+        ]
+    )
 
 
 def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
@@ -185,32 +192,48 @@ def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
         "rmse": compute_root_mean_square_error(obs, model),
         "descriptive": compute_descriptive_statistics(model),
     }
-    
+
 
 def save_stats(source_name: str, stats: dict, project_name: str):
     """Save computed stats to file."""
-    
-    stats["bias"] = {'value': stats['bias'],
-            'name': "Bias",
-            'long_name': "Bias or MSD",}
-    stats["corr"] = {"value": stats["corr"],
-            "name": "Correlation Coefficient",
-            "long_name": "Pearson product-moment correlation coefficient",}
-    stats["ioa"] =  {"value": stats["ioa"],
-            "name": "Index of Agreement",
-            "long_name": "Index of Agreement (Willmott 1981)",}
-    stats["mse"] =  {"value": stats["mse"],
-            "name": "Mean Squared Error",
-            "long_name": "Mean Squared Error (MSE)",}
-    stats["mss"] = {"value": stats["mss"],
-            "name": "Murphy Skill Score",
-            "long_name": "Murphy Skill Score (Murphy 1988)",}
-    stats["rmse"] =  {"value": stats["rmse"],
-            "name": "RMSE",
-            "long_name": "Root Mean Square Error (RMSE)",}
-    stats["descriptive"] = {"value": stats["descriptive"],
-            "name": "Descriptive Statistics",
-            "long_name": "Max, Min, Mean, Standard Deviation"}
-    
-    with open(omsa.PROJ_DIR(project_name) / f"stats_{source_name}.yaml", "w") as outfile:
+
+    stats["bias"] = {
+        "value": stats["bias"],
+        "name": "Bias",
+        "long_name": "Bias or MSD",
+    }
+    stats["corr"] = {
+        "value": stats["corr"],
+        "name": "Correlation Coefficient",
+        "long_name": "Pearson product-moment correlation coefficient",
+    }
+    stats["ioa"] = {
+        "value": stats["ioa"],
+        "name": "Index of Agreement",
+        "long_name": "Index of Agreement (Willmott 1981)",
+    }
+    stats["mse"] = {
+        "value": stats["mse"],
+        "name": "Mean Squared Error",
+        "long_name": "Mean Squared Error (MSE)",
+    }
+    stats["mss"] = {
+        "value": stats["mss"],
+        "name": "Murphy Skill Score",
+        "long_name": "Murphy Skill Score (Murphy 1988)",
+    }
+    stats["rmse"] = {
+        "value": stats["rmse"],
+        "name": "RMSE",
+        "long_name": "Root Mean Square Error (RMSE)",
+    }
+    stats["descriptive"] = {
+        "value": stats["descriptive"],
+        "name": "Descriptive Statistics",
+        "long_name": "Max, Min, Mean, Standard Deviation",
+    }
+
+    with open(
+        omsa.PROJ_DIR(project_name) / f"stats_{source_name}.yaml", "w"
+    ) as outfile:
         yaml.dump(stats, outfile, default_flow_style=False)

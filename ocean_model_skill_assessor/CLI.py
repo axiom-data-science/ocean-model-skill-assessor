@@ -6,18 +6,24 @@ import argparse
 
 import ocean_model_skill_assessor as omsa
 
+
 def is_int(s):
+    """Check if string is actually int."""
     try:
         int(s)
         return True
     except (ValueError, TypeError):
         return False
+
+
 def is_float(s):
+    """Check if string is actually float."""
     try:
         float(s)
         return True
     except (ValueError, TypeError):
         return False
+
 
 # https://sumit-ghosh.com/articles/parsing-dictionary-key-value-pairs-kwargs-argparse-python/
 class ParseKwargs(argparse.Action):
@@ -99,7 +105,10 @@ def main():
     parser.add_argument(
         "--key", help="Key from vocab representing the variable to compare."
     )
-    parser.add_argument("--model_name", help="Name of catalog for model output, created in a `make_Catalog` command.")
+    parser.add_argument(
+        "--model_name",
+        help="Name of catalog for model output, created in a `make_Catalog` command.",
+    )
     parser.add_argument(
         "--ndatasets",
         type=int,

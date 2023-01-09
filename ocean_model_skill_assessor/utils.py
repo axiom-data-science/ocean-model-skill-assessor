@@ -96,7 +96,7 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
 
         # this leads to a circular import error if read in at top level bc of other packages brought in.
         import alphashape
-        
+
         lon, lat = lon[::dd], lat[::dd]
         pts = list(zip(lon, lat))
 
@@ -107,12 +107,12 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
         # import pdb; pdb.set_trace()
         # pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
         p1 = alphashape.alphashape(pts, alpha)
-        
+
     # else:  # 2D coordinates
-        
+
     #     # this leads to a circular import error if read in at top level bc of other packages brought in.
     #     import alphashape
-        
+
     #     lon, lat = lon.flatten()[::dd], lat.flatten()[::dd]
 
     #     # need to calculate concave hull or alphashape of grid
@@ -162,7 +162,9 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
             )
 
         # read in model output
-        model_cat = intake.open_catalog(omsa.CAT_PATH(kwargs_search['model_name'], kwargs_search['project_name']))
+        model_cat = intake.open_catalog(
+            omsa.CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
+        )
         dsm = model_cat[list(model_cat)[0]].to_dask()
 
         kwargs_search.pop("model_name")
@@ -177,12 +179,12 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
                 "max_lat",
             }
         ):
-            min_lon, max_lon = float(dsm[dsm.cf.coordinates["longitude"][0]].min()), float(
-                dsm[dsm.cf.coordinates["longitude"][0]].max()
-            )
-            min_lat, max_lat = float(dsm[dsm.cf.coordinates["latitude"][0]].min()), float(
-                dsm[dsm.cf.coordinates["latitude"][0]].max()
-            )
+            min_lon, max_lon = float(
+                dsm[dsm.cf.coordinates["longitude"][0]].min()
+            ), float(dsm[dsm.cf.coordinates["longitude"][0]].max())
+            min_lat, max_lat = float(
+                dsm[dsm.cf.coordinates["latitude"][0]].min()
+            ), float(dsm[dsm.cf.coordinates["latitude"][0]].max())
 
             if abs(min_lon) > 180 or abs(max_lon) > 180:
                 min_lon -= 360

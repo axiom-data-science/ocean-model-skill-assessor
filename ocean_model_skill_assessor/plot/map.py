@@ -17,7 +17,11 @@ from ..utils import find_bbox
 
 
 def plot_map(
-    maps: np.array, figname: Union[str, PurePath], ds: Union[DataArray, Dataset], alpha: int = 5, dd: int = 2,
+    maps: np.array,
+    figname: Union[str, PurePath],
+    ds: Union[DataArray, Dataset],
+    alpha: int = 5,
+    dd: int = 2,
 ):
     """Plot and save to file map of model domain and data locations.
 

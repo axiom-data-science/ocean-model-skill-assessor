@@ -5,8 +5,10 @@ import numpy as np
 import pytest
 import shapely.geometry
 import xarray as xr
+
 from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
+
 import ocean_model_skill_assessor as omsa
 
 
@@ -52,7 +54,7 @@ def test_kwargs_search_from_model(mock_open_cat, mock_to_dask):
     )
 
     mock_open_cat.return_value = cat
-    
+
     mock_to_dask.return_value = ds
 
     kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)
@@ -66,7 +68,12 @@ def test_kwargs_search_from_model(mock_open_cat, mock_to_dask):
     }
     assert kwargs_search == output
 
-    kwargs_search = {"min_time": 1, "max_time": 2, "model_name": "path", "project_name": "test_project"}
+    kwargs_search = {
+        "min_time": 1,
+        "max_time": 2,
+        "model_name": "path",
+        "project_name": "test_project",
+    }
     kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)
     output = {
         "min_lon": 0.0,
@@ -84,7 +91,7 @@ def test_kwargs_search_from_model(mock_open_cat, mock_to_dask):
         "min_lat": 1,
         "max_lat": 2,
         "model_name": "path",
-        "project_name": "test_project"
+        "project_name": "test_project",
     }
     kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)
     output = {
@@ -105,7 +112,7 @@ def test_kwargs_search_from_model(mock_open_cat, mock_to_dask):
         "min_lat": "1",
         "max_lat": "2",
         "model_name": "path",
-        "project_name": "test_project"
+        "project_name": "test_project",
     }
     with pytest.raises(KeyError):
         kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)

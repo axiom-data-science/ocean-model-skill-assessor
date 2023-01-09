@@ -19,7 +19,7 @@ import ocean_model_skill_assessor as omsa
 @mock.patch("intake.open_catalog")
 def test_run_variable(mock_open_cat, mock_open_cat_model, mock_to_dask, mock_read):
     """Test running with variable that is not present in catalog dataset."""
-    
+
     # make model catalog
     entries = {
         "name": LocalCatalogEntry(
@@ -78,7 +78,7 @@ def test_run_variable(mock_open_cat, mock_open_cat_model, mock_to_dask, mock_rea
         {"standard_name": "sea_water_temperature", "coordinates": "lon"},
     )
     mock_to_dask.return_value = ds
-    
+
     mock_open_cat.return_value = cat
     mock_open_cat_model.return_value = catm
 

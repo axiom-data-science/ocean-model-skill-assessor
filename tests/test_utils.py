@@ -1,10 +1,12 @@
 from unittest import mock
 
+import intake_xarray
 import numpy as np
 import pytest
 import shapely.geometry
 import xarray as xr
-
+from intake.catalog import Catalog
+from intake.catalog.local import LocalCatalogEntry
 import ocean_model_skill_assessor as omsa
 
 
@@ -26,12 +28,32 @@ ds["lon"] = (
 )
 
 
-@mock.patch("xarray.open_mfdataset")
-def test_kwargs_search_from_model(mock_xarray):
+@mock.patch("intake_xarray.base.DataSourceMixin.to_dask")
+@mock.patch("intake.open_catalog")
+def test_kwargs_search_from_model(mock_open_cat, mock_to_dask):
 
-    kwargs_search = {"model_path": "path"}
+    kwargs_search = {"model_name": "path", "project_name": "test_project"}
 
-    mock_xarray.return_value = ds
+    entries = {
+        "name": LocalCatalogEntry(
+            name="name",
+            description="description",
+            driver=intake_xarray.opendap.OpenDapSource,
+            args={"urlpath": "path", "engine": "netcdf4"},
+            metadata={},
+            direct_access="allow",
+        ),
+    }
+    cat = Catalog.from_dict(
+        entries,
+        name="name",
+        description="description",
+        metadata={},
+    )
+
+    mock_open_cat.return_value = cat
+    
+    mock_to_dask.return_value = ds
 
     kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)
     output = {
@@ -44,7 +66,7 @@ def test_kwargs_search_from_model(mock_xarray):
     }
     assert kwargs_search == output
 
-    kwargs_search = {"min_time": 1, "max_time": 2, "model_path": "path"}
+    kwargs_search = {"min_time": 1, "max_time": 2, "model_name": "path", "project_name": "test_project"}
     kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)
     output = {
         "min_lon": 0.0,
@@ -61,7 +83,8 @@ def test_kwargs_search_from_model(mock_xarray):
         "max_lon": 2,
         "min_lat": 1,
         "max_lat": 2,
-        "model_path": "path",
+        "model_name": "path",
+        "project_name": "test_project"
     }
     kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)
     output = {
@@ -81,7 +104,8 @@ def test_kwargs_search_from_model(mock_xarray):
         "max_lon": "2",
         "min_lat": "1",
         "max_lat": "2",
-        "model_path": "path",
+        "model_name": "path",
+        "project_name": "test_project"
     }
     with pytest.raises(KeyError):
         kwargs_search = omsa.utils.kwargs_search_from_model(kwargs_search)

@@ -1,6 +1,7 @@
 from unittest import mock
 
 import cf_pandas as cfp
+import intake_xarray
 import numpy as np
 import pandas as pd
 import pytest
@@ -13,11 +14,31 @@ import ocean_model_skill_assessor as omsa
 
 
 @mock.patch("intake.source.csv.CSVSource.read")
-@mock.patch("xarray.open_mfdataset")
-def test_run_variable(mock_ds, mock_read):
+@mock.patch("intake_xarray.base.DataSourceMixin.to_dask")
+@mock.patch("intake.open_catalog")
+@mock.patch("intake.open_catalog")
+def test_run_variable(mock_open_cat, mock_open_cat_model, mock_to_dask, mock_read):
     """Test running with variable that is not present in catalog dataset."""
+    
+    # make model catalog
+    entries = {
+        "name": LocalCatalogEntry(
+            name="name",
+            description="description",
+            driver=intake_xarray.opendap.OpenDapSource,
+            args={"urlpath": "path", "engine": "netcdf4"},
+            metadata={},
+            direct_access="allow",
+        ),
+    }
+    catm = Catalog.from_dict(
+        entries,
+        name="model_cat",
+        description="description",
+        metadata={},
+    )
 
-    # make catalog
+    # make Data catalog
     entries = {
         "test_source": LocalCatalogEntry(
             "test_source",
@@ -56,7 +77,10 @@ def test_run_variable(mock_ds, mock_read):
         np.arange(9),
         {"standard_name": "sea_water_temperature", "coordinates": "lon"},
     )
-    mock_ds.return_value = ds
+    mock_to_dask.return_value = ds
+    
+    mock_open_cat.return_value = cat
+    mock_open_cat_model.return_value = catm
 
     df = pd.DataFrame(
         columns=[
@@ -73,7 +97,7 @@ def test_run_variable(mock_ds, mock_read):
             catalogs=cat,
             project_name="projectB",
             key_variable="temp",
-            model_path="fake.nc",
+            model_name="model_cat",
             vocabs=vocab,
             ndatasets=None,
         )
@@ -87,7 +111,7 @@ def test_run_errors():
             catalogs="",
             project_name="projectB",
             key_variable="temp",
-            model_path="fake.nc",
+            model_name="fake.nc",
             vocabs=[dict()],
             ndatasets=None,
         )
@@ -100,7 +124,7 @@ def test_run_errors():
             catalogs=[dict()],
             project_name="projectB",
             key_variable="temp",
-            model_path="fake.nc",
+            model_name="fake.nc",
             vocabs=vocab,
             ndatasets=None,
         )

@@ -89,4 +89,4 @@ def test_make_catalog_local_read(read):
     )
     assert cat["filename"].metadata["minLongitude"] == 0.0
     assert cat["filename"].metadata["maxLatitude"] == 8.0
-    assert cat["filename"].metadata["minTime"] == "0"
+    assert cat["filename"].metadata["minTime"] == "1970-01-01 00:00:00"

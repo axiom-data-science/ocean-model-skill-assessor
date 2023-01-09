@@ -83,7 +83,7 @@ def make_local_catalog(
     
     Make catalog to represent model output:
     
-    >>> make_local_catalog([model output location(s)], skip_entry_metadata=True, kwargs_open={"drop_variables": "tau"})
+    >>> make_local_catalog([model output location], skip_entry_metadata=True, kwargs_open={"drop_variables": "tau"})
     """
     
     metadata = metadata or {}

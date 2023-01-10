@@ -52,6 +52,20 @@ Show the catalog file:
 Code(filename=omsa.CAT_PATH("example_local_catalog", "test1"))
 ```
 
+##### Dataset with no lon/lat
+
+When a dataset does not contain location information, you can input it as metadata to the catalog with the dataset. However, you need to input one filename and one set of metadata per catalog call.
+
+Station page: https://tidesandcurrents.noaa.gov/stationhome.html?id=9455500
+
+```{code-cell} ipython3
+!omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog2 --kwargs filenames="[https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=water_temperature&application=NOS.COOPS.TAC.PHYSOCEAN&begin_date=20230109&end_date=20230109&station=9455500&time_zone=GMT&units=english&interval=6&format=csv]" --metadata minLongitude=-151.72 maxLongitude=-151.72 minLatitude=59.44 maxLatitude=59.44
+```
+
+```{code-cell} ipython3
+Code(filename=omsa.CAT_PATH("example_local_catalog2", "test1"))
+```
+
 ##### Set up model
 
 Use this approach to set up a catalog file for your model output, so that it can be used by OMSA. Use `skip_entry_metadata=True` when running for a model.

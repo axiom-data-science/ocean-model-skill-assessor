@@ -33,12 +33,7 @@ $ pip install ocean-model-skill-assessor
 
 ### Set up environment
 
----
-**NOTE**
-
-Make sure you have [Anaconda or Miniconda installed](https://conda.io/projects/conda/en/latest/user-guide/install/download.html).
-
----
+**NOTE**: Make sure you have [Anaconda or Miniconda installed](https://conda.io/projects/conda/en/latest/user-guide/install/download.html).
 
 Create a conda environment called "omsa" that includes the package `ocean-model-skill-assessor`:
 ``` bash

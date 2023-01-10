@@ -1,21 +1,34 @@
 
+```{code-cell} ipython3
+import ocean_model_skill_assessor as omsa
+from IPython.display import Code, JSON, Image
+```
+
 # Using OMSA through Command Line Interface
 
 Example commands will be run below in which case they are prefixed with `!` to run as a shell command instead of as Python code. In the terminal window, you should remove the `!` before running the command.
 
 +++
 
+## Setup model
+
+Set up a catalog file for your model output.
+
+```{code-cell} ipython3
+!omsa make_catalog --project_name test1 --catalog_type local --catalog_name model --kwargs filenames=https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd skip_entry_metadata=True  --kwargs_xarray drop_variables=ocean_time 
+```
+
 ## Make one or more catalogs
 
 ### Local catalog
 
-Make a catalog with known local or remote file(s).
+Make a catalog with known local or remote file(s). Also use this to make a catalog to represent your model output.
 
 +++
 
 #### Available options
 
-    omsa make_catalog --project_name PROJ_NAME --catalog_type local --catalog_name CATALOG_NAME --description "Catalog description" --kwargs filenames="[FILE1,FILE2]"
+    omsa make_catalog --project_name PROJ_NAME --catalog_type local --catalog_name CATALOG_NAME --description "Catalog description" --kwargs filenames="[FILE1,FILE2]" 
 
 * `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
 * `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
@@ -25,34 +38,16 @@ Make a catalog with known local or remote file(s).
 * `kwargs`: Keyword arguments to make the local catalog. See `omsa.main.make_local_catalog()` for more details.
   * `filenames`: (Required) Where to find dataset(s) from which to make local catalog.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 +++
 
 #### Examples
 
 ```{code-cell} ipython3
-!omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://researchworkspace.com/files/8114311/ecofoci_2011CHAOZ_CTD_Nutrient_mb1101.csv]"
+!omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://researchworkspace.com/files/8114311/ecofoci_2011CHAOZ_CTD_Nutrient_mb1101.csv]" 
+```
+
+```{code-cell} ipython3
+Code(filename=omsa.CAT_PATH("model", "demo1"))
 ```
 
 ### ERDDAP Catalog
@@ -70,11 +65,11 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 * `metadata`: Metadata for catalog.
 * `kwargs`: Keyword arguments to make the ERDDAP catalog. See `intake-erddap.erddap_cat()` for more details.
   * `server`: ERDDAP server address, for example: "http://erddap.sensors.ioos.us/erddap"
-  * `category_search`:
-  * `erddap_client`:
-  * `use_source_constraints`:
-  * `protocol`:
-  * `metadata`:
+  * `category_search`: 
+  * `erddap_client`: 
+  * `use_source_constraints`: 
+  * `protocol`: 
+  * `metadata`: 
   * other keyword arguments can be passed into the intake `Catalog` class
 * `kwargs_search`: Keyword arguments to input to search on the server before making the catalog.
   * `min_lon`, `min_lat`, `max_lon`, `max_lat`: search for datasets within this spatial box
@@ -174,7 +169,7 @@ Input model output to use to create the space search range, but choose time sear
 
 Note that if any datasets have timezones attached, they are removed before comparison with the assumption that the model output and data are in the same time zone.
 
-#### Available options
+### Available options
 
     omsa run --project_name test1 --catalogs CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
 
@@ -185,12 +180,12 @@ Note that if any datasets have timezones attached, they are removed before compa
 * `model_path`: Where to find model output. Must be readable by xarray.open_mfdataset() (will be converted to list if needed).
 * `ndatasets`: Max number of datasets from each input catalog to use.
 
-#### Examples
+### Examples
 
 Run a model-data comparison for the first 3 datasets in each of the 3 catalogs that we created previously in this notebook. Use vocabularies `erddap_ioos` and `general` for variable matching. Match on the temperature variable.
 
 ```{code-cell} ipython3
-!omsa run --project_name test1 --catalog_names example_local_catalog example_erddap_catalog example_axds_catalog --vocab_name erddap_ioos general --key temp --model_path https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc --ndatasets 3
+!omsa run --project_name test1 --catalog_names example_local_catalog example_erddap_catalog example_axds_catalog --vocab_names erddap_ioos general --key temp --model_path https://thredds.cencoos.org/thredds/dodsC/CENCOOS_CA_ROMS_FCST.nc --ndatasets 3
 ```
 
 ## Utilities

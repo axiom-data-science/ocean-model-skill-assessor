@@ -32,7 +32,7 @@ import ocean_model_skill_assessor  # isort:skip
 # -- Project information -----------------------------------------------------
 
 project = "ocean-model-skill-assessor"
-copyright = "2021-2022, Axiom Data Science"
+copyright = "2021-2023, Axiom Data Science"
 author = "Axiom Data Science"
 
 release = get_distribution("ocean-model-skill-assessor").version
@@ -93,9 +93,19 @@ html_title = "ocean-model-skill-assessor documentation"
 html_static_path = ["_static"]
 
 
+# -- myst nb specific options ------
+
+# https://myst-nb.readthedocs.io/en/v0.13.0/use/execute.html#execution-timeout
+# had this message:
+# WARNING: 'execution_timeout' is deprecated for 'nb_execution_timeout' [mystnb.config]
+# WARNING: 'execution_allow_errors' is deprecated for 'nb_execution_allow_errors' [mystnb.config]
+nb_execution_timeout = 300  # seconds.
+nb_execution_allow_errors = False
+
+
 # -- nbsphinx specific options ----------------------------------------------
 # this allows notebooks to be run even if they produce errors.
-nbsphinx_allow_errors = True
+# nbsphinx_allow_errors = True
 
 # copied from cf-xarray
 autosummary_generate = True

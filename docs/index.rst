@@ -6,12 +6,21 @@
 Welcome to ocean-model-skill-assessor's documentation!
 ======================================================
 
+Installation
+------------
+
+To install from conda-forge:
+  >>> conda install -c conda-forge ocean-model-skill-assessor
+
+To install from PyPI:
+  >>> pip install cf-pandas
+
+
 .. toctree::
    :maxdepth: 3
 
    demo.md
    cli.md
-   create_vocabs.md
    api
    GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 

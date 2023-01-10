@@ -16,47 +16,40 @@ A package to fully run the comparison between data and model to assess model ski
 
 <p><small>Project based on the <a target="_blank" href="https://github.com/jbusecke/cookiecutter-science-project">cookiecutter science project template</a>.</small></p>
 
-## Run Demo without Installation
-
-Click the binder button to open up a demonstration notebook in your browser window
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/axiom-data-science/ocean-model-skill-assessor/HEAD?labpath=docs%2FDemo-AK.ipynb)
-
 
 ## Installation
 
-### Set up fresh environment for this package
+### Install into existing environment
 
-First, make sure you have [Anaconda or Miniconda installed](https://conda.io/projects/conda/en/latest/user-guide/install/download.html).
-
-Then, clone this repository:
-``` bash
-$ git clone https://github.com/axiom-data-science/ocean-model-skill-assessor.git
+From `conda-forge`:
+``` base
+$ conda install -c conda-forge ocean-model-skill-assessor
 ```
 
-In the `ocean_model_skill_assessor` directory, install a conda environment with convenient packages for working with this package (beyond the requirements):
-``` bash
-$ conda env create -f environment.yml
+From PyPI:
+``` base
+$ pip install ocean-model-skill-assessor
 ```
 
-Note that installing the packages is faster if you first install `mamba` to your base Python and then use `mamba` in place of `conda`.
+### Set up environment
+
+---
+**NOTE**
+
+Make sure you have [Anaconda or Miniconda installed](https://conda.io/projects/conda/en/latest/user-guide/install/download.html).
+
+---
+
+Create a conda environment called "omsa" that includes the package `ocean-model-skill-assessor`:
+``` bash
+$ conda create -n omsa -c conda-forge ocean-model-skill-assessor
+```
+
+Note that installing the packages is faster if you first install `mamba` to your base Python and then use "mamba" in place of all instances of "conda".
 
 Activate your new Python environment to use it with
 ``` bash
-$ conda activate ocean-model-skill-assessor
-```
-
-### Install into existing Python environment
-
-Install the package plus its requirements from `conda-forge` with
-``` bash
-$ conda install -c conda-forge ocean_model_skill_assessor
-```
-
-Or you can git clone the repository and then pip install it locally into your existing Python environment:
-For local package install, in the `ocean_model_skill_assessor` directory:
-``` bash
-$ pip install -e .
+$ conda activate omsa
 ```
 
 ### Extra packages for development
@@ -70,7 +63,3 @@ To then check code before committing and pushing it to github, locally run
 ``` bash
 $ pre-commit run --all-files
 ```
-
-## Run Demo
-
-In your terminal window, activate your Python environment if you are using one, then type `jupyter lab` in the `ocean_model_skill_assessor` directory. This will open into your browser window. Navigate to `docs/Demo-AK.ipynb` or any of the other notebooks and double-click to open. Inside a notebook, push `shift-enter` to run individual cells, or the play button at the top to run all cells, or select commands under the `Run` menu.

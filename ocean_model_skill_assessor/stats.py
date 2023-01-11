@@ -21,8 +21,7 @@ def _align(
 
     Returns
     -------
-    A DataFrame indexed by time with one column 'obs' and one column 'model' which are at the model times and which does
-    not extend in time beyond either's original time range.
+    A DataFrame indexed by time with one column 'obs' and one column 'model' which are at the model times and which does not extend in time beyond either's original time range.
 
     Notes
     -----

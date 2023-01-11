@@ -48,9 +48,9 @@ def make_local_catalog(
 ) -> Catalog:
     """Make an intake catalog from specified data files, including model output locations.
 
-    Pass keywords for xarray for model output into the catalog through kwargs_xarray.
+    Pass keywords for xarray for model output into the catalog through ``kwargs_xarray``.
 
-    kwargs_open and metadata must be the same for all filenames. If it is not, make multiple catalogs and you can input them individually into the run command.
+    ``kwargs_open`` and ``metadata`` must be the same for all filenames. If it is not, make multiple catalogs and you can input them individually into the run command.
 
     Parameters
     ----------
@@ -65,9 +65,9 @@ def make_local_catalog(
     metadata_catalog : dict, optional
         Metadata for catalog.
     kwargs_open : dict, optional
-        Keyword arguments to pass on to local catalof for model for xr.open_mfdataset call or pandas open_csv.
+        Keyword arguments to pass on to the appropriate ``intake`` ``open_*`` call for model or dataset.
     skip_entry_metadata : bool, optional
-        This is useful for testing in which case we don't want to actually read the file. If inputting kwargs_xarray, you may want to set this to True since you are presumably making a catalog file for a model.
+        This is useful for testing in which case we don't want to actually read the file. If inputting ``kwargs_xarray``, you may want to set this to `True` since you are presumably making a catalog file for a model.
 
     Returns
     -------
@@ -244,20 +244,22 @@ def make_catalog(
     kwargs : dict, optional
         Available keyword arguments for catalog types. Find more information about options in the original docs for each type. Some inputs might be required, depending on the catalog type.
     kwargs_search : dict, optional
-        Keyword arguments to input to search on the server before making the catalog. These are not used with `make_local_catalog()`; only for catalog types erddap and axds.
+        Keyword arguments to input to search on the server before making the catalog. These are not used with ``make_local_catalog()``; only for catalog types "erddap" and "axds".
         Options are:
+        
         * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
         * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
         * to search using a textual keyword: include `search_for` as a string.
-        * model_name can be input in place of either the spatial box or the time range or both in which case those values will be found from the model output.
+        * model_name can be input in place of either the spatial box or the time range or both in which case those values will be found from the model output. model_name should match a catalog file in the directory described by project_name.
+
     kwargs_open : dict, optional
-        Keyword arguments to save into local catalog for model to pass on to xr.open_mfdataset call or pandas open_csv. Only for use with catalog_type=local.
+        Keyword arguments to save into local catalog for model to pass on to ``xr.open_mfdataset`` call or ``pandas`` ``open_csv``. Only for use with ``catalog_type=local``.
     vocab : dict, optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for.
     return_cat : bool, optional
         Return catalog. For when using as a Python package instead of with command line.
     save_cat: bool, optional
-        Save catalog to disk into project directory under catalog_name.
+        Save catalog to disk into project directory under `catalog_name`.
     """
 
     if kwargs_search is not None and catalog_type == "local":
@@ -387,13 +389,13 @@ def run(
     key_variable : str
         Key in vocab(s) representing variable to compare between model and datasets.
     model_name : str, Path
-        Name of catalog for model output, created with `make_catalog` call.
+        Name of catalog for model output, created with ``make_catalog`` call.
     vocabs : str, list, Vocab, optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     ndatasets : int, optional
         Max number of datasets from each input catalog to use.
     kwargs_map : dict, optional
-        Keyword arguments to pass on to omsa.plot.map.plot_map call.
+        Keyword arguments to pass on to ``omsa.plot.map.plot_map`` call.
     """
 
     kwargs_map = kwargs_map or {}

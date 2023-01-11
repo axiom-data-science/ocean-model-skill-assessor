@@ -34,7 +34,7 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
 
     Notes
     -----
-    This is from the package model_catalogs.
+    This is from the package ``model_catalogs``.
     """
 
     hasmask = False
@@ -139,7 +139,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
     Returns
     -------
     dict
-        kwargs_search but with modifications if relevant.
+        `kwargs_search` but with modifications if relevant.
 
     Raises
     ------

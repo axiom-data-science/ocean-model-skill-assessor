@@ -77,6 +77,7 @@ templates_path = ["_templates"]
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-exclude_patterns
 exclude_patterns = ["_build", "**.ipynb_checkpoints", "Thumbs.db", ".DS_Store", "_old_docs", ".ipynb"]
 
+html_extra_path = ["create_vocabs.html"]
 
 # -- Options for HTML output -------------------------------------------------
 

@@ -21,6 +21,7 @@ To install from PyPI:
 
    demo.md
    cli.md
+   create_vocabs_wrapper
    api
    GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 

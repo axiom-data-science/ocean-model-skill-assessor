@@ -558,7 +558,7 @@ def run(
 
             # Where to save stats to?
             stats = df.omsa.compute_stats
-            omsa.stats.save_stats(source_name, stats, project_name)
+            omsa.stats.save_stats(source_name, stats, project_name, key_variable)
 
             # Write stats on plot
             figname = omsa.PROJ_DIR(project_name) / f"{source_name}_{key_variable}.png"

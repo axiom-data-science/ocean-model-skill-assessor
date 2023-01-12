@@ -20,6 +20,7 @@ To install from PyPI:
    :maxdepth: 3
 
    demo.md
+   demo_erddap.md
    cli.md
    create_vocabs_wrapper
    api

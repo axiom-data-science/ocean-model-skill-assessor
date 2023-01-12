@@ -4,7 +4,7 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.14.1
+    jupytext_version: 1.14.4
 kernelspec:
   display_name: Python 3.10.8 ('omsa')
   language: python
@@ -103,9 +103,6 @@ In the following command:
 ## Look at results
 
 Now we can look at the results from our comparison! You can find the location of the resultant files printed at the end of the `run` command output above. Or you can find the path to the project directory while in Python with:
-```
-omsa.PROJ_DIR("demo_local")
-```
 
 ```{code-cell} ipython3
 omsa.PROJ_DIR("demo_local")

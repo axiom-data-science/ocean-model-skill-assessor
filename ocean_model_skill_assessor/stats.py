@@ -193,7 +193,7 @@ def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
     }
 
 
-def save_stats(source_name: str, stats: dict, project_name: str):
+def save_stats(source_name: str, stats: dict, project_name: str, key_variable: str):
     """Save computed stats to file."""
 
     stats["bias"] = {
@@ -233,6 +233,6 @@ def save_stats(source_name: str, stats: dict, project_name: str):
     }
 
     with open(
-        omsa.PROJ_DIR(project_name) / f"stats_{source_name}.yaml", "w"
+        omsa.PROJ_DIR(project_name) / f"stats_{source_name}_{key_variable}.yaml", "w"
     ) as outfile:
         yaml.dump(stats, outfile, default_flow_style=False)

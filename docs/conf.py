@@ -75,7 +75,14 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-exclude_patterns
-exclude_patterns = ["_build", "**.ipynb_checkpoints", "Thumbs.db", ".DS_Store", "_old_docs", ".ipynb"]
+exclude_patterns = [
+    "_build",
+    "**.ipynb_checkpoints",
+    "Thumbs.db",
+    ".DS_Store",
+    "_old_docs",
+    ".ipynb",
+]
 
 html_extra_path = ["create_vocabs.html"]
 

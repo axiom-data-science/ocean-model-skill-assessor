@@ -246,7 +246,7 @@ def make_catalog(
     kwargs_search : dict, optional
         Keyword arguments to input to search on the server before making the catalog. These are not used with ``make_local_catalog()``; only for catalog types "erddap" and "axds".
         Options are:
-        
+
         * to search by bounding box: include all of min_lon, max_lon, min_lat, max_lat: (int, float). Longitudes must be between -180 to +180.
         * to search within a datetime range: include both of min_time, max_time: interpretable datetime string, e.g., "2021-1-1"
         * to search using a textual keyword: include `search_for` as a string.
@@ -440,9 +440,7 @@ def run(
     elif isinstance(model_name, Catalog):
         model_cat = model_name
     else:
-        raise ValueError(
-            "model_name should be input as string path or Catalog object."
-        )
+        raise ValueError("model_name should be input as string path or Catalog object.")
     dsm = model_cat[list(model_cat)[0]].to_dask()
 
     # use only one variable from model
@@ -586,4 +584,6 @@ def run(
         print(
             "Not plotting map since cartopy is not installed or no datasets to work with."
         )
-    print(f"Finished analysis. Find plots and stats summaries in {omsa.PROJ_DIR(project_name)}.")
+    print(
+        f"Finished analysis. Find plots and stats summaries in {omsa.PROJ_DIR(project_name)}."
+    )

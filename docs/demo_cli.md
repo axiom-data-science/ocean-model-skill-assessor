@@ -33,7 +33,7 @@ These steps will save files into a user application directory cache.
 
 Set up a catalog file for your model output. The user can input necessary keyword arguments – through `kwargs_open` – so that `xarray` will be able to read in the model output. Generally it is good to use `skip_entry_metadata` when using the `make_catalog` command for model output since we are using only one model and the entry metadata is aimed at being able to compare datasets.
 
-In the following command, 
+In the following command,
 * `make_catalog` is the function being run from OMSA
 * `demo_local` is the name of the project which will be used as the subdirectory name
 * `local` is the type of catalog to choose when making a catalog for the model output regardless of where the model output is stored
@@ -44,14 +44,14 @@ In the following command,
 * `kwargs_open` all keywords required for `xr.open_dataset` or `xr.open_mfdataset` to successfully read your model output.
 
 ```{code-cell} ipython3
-!omsa make_catalog --project_name demo_local --catalog_type local --catalog_name model --kwargs filenames=https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time 
+!omsa make_catalog --project_name demo_local --catalog_type local --catalog_name model --kwargs filenames=https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time
 ```
 
 ```{code-cell} ipython3
 Code(filename=omsa.CAT_PATH("model", "demo_local"))
 ```
 
-## Make data catalog 
+## Make data catalog
 
 Set up a catalog of the datasets with which you want to compare your model output. In this example, we use only known data file locations to create our catalog.
 
@@ -78,7 +78,7 @@ Code(filename=omsa.CAT_PATH("local", "demo_local"))
 
 Now that the model output and dataset catalogs are prepared, we can run the comparison of the two.
 
-In this step, we use the same `project_name` as the other steps so as to keep all files in the same subdirectory. We input the data catalog name under `catalog_names` and the model catalog name under `model_name`. 
+In this step, we use the same `project_name` as the other steps so as to keep all files in the same subdirectory. We input the data catalog name under `catalog_names` and the model catalog name under `model_name`.
 
 At this point we need to select a single variable to compare between the model and datasets, and this requires a little extra input. Because we don't know anything about the format of any given input data file, variables will be interpreted with some flexibility in the form of a set of regular expressions. In the present case, we will compare the water temperature between the model and the datasets (the model output and datasets selected for our catalogs should contain the variable we want to compare). Several sets of regular expressions, called "vocabularies", are available with the package to be used for this purpose, and in this case we will use one called "general" which should match many commonly-used variable names. "general" is selected under `vocab_names`, and the particular key from the general vocabulary that we are comparing is selected with `key`.
 

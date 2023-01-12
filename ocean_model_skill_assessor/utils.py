@@ -8,10 +8,11 @@ import cf_pandas as cfp
 import cf_xarray
 import extract_model as em
 import intake
-from intake.catalog import Catalog
 import numpy as np
 import shapely.geometry
 import xarray as xr
+
+from intake.catalog import Catalog
 
 import ocean_model_skill_assessor as omsa
 
@@ -164,7 +165,11 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
 
         # read in model output
         if isinstance(kwargs_search["model_name"], str):
-            model_cat = intake.open_catalog(omsa.CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"]))
+            model_cat = intake.open_catalog(
+                omsa.CAT_PATH(
+                    kwargs_search["model_name"], kwargs_search["project_name"]
+                )
+            )
         elif isinstance(kwargs_search["model_name"], Catalog):
             model_cat = kwargs_search["model_name"]
         else:

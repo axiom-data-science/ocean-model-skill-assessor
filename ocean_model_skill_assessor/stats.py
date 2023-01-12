@@ -21,8 +21,7 @@ def _align(
 
     Returns
     -------
-    A DataFrame indexed by time with one column 'obs' and one column 'model' which are at the model times and which does
-    not extend in time beyond either's original time range.
+    A DataFrame indexed by time with one column 'obs' and one column 'model' which are at the model times and which does not extend in time beyond either's original time range.
 
     Notes
     -----
@@ -194,7 +193,7 @@ def compute_stats(obs: DataFrame, model: DataFrame) -> dict:
     }
 
 
-def save_stats(source_name: str, stats: dict, project_name: str):
+def save_stats(source_name: str, stats: dict, project_name: str, key_variable: str):
     """Save computed stats to file."""
 
     stats["bias"] = {
@@ -234,6 +233,6 @@ def save_stats(source_name: str, stats: dict, project_name: str):
     }
 
     with open(
-        omsa.PROJ_DIR(project_name) / f"stats_{source_name}.yaml", "w"
+        omsa.PROJ_DIR(project_name) / f"stats_{source_name}_{key_variable}.yaml", "w"
     ) as outfile:
         yaml.dump(stats, outfile, default_flow_style=False)

@@ -19,8 +19,11 @@ To install from PyPI:
 .. toctree::
    :maxdepth: 3
 
-   demo.md
+   demo_cli.md
+   demo_erddap_cli.md
    cli.md
+   demo.md
+   create_vocabs_wrapper
    api
    GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 

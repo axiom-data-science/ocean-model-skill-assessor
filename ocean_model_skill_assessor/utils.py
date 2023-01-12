@@ -12,6 +12,8 @@ import numpy as np
 import shapely.geometry
 import xarray as xr
 
+from intake.catalog import Catalog
+
 import ocean_model_skill_assessor as omsa
 
 
@@ -34,7 +36,7 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
 
     Notes
     -----
-    This is from the package model_catalogs.
+    This is from the package ``model_catalogs``.
     """
 
     hasmask = False
@@ -139,7 +141,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
     Returns
     -------
     dict
-        kwargs_search but with modifications if relevant.
+        `kwargs_search` but with modifications if relevant.
 
     Raises
     ------
@@ -162,9 +164,18 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
             )
 
         # read in model output
-        model_cat = intake.open_catalog(
-            omsa.CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
-        )
+        if isinstance(kwargs_search["model_name"], str):
+            model_cat = intake.open_catalog(
+                omsa.CAT_PATH(
+                    kwargs_search["model_name"], kwargs_search["project_name"]
+                )
+            )
+        elif isinstance(kwargs_search["model_name"], Catalog):
+            model_cat = kwargs_search["model_name"]
+        else:
+            raise ValueError(
+                "model_name should be input as string path or Catalog object."
+            )
         dsm = model_cat[list(model_cat)[0]].to_dask()
 
         kwargs_search.pop("model_name")

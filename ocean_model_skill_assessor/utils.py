@@ -8,6 +8,7 @@ import cf_pandas as cfp
 import cf_xarray
 import extract_model as em
 import intake
+from intake.catalog import Catalog
 import numpy as np
 import shapely.geometry
 import xarray as xr
@@ -162,9 +163,14 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
             )
 
         # read in model output
-        model_cat = intake.open_catalog(
-            omsa.CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
-        )
+        if isinstance(kwargs_search["model_name"], str):
+            model_cat = intake.open_catalog(omsa.CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"]))
+        elif isinstance(kwargs_search["model_name"], Catalog):
+            model_cat = kwargs_search["model_name"]
+        else:
+            raise ValueError(
+                "model_name should be input as string path or Catalog object."
+            )
         dsm = model_cat[list(model_cat)[0]].to_dask()
 
         kwargs_search.pop("model_name")

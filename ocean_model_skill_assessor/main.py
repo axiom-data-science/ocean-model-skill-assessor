@@ -371,7 +371,7 @@ def run(
     catalogs: Union[str, Catalog, Sequence],
     project_name: str,
     key_variable: str,
-    model_name: str,
+    model_name: Union[str, Catalog],
     vocabs: Union[str, Vocab, Sequence],
     ndatasets: Optional[int] = None,
     kwargs_map: Optional[Dict] = None,
@@ -388,8 +388,8 @@ def run(
         Subdirectory in cache dir to store files associated together.
     key_variable : str
         Key in vocab(s) representing variable to compare between model and datasets.
-    model_name : str, Path
-        Name of catalog for model output, created with ``make_catalog`` call.
+    model_name : str, Catalog
+        Name of catalog for model output, created with ``make_catalog`` call, or Catalog instance.
     vocabs : str, list, Vocab, optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     ndatasets : int, optional
@@ -435,7 +435,14 @@ def run(
         print(f"Note that there are {ndata} datasets to use. This might take awhile.")
 
     # read in model output
-    model_cat = intake.open_catalog(omsa.CAT_PATH(model_name, project_name))
+    if isinstance(model_name, str):
+        model_cat = intake.open_catalog(omsa.CAT_PATH(model_name, project_name))
+    elif isinstance(model_name, Catalog):
+        model_cat = model_name
+    else:
+        raise ValueError(
+            "model_name should be input as string path or Catalog object."
+        )
     dsm = model_cat[list(model_cat)[0]].to_dask()
 
     # use only one variable from model
@@ -579,4 +586,4 @@ def run(
         print(
             "Not plotting map since cartopy is not installed or no datasets to work with."
         )
-    print(f"Finished analysis. Find plots in {omsa.PROJ_DIR(project_name)}.")
+    print(f"Finished analysis. Find plots and stats summaries in {omsa.PROJ_DIR(project_name)}.")

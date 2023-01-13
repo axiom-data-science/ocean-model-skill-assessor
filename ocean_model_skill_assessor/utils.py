@@ -11,10 +11,38 @@ import intake
 import numpy as np
 import shapely.geometry
 import xarray as xr
+from xarray import Dataset, DataArray
 
 from intake.catalog import Catalog
 
 import ocean_model_skill_assessor as omsa
+
+
+def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:
+    """Shift longitudes from 0 to 360 to -180 to 180 if necessary.
+
+    Parameters
+    ----------
+    dam : Union[DataArray,Dataset]
+        Object with model output to check
+
+    Returns
+    -------
+    Union[DataArray,Dataset]
+        Return model output with shifted longitudes, if it was necessary.
+    """
+    
+    if dam.cf["longitude"].max() > 180:
+        lkey = dam.cf["longitude"].name
+        nlon = int((dam[lkey] >= 180).sum())  # number of longitudes to roll by
+        dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
+        # rotate arrays so that the locations and values are -180 to 180
+        # instead of 0 to 180 to -180 to 0
+        dam = dam.roll(lon=nlon, roll_coords=True)
+        print(
+            "Longitudes are being shifted because they look like they are not -180 to 180."
+        )
+    return dam
 
 
 def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:

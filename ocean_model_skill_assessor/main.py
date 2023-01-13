@@ -26,15 +26,7 @@ import ocean_model_skill_assessor as omsa
 
 from ocean_model_skill_assessor.plot import map, time_series
 
-from .utils import kwargs_search_from_model
-
-
-try:
-    import cartopy
-
-    CARTOPY_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    CARTOPY_AVAILABLE = False  # pragma: no cover
+from .utils import kwargs_search_from_model, shift_longitudes
 
 
 def make_local_catalog(
@@ -447,16 +439,17 @@ def run(
     with cfx.set_options(custom_criteria=vocab.vocab):
         dam = dsm.cf[key_variable]
 
+    # include matching static mask if present
+    masks = dsm.filter_by_attrs(flag_meanings="land water")
+    if len(masks.data_vars) > 0:
+        mask_name = [mask for mask in masks.data_vars if dsm[mask].encoding["coordinates"] in dam.encoding["coordinates"]][0]
+        dam = xr.merge([dam, dsm[mask_name]])
+    else:
+        # still need it to be a dataset
+        dam = dam.to_dataset()
+
     # shift if 0 to 360
-    if dam.cf["longitude"].max() > 180:
-        lkey = dam.cf["longitude"].name
-        dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
-        # rotate arrays so that the locations and values are -180 to 180
-        # instead of 0 to 180 to -180 to 0
-        dam = dam.roll(lon=int((dam[lkey] < 0).sum()), roll_coords=True)
-        print(
-            "Longitudes are being shifted because they look like they are not -180 to 180."
-        )
+    dam = shift_longitudes(dam)
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
@@ -577,12 +570,15 @@ def run(
             count += 1
 
     # map of model domain with data locations
-    if CARTOPY_AVAILABLE and len(maps) > 0:
-        figname = omsa.PROJ_DIR(project_name) / "map.png"
-        omsa.plot.map.plot_map(np.asarray(maps), figname, dsm, **kwargs_map)
+    if len(maps) > 0:
+        try:
+            figname = omsa.PROJ_DIR(project_name) / "map.png"
+            omsa.plot.map.plot_map(np.asarray(maps), figname, dsm, **kwargs_map)
+        except ModuleNotFoundError:
+            pass
     else:
         print(
-            "Not plotting map since cartopy is not installed or no datasets to work with."
+            "Not plotting map since no datasets to plot."
         )
     print(
         f"Finished analysis. Find plots and stats summaries in {omsa.PROJ_DIR(project_name)}."

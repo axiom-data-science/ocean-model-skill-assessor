@@ -23,6 +23,7 @@ from .stats import (  # noqa: F401
     compute_root_mean_square_error,
     compute_stats,
 )
+from .utils import shift_longitudes
 
 
 try:

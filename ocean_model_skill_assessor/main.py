@@ -26,7 +26,7 @@ import ocean_model_skill_assessor as omsa
 
 from ocean_model_skill_assessor.plot import map, time_series
 
-from .utils import kwargs_search_from_model, shift_longitudes
+from .utils import kwargs_search_from_model, shift_longitudes, var_and_mask
 
 
 def make_local_catalog(
@@ -95,7 +95,7 @@ def make_local_catalog(
             or "text" in filename
         ):
             source = getattr(intake, "open_csv")(filename, csv_kwargs=kwargs_open)
-        elif "thredds" in filename and "dodsC" in filename:
+        elif ("thredds" in filename and "dodsC" in filename) or "dods" in filename:
             # use netcdf4 engine if not input in kwargs_xarray
             kwargs_open.setdefault("engine", "netcdf4")
             source = getattr(intake, "open_opendap")(filename, **kwargs_open)
@@ -435,18 +435,8 @@ def run(
         raise ValueError("model_name should be input as string path or Catalog object.")
     dsm = model_cat[list(model_cat)[0]].to_dask()
 
-    # use only one variable from model
-    with cfx.set_options(custom_criteria=vocab.vocab):
-        dam = dsm.cf[key_variable]
-
-    # include matching static mask if present
-    masks = dsm.filter_by_attrs(flag_meanings="land water")
-    if len(masks.data_vars) > 0:
-        mask_name = [mask for mask in masks.data_vars if dsm[mask].encoding["coordinates"] in dam.encoding["coordinates"]][0]
-        dam = xr.merge([dam, dsm[mask_name]])
-    else:
-        # still need it to be a dataset
-        dam = dam.to_dataset()
+    # take out relevant variable and keep mask if available
+    dam = var_and_mask(dsm, vocab, key_variable)
 
     # shift if 0 to 360
     dam = shift_longitudes(dam)

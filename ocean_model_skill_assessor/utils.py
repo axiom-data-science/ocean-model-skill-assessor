@@ -5,7 +5,7 @@ Utility functions.
 from typing import Dict, Optional, Union
 
 import cf_pandas as cfp
-import cf_xarray
+import cf_xarray as cfx
 import extract_model as em
 import intake
 import numpy as np
@@ -16,6 +16,22 @@ from xarray import Dataset, DataArray
 from intake.catalog import Catalog
 
 import ocean_model_skill_assessor as omsa
+
+
+def var_and_mask(dsm, vocab, key_variable):
+    
+    with cfx.set_options(custom_criteria=vocab.vocab):
+        dam = dsm.cf[key_variable]
+
+    # include matching static mask if present
+    masks = dsm.filter_by_attrs(flag_meanings="land water")
+    if len(masks.data_vars) > 0:
+        mask_name = [mask for mask in masks.data_vars if dsm[mask].encoding["coordinates"] in dam.encoding["coordinates"]][0]
+        dam = xr.merge([dam, dsm[mask_name]])
+    else:
+        dam = dam.to_dataset()
+    
+    return dam
 
 
 def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:

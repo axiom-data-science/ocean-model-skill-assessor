@@ -3,6 +3,7 @@ Main run functions.
 """
 
 import mimetypes
+import sys
 import warnings
 
 from collections.abc import Sequence
@@ -13,6 +14,7 @@ import cf_pandas as cfp
 import cf_xarray as cfx
 import extract_model as em
 import intake
+import logging
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -351,7 +353,7 @@ def make_catalog(
     if save_cat:
         # save cat to file
         cat.save(omsa.CAT_PATH(catalog_name, project_name))
-        print(
+        logging.info(
             f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
         )
 
@@ -367,6 +369,7 @@ def run(
     vocabs: Union[str, Vocab, Sequence],
     ndatasets: Optional[int] = None,
     kwargs_map: Optional[Dict] = None,
+    verbose: bool = True,
 ):
     """Run the model-data comparison.
 
@@ -389,6 +392,23 @@ def run(
     kwargs_map : dict, optional
         Keyword arguments to pass on to ``omsa.plot.map.plot_map`` call.
     """
+
+    format = '%(asctime)s - %(name)s - %(levelname)s\n%(message)s\n'
+    logging.captureWarnings(True)
+    logging.basicConfig(filename=omsa.LOG_PATH(project_name),
+                        level=logging.DEBUG,
+                        format=format,
+                        datefmt='%a %b %d %H:%M:%S %Z %Y')
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+
+    if verbose:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(format)
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
 
     kwargs_map = kwargs_map or {}
 
@@ -420,11 +440,11 @@ def run(
     # Warning about number of datasets
     ndata = np.sum([len(list(cat)) for cat in cats])
     if ndatasets is not None:
-        print(
+        logging.info(
             f"Note that we are using {ndatasets} datasets of {ndata} datasets. This might take awhile."
         )
     else:
-        print(f"Note that there are {ndata} datasets to use. This might take awhile.")
+        logging.info(f"Note that there are {ndata} datasets to use. This might take awhile.")
 
     # read in model output
     if isinstance(model_name, str):
@@ -445,7 +465,7 @@ def run(
     maps = []
     count = 0  # track datasets since count is used to match on map
     for cat in tqdm(cats):
-        print(f"Catalog {cat}.")
+        logging.info(f"Catalog {cat}.")
         # for source_name in tqdm(list(cat)[-ndatasets:]):
         for source_name in tqdm(list(cat)[:ndatasets]):
 
@@ -480,7 +500,7 @@ def run(
 
             # Combine and align the two time series of variable
             with cfp.set_options(custom_criteria=vocab.vocab):
-                print("source name: ", source_name)
+                logging.info("source name: ", source_name)
                 dfd = cat[source_name].read()
                 if key_variable not in dfd.cf:
                     warnings.warn(
@@ -567,9 +587,9 @@ def run(
         except ModuleNotFoundError:
             pass
     else:
-        print(
+        logging.warning(
             "Not plotting map since no datasets to plot."
         )
-    print(
-        f"Finished analysis. Find plots and stats summaries in {omsa.PROJ_DIR(project_name)}."
+    logging.info(
+        f"Finished analysis. Find plots, stats summaries, and log in {omsa.PROJ_DIR(project_name)}."
     )

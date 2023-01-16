@@ -62,3 +62,9 @@ def VOCAB_PATH(vocab_name):
     """Return path to vocab."""
     path = (VOCAB_DIR / vocab_name).with_suffix(".json")
     return path
+
+
+def LOG_PATH(project_name):
+    """Return path to vocab."""
+    path = (PROJ_DIR(project_name) / "log").with_suffix(".txt")
+    return path

@@ -2,6 +2,7 @@
 Utility functions.
 """
 
+import logging
 from typing import Dict, Optional, Union
 
 import cf_pandas as cfp
@@ -55,7 +56,7 @@ def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:
         # rotate arrays so that the locations and values are -180 to 180
         # instead of 0 to 180 to -180 to 0
         dam = dam.roll(lon=nlon, roll_coords=True)
-        print(
+        logging.warning(
             "Longitudes are being shifted because they look like they are not -180 to 180."
         )
     return dam

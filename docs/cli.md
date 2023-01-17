@@ -25,7 +25,7 @@ Make a catalog with known local or remote file(s). Also use a local catalog to r
 
 #### Available options
 
-    omsa make_catalog --project_name PROJ_NAME --catalog_type local --catalog_name CATALOG_NAME --description "Catalog description" --kwargs filenames="[FILE1,FILE2]" --kwargs_open KWARG=VALUE
+    omsa make_catalog --project_name PROJ_NAME --catalog_type local --catalog_name CATALOG_NAME --description "Catalog description" --kwargs filenames="[FILE1,FILE2]" --kwargs_open KWARG=VALUE --verbose --mode MODE
 
 * `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
 * `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
@@ -35,6 +35,8 @@ Make a catalog with known local or remote file(s). Also use a local catalog to r
 * `kwargs`: Some keyword arguments to make the local catalog. See `omsa.main.make_local_catalog()` for more details.
   * `filenames`: (Required) Where to find dataset(s) from which to make local catalog.
 * `kwargs_open`: Keyword arguments to pass on to the appropriate intake open_* call for model or dataset.
+* `verbose` Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log. Log is located in the project directory, which can be checked on the command line with `omsa proj_path --project_name PROJECT_NAME`. Default is True, to turn off use `--no-verbose`.
+* `mode` mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
 
 +++
 
@@ -71,7 +73,7 @@ Code(filename=omsa.CAT_PATH("example_local_catalog2", "test1"))
 Use this approach to set up a catalog file for your model output, so that it can be used by OMSA. Use `skip_entry_metadata=True` when running for a model.
 
 ```{code-cell} ipython3
-!omsa make_catalog --project_name test1 --catalog_type local --catalog_name model --kwargs filenames=https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time
+!omsa make_catalog --project_name test1 --catalog_type local --catalog_name model --kwargs filenames=https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time 
 ```
 
 ```{code-cell} ipython3
@@ -84,7 +86,7 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 
 #### Available options
 
-    omsa make_catalog --project_name PROJ_NAME --catalog_type erddap --catalog_name CATALOG_NAME --description "Catalog description" --kwargs server=SERVER --kwargs_search min_lon=MIN_LON min_lat=MIN_LAT max_lon=MAX_LON max_lat=MAX_LAT min_time=MIN_TIME max_time=MAX_TIME search_for=SEARCH_TEXT
+    omsa make_catalog --project_name PROJ_NAME --catalog_type erddap --catalog_name CATALOG_NAME --description "Catalog description" --kwargs server=SERVER --kwargs_search min_lon=MIN_LON min_lat=MIN_LAT max_lon=MAX_LON max_lat=MAX_LAT min_time=MIN_TIME max_time=MAX_TIME search_for=SEARCH_TEXT --verbose --mode MODE
 
 * `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
 * `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
@@ -94,7 +96,7 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 * `vocab_name`: Name of vocabulary to use from vocab dir. Options are "standard_names" and "general". See more information [here](https://ocean-model-skill-assessor.readthedocs.io/en/latest/create_vocabs_wrapper.html).
 * `kwargs`: Some keyword arguments to make the ERDDAP catalog. See `intake-erddap.erddap_cat()` for more details.
   * `server`: ERDDAP server address, for example: "http://erddap.sensors.ioos.us/erddap"
-  * `category_search`:
+  * `category_search`: 
   * `use_source_constraints`: Any relevant search parameter defined in kwargs_search will be passed to the source objects as constraints.
   * `protocol`: str, default "tabledap"
   * `query_type`: Specifies how the catalog should apply the query parameters. Choices are ``"union"`` or ``"intersection"``. If the ``query_type`` is set to ``"intersection"``, then the set of results will be the intersection of each individual query made to ERDDAP. This is equivalent to a logical AND of the results. If the value is ``"union"`` then the results will be the union of each resulting dataset. This is equivalent to a logical OR.
@@ -104,6 +106,8 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
   * `min_time`, `max_time`: search for datasets with data within this time range
   * `model_name`: input a path to the model output to instead select the space and time search specifications based on the model. This input is specific to OMSA, not `intake-erddap`.
   * `search_for`: text-based search
+* `verbose` Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log. Log is located in the project directory, which can be checked on the command line with `omsa proj_path --project_name PROJECT_NAME`. Default is True, to turn off use `--no-verbose`.
+* `mode` mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
 
 #### Examples
 
@@ -133,10 +137,10 @@ You can additionally narrow your search by a text term by adding the `search_for
 
 ##### Variable selection by standard_name
 
-Narrow your search by variable. For `intake-erddap` you can filter by the CF `standard_name` of the variable directly with the following.
+Narrow your search by variable. For `intake-erddap` you can filter by the CF `standard_name` of the variable directly with the following. 
 
 ```{code-cell} ipython3
-!omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat1 --kwargs server=https://erddap.sensors.ioos.us/erddap standard_names="[sea_surface_temperature,sea_water_temperature]"
+!omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat1 --kwargs server=https://erddap.sensors.ioos.us/erddap standard_names="[sea_surface_temperature,sea_water_temperature]" 
 ```
 
 ##### Variable selection by pattern matching with vocab
@@ -166,7 +170,7 @@ Make a catalog of Axiom Data Science-stored assets using `intake-axds`.
 
 #### Available options
 
-    omsa make_catalog --project_name PROJ_NAME --catalog_type axds --catalog_name CATALOG_NAME --description "Catalog description" --kwargs datatype="platform2 standard_names="[STANDARD_NAME1,STANDARD_NAME2]" page_size=PAGE_SIZE verbose=BOOL --kwargs_search min_lon=MIN_LON min_lat=MIN_LAT max_lon=MAX_LON max_lat=MAX_LAT min_time=MIN_TIME max_time=MAX_TIME search_for=SEARCH_TEXT
+    omsa make_catalog --project_name PROJ_NAME --catalog_type axds --catalog_name CATALOG_NAME --description "Catalog description" --kwargs datatype="platform2 standard_names="[STANDARD_NAME1,STANDARD_NAME2]" page_size=PAGE_SIZE verbose=BOOL --kwargs_search min_lon=MIN_LON min_lat=MIN_LAT max_lon=MAX_LON max_lat=MAX_LAT min_time=MIN_TIME max_time=MAX_TIME search_for=SEARCH_TEXT --verbose --mode MODE
 
 * `project_name`: Will be used as the name of the directory where the catalog is saved. The directory is located in a user application cache directory, the address of which can be found for your setup with  `omsa proj_path --project_name PROJ_NAME`.
 * `catalog_type`: Type of catalog to make. Options are "erddap", "axds", or "local".
@@ -186,6 +190,8 @@ Make a catalog of Axiom Data Science-stored assets using `intake-axds`.
   * `min_time`, `max_time`: search for datasets with data within this time range
   * `model_name`: input a path to the model output to instead select the space and time search specifications based on the model. This input is specific to OMSA, not `intake-axds`.
   * `search_for`: text-based search
+* `verbose` Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log. Log is located in the project directory, which can be checked on the command line with `omsa proj_path --project_name PROJECT_NAME`. Default is True, to turn off use `--no-verbose`.
+* `mode` mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
 
 #### Examples
 
@@ -201,7 +207,7 @@ Select a box and time range over which to search catalog along with standard_nam
 
 ##### Same but with vocab
 
-As in the ERDDAP catalog example above, we can instead get the same results by inputting a vocabulary to use, in this case "standard_names" which will map to variable names in Axiom systems, along with the variable nickname from the vocabulary to find: "temp".
+As in the ERDDAP catalog example above, we can instead get the same results by inputting a vocabulary to use, in this case "standard_names" which will map to variable names in Axiom systems, along with the variable nickname from the vocabulary to find: "temp". 
 
 ```{code-cell} ipython3
 !omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog2 --description "Example AXDS catalog description" --vocab_name standard_names --kwargs page_size=50000 keys_to_match='[temp]' --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2000-1-1 max_time=2002-1-1
@@ -217,7 +223,7 @@ The datasets need to all cover the same time periods.
 
 ### Available options
 
-    omsa run --project_name test1 --catalogs CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS
+    omsa run --project_name test1 --catalogs CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS --verbose --mode MODE
 
 * `project_name`: Subdirectory in cache dir to store files associated together.
 * `catalog_names`: Catalog name(s). Datasets will be accessed from catalog entries.
@@ -225,6 +231,8 @@ The datasets need to all cover the same time periods.
 * `key`: Key in vocab(s) representing variable to compare between model and datasets.
 * `model_name`: name of the model catalog we previously created
 * `ndatasets`: Max number of datasets from each input catalog to use.
+* `verbose` Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log. Log is located in the project directory, which can be checked on the command line with `omsa proj_path --project_name PROJECT_NAME`. Default is True, to turn off use `--no-verbose`.
+* `mode` mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
 
 ### Example
 

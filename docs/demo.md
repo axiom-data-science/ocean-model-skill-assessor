@@ -23,12 +23,13 @@ There are three steps to follow for a set of model-data validation, which is for
 2. Make a catalog for your data.
 3. Run the comparison.
 
-These steps will save files into a user application directory cache.
+These steps will save files into a user application directory cache, along with a log. A project directory can be checked on the command line with `omsa proj_path --project_name PROJECT_NAME`.
+
 
 ## Make model catalog
 
 ```{code-cell}
-cat_model = omsa.make_catalog(project_name="demo_local_package", catalog_type="local", catalog_name="model",
+cat_model = omsa.make_catalog(project_name="demo_local_package", catalog_type="local", catalog_name="model", 
                   kwargs=dict(filenames="https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd",
                               skip_entry_metadata=True),
                   kwargs_open=dict(drop_variables="ocean_time"))
@@ -38,7 +39,7 @@ cat_model = omsa.make_catalog(project_name="demo_local_package", catalog_type="l
 cat_model
 ```
 
-## Make data catalog
+## Make data catalog 
 
 Set up a catalog of the datasets with which you want to compare your model output. In this example, we use only known data file locations to create our catalog.
 

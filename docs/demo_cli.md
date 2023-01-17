@@ -27,7 +27,7 @@ There are three steps to follow for a set of model-data validation, which is for
 2. Make a catalog for your data.
 3. Run the comparison.
 
-These steps will save files into a user application directory cache.
+These steps will save files into a user application directory cache, along with a log. A project directory can be checked on the command line with `omsa proj_path --project_name PROJECT_NAME`.
 
 ## Make model catalog
 

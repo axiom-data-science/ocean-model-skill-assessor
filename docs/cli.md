@@ -261,3 +261,11 @@ With this you can check all of the project-related files you've created.
 ```{code-cell} ipython3
 !omsa vocabs
 ```
+
+### Get information about a vocabulary
+
+Return the path to the vocab file and the nicknames of the variables in the file.
+
+```{code-cell} ipython3
+!omsa vocab_info --vocab_name general
+```

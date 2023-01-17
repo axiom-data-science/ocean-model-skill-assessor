@@ -3,7 +3,7 @@ Command Line Interface.
 """
 
 import argparse
-
+import cf_pandas as cfp
 import ocean_model_skill_assessor as omsa
 
 
@@ -166,6 +166,13 @@ def main():
     # Print available vocabularies.
     elif args.action == "vocabs":
         print([path.stem for path in omsa.VOCAB_DIR.glob("*")])
+
+    # Print variable keys in a vocab.
+    elif args.action == "vocab_info":
+        vpath = omsa.VOCAB_PATH(args.vocab_name)
+        vocab = cfp.Vocab(vpath)
+        print(f"Vocab path: {vpath}.")
+        print(f"Variable nicknames in vocab: {list(vocab.vocab.keys())}.")
 
     # Run model-data comparison.
     elif args.action == "run":

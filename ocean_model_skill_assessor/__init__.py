@@ -66,5 +66,5 @@ def VOCAB_PATH(vocab_name):
 
 def LOG_PATH(project_name):
     """Return path to vocab."""
-    path = (PROJ_DIR(project_name) / "log").with_suffix(".txt")
+    path = (PROJ_DIR(project_name) / "omsa").with_suffix(".log")
     return path

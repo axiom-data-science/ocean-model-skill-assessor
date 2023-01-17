@@ -28,7 +28,7 @@ import ocean_model_skill_assessor as omsa
 
 from ocean_model_skill_assessor.plot import map, time_series
 
-from .utils import kwargs_search_from_model, shift_longitudes, var_and_mask
+from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, var_and_mask
 
 
 def make_local_catalog(
@@ -220,6 +220,8 @@ def make_catalog(
     vocab: Optional[Union[cfp.Vocab, str, PurePath]] = None,
     return_cat: bool = True,
     save_cat: bool = False,
+    verbose: bool = True,
+    mode: str = "w",
 ):
     """Make a catalog given input selections.
 
@@ -254,7 +256,13 @@ def make_catalog(
         Return catalog. For when using as a Python package instead of with command line.
     save_cat: bool, optional
         Save catalog to disk into project directory under `catalog_name`.
+    verbose : bool, optional
+        Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.
+    mode : str, optional
+        mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
     """
+
+    set_up_logging(project_name, verbose, mode=mode)
 
     if kwargs_search is not None and catalog_type == "local":
         warnings.warn(
@@ -370,6 +378,7 @@ def run(
     ndatasets: Optional[int] = None,
     kwargs_map: Optional[Dict] = None,
     verbose: bool = True,
+    mode: str = "w",
 ):
     """Run the model-data comparison.
 
@@ -391,24 +400,13 @@ def run(
         Max number of datasets from each input catalog to use.
     kwargs_map : dict, optional
         Keyword arguments to pass on to ``omsa.plot.map.plot_map`` call.
+    verbose : bool, optional
+        Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.
+    mode : str, optional
+        mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
     """
 
-    format = '%(asctime)s - %(name)s - %(levelname)s\n%(message)s\n'
-    logging.captureWarnings(True)
-    logging.basicConfig(filename=omsa.LOG_PATH(project_name),
-                        level=logging.DEBUG,
-                        format=format,
-                        datefmt='%a %b %d %H:%M:%S %Z %Y')
-
-    root = logging.getLogger()
-    root.setLevel(logging.DEBUG)
-
-    if verbose:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.DEBUG)
-        formatter = logging.Formatter(format)
-        handler.setFormatter(formatter)
-        root.addHandler(handler)
+    set_up_logging(project_name, verbose, mode=mode)
 
     kwargs_map = kwargs_map or {}
 
@@ -500,7 +498,7 @@ def run(
 
             # Combine and align the two time series of variable
             with cfp.set_options(custom_criteria=vocab.vocab):
-                logging.info("source name: ", source_name)
+                logging.info(f"source name: {source_name}")
                 dfd = cat[source_name].read()
                 if key_variable not in dfd.cf:
                     warnings.warn(
@@ -547,8 +545,13 @@ def run(
                     model_var = model_var.cf.sel(T=Targ)
                 else:
                     model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+            
+            # retain only variable in object, thus converting to DataArray for model_var
+            with cfx.set_options(custom_criteria=vocab.vocab):
+                model_var = model_var.cf[key_variable]
+            
 
-            if model_var.size == 0:
+            if len(model_var.cf["T"]) == 0:
                 # model output isn't available to match data
                 # data must not be in the space/time range of model
                 maps.pop(-1)
@@ -572,7 +575,7 @@ def run(
             figname = omsa.PROJ_DIR(project_name) / f"{source_name}_{key_variable}.png"
             df.omsa.plot(
                 title=f"{count}: {source_name}",
-                ylabel=dam.name,
+                ylabel=model_var.name,
                 figname=figname,
                 stats=stats,
             )
@@ -583,7 +586,7 @@ def run(
     if len(maps) > 0:
         try:
             figname = omsa.PROJ_DIR(project_name) / "map.png"
-            omsa.plot.map.plot_map(np.asarray(maps), figname, dsm, **kwargs_map)
+            omsa.plot.map.plot_map(np.asarray(maps), figname, dam, **kwargs_map)
         except ModuleNotFoundError:
             pass
     else:

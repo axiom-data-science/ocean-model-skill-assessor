@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 
 from pandas import DataFrame
-from xarray import DataArray
+from xarray import DataArray, Dataset
 
 import ocean_model_skill_assessor as omsa
 
@@ -33,7 +33,7 @@ def _align(
         obs = DataFrame(obs.to_pandas())
     elif isinstance(obs, pd.Series):
         obs = DataFrame(obs)
-    if isinstance(model, DataArray):
+    if isinstance(model, (DataArray, Dataset)):
         model = DataFrame(model.to_pandas())
 
     obs.rename(columns={obs.columns[0]: "obs"}, inplace=True)

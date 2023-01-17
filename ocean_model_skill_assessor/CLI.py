@@ -96,6 +96,10 @@ def main():
         help="Name of vocabulary file, must be in the vocab user directory.",
     )
 
+    parser.add_argument("--verbose", help="Options are --verbose or --no-verbose. Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.", action=argparse.BooleanOptionalAction, default=True)
+
+    parser.add_argument("--mode", help="File mode for log file.", default="w")
+
     # run options
     parser.add_argument(
         "--catalog_names",
@@ -151,6 +155,8 @@ def main():
             kwargs_open=args.kwargs_open,
             vocab=args.vocab_name,
             save_cat=True,
+            verbose=args.verbose,
+            mode=args.mode,
         )
 
     # Print path for project name.
@@ -171,4 +177,6 @@ def main():
             model_name=args.model_name,
             ndatasets=args.ndatasets,
             kwargs_map=args.kwargs_map,
+            verbose=args.verbose,
+            mode=args.mode,
         )

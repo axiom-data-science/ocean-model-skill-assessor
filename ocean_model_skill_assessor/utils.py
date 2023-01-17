@@ -3,6 +3,7 @@ Utility functions.
 """
 
 import logging
+import sys
 from typing import Dict, Optional, Union
 
 import cf_pandas as cfp
@@ -17,6 +18,26 @@ from xarray import Dataset, DataArray
 from intake.catalog import Catalog
 
 import ocean_model_skill_assessor as omsa
+
+
+def set_up_logging(project_name, verbose, mode: str="w"):
+    """set up logging"""
+    
+    logging.captureWarnings(True)
+
+    file_handler = logging.FileHandler(filename=omsa.LOG_PATH(project_name), mode=mode)
+    handlers = [file_handler]
+    if verbose:
+        stdout_handler = logging.StreamHandler(stream=sys.stdout)
+        handlers.append(stdout_handler)
+
+    logging.basicConfig(
+        level=logging.INFO, 
+        format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+        handlers=handlers,
+    )
+
+    # logger = logging.getLogger('OMSA log')
 
 
 def var_and_mask(dsm, vocab, key_variable):

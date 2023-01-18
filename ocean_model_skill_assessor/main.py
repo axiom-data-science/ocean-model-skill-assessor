@@ -248,8 +248,8 @@ def make_catalog(
 
     kwargs_open : dict, optional
         Keyword arguments to save into local catalog for model to pass on to ``xr.open_mfdataset`` call or ``pandas`` ``open_csv``. Only for use with ``catalog_type=local``.
-    vocab : dict, optional
-        Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for.
+    vocab : str, Vocab, Path, optional
+        Way to find the criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for.
     return_cat : bool, optional
         Return catalog. For when using as a Python package instead of with command line.
     save_cat: bool, optional
@@ -284,18 +284,16 @@ def make_catalog(
     if catalog_type != "local":
         kwargs_search = kwargs_search_from_model(kwargs_search)
 
-    # Should I require vocab if nickname is not None?
-    # if vocab is None:
-    #     # READ IN DEFAULT AND SET VOCAB
-    #     vocab = Vocab("vocabs/general")
-
-    # elif isinstance(vocab, str):
-    #     vocab = Vocab(omsa.VOCAB_PATH(vocab))
-
     if isinstance(vocab, str):
         vocab = Vocab(VOCAB_PATH(vocab))
     elif isinstance(vocab, PurePath):
         vocab = Vocab(vocab)
+    elif isinstance(vocab, Vocab):
+        pass
+    else:
+        raise ValueError(
+            "Vocab should be input as string, Path, or Vocab object."
+        )
 
     if description is None:
         description = f"Catalog of type {catalog_type}."
@@ -376,7 +374,7 @@ def run(
     project_name: str,
     key_variable: str,
     model_name: Union[str, Catalog],
-    vocabs: Union[str, Vocab, Sequence],
+    vocabs: Union[str, Vocab, Sequence, PurePath],
     ndatasets: Optional[int] = None,
     kwargs_map: Optional[Dict] = None,
     verbose: bool = True,
@@ -397,7 +395,7 @@ def run(
         Key in vocab(s) representing variable to compare between model and datasets.
     model_name : str, Catalog
         Name of catalog for model output, created with ``make_catalog`` call, or Catalog instance.
-    vocabs : str, list, Vocab, optional
+    vocabs : str, list, Vocab, PurePath, optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     ndatasets : int, optional
         Max number of datasets from each input catalog to use.
@@ -419,6 +417,8 @@ def run(
     vocabs = always_iterable(vocabs)
     if isinstance(vocabs[0], str):
         vocab = merge([Vocab(VOCAB_PATH(v)) for v in vocabs])
+    elif isinstance(vocabs[0], PurePath):
+        vocab = merge([Vocab(v) for v in vocabs])
     elif isinstance(vocabs[0], Vocab):
         vocab = merge(vocabs)
     else:

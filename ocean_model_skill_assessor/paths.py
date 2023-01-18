@@ -1,3 +1,8 @@
+"""
+Create paths, and handle file locations and vocabulary files.
+"""
+
+
 import shutil
 
 from pathlib import Path

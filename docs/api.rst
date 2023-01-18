@@ -10,6 +10,7 @@ API
 
    main
    utils
+   paths
    accessor
    stats
    plot.map

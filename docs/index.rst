@@ -23,7 +23,7 @@ To install from PyPI:
    demo_erddap_cli.md
    cli.md
    demo.md
-   create_vocabs_wrapper
+   add_vocab.md
    developer.md
    api
    GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>

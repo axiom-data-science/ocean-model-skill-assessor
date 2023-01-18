@@ -84,7 +84,7 @@ exclude_patterns = [
     ".ipynb",
 ]
 
-html_extra_path = ["create_vocabs.html"]
+html_extra_path = ["vocab_widget.html"]
 
 # -- Options for HTML output -------------------------------------------------
 

@@ -284,16 +284,17 @@ def make_catalog(
     if catalog_type != "local":
         kwargs_search = kwargs_search_from_model(kwargs_search)
 
-    if isinstance(vocab, str):
-        vocab = Vocab(VOCAB_PATH(vocab))
-    elif isinstance(vocab, PurePath):
-        vocab = Vocab(vocab)
-    elif isinstance(vocab, Vocab):
-        pass
-    else:
-        raise ValueError(
-            "Vocab should be input as string, Path, or Vocab object."
-        )
+    if vocab is not None:
+        if isinstance(vocab, str):
+            vocab = Vocab(VOCAB_PATH(vocab))
+        elif isinstance(vocab, PurePath):
+            vocab = Vocab(vocab)
+        elif isinstance(vocab, Vocab):
+            pass
+        else:
+            raise ValueError(
+                "Vocab should be input as string, Path, or Vocab object."
+            )
 
     if description is None:
         description = f"Catalog of type {catalog_type}."

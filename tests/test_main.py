@@ -100,6 +100,8 @@ def test_run_variable(mock_open_cat, mock_open_cat_model, mock_to_dask, mock_rea
             model_name="model_cat",
             vocabs=vocab,
             ndatasets=None,
+            verbose=True,
+            testing=True,
         )
 
 

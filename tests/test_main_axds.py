@@ -60,13 +60,11 @@ class FakeResponse(object):
         return res
 
 
-@mock.patch("ocean_model_skill_assessor.CAT_PATH")
 @mock.patch("requests.get")
-def test_make_catalog_axds_platform2(mock_requests, mock_cat_path, tmpdir):
+def test_make_catalog_axds_platform2(mock_requests):
 
     mock_requests.side_effect = [FakeResponse()]
-    catloc2 = tmpdir / "projectA" / "catalog.yaml"
-    mock_cat_path.return_value = catloc2
+    catloc2 = omsa.CAT_PATH("catA", "projectA")
 
     cat1 = omsa.make_catalog(
         catalog_type="axds",

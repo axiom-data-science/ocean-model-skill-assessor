@@ -2,21 +2,18 @@
 Plot map.
 """
 
-import pathlib
-
 from pathlib import PurePath
 from typing import Optional, Sequence, Union
 
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import numpy as np
+from matplotlib.pyplot import figure
+from numpy import array, allclose
 
 from xarray import DataArray, Dataset
 
 from ..utils import find_bbox, shift_longitudes
 
 try:
-    import cartopy
+    import cartopy.crs
 
     CARTOPY_AVAILABLE = True
 except ImportError:  # pragma: no cover
@@ -24,7 +21,7 @@ except ImportError:  # pragma: no cover
 
 
 def plot_map(
-    maps: np.array,
+    maps: array,
     figname: Union[str, PurePath],
     ds: Union[DataArray, Dataset],
     alpha: int = 5,
@@ -45,14 +42,14 @@ def plot_map(
         [min longitude, max longitude, min latitude, max latitude]
     """
     
-    ds = shift_longitudes(ds)
-    
     if not CARTOPY_AVAILABLE:
         raise ModuleNotFoundError(  # pragma: no cover
             "Cartopy is not available so map will not be plotted."
         )
         
     import cartopy
+    
+    ds = shift_longitudes(ds)
 
     pc = cartopy.crs.PlateCarree()
     col_label = "k"  # "r"
@@ -66,7 +63,7 @@ def plot_map(
 
     central_longitude = min_lons.mean()
     proj = cartopy.crs.Mercator(central_longitude=float(central_longitude))
-    fig = plt.figure(figsize=(8, 7), dpi=100)
+    fig = figure(figsize=(8, 7), dpi=100)
     ax = fig.add_axes([0.06, 0.01, 0.93, 0.95], projection=proj)
     # ax.set_frame_on(False) # kind of like it without the box
     # ax.set_extent([-98, -87.5, 22.8, 30.5], cartopy.crs.PlateCarree())
@@ -104,7 +101,7 @@ def plot_map(
         extent_use = [bbox[0] - 0.1, bbox[2] + 0.1, bbox[1] - 0.1, bbox[3] + 0.1]
     
     # if model is global - based on extent - write that it is global and use smaller extent
-    if np.allclose(bbox[0], -180, atol=2) and np.allclose(bbox[2], 180, atol=2) and np.allclose(bbox[1], -90, atol=2) and np.allclose(bbox[3], 90, atol=2):
+    if allclose(bbox[0], -180, atol=2) and allclose(bbox[2], 180, atol=2) and allclose(bbox[1], -90, atol=2) and allclose(bbox[3], 90, atol=2):
         # explain global model
         ax.set_title("Only showing part of global model")
         

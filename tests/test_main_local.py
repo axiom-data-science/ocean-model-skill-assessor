@@ -10,11 +10,9 @@ import pytest
 import ocean_model_skill_assessor as omsa
 
 
-@mock.patch("ocean_model_skill_assessor.CAT_PATH")
-def test_make_catalog_local(mock_cat_path, tmpdir):
+def test_make_catalog_local():
 
-    catloc2 = tmpdir / "projectA" / "catAlocal.yaml"
-    mock_cat_path.return_value = catloc2
+    catloc2 = omsa.paths.CAT_PATH("catAlocal", "projectA")
 
     kwargs = {"filenames": "filename.csv", "skip_entry_metadata": True}
     cat1 = omsa.make_catalog(

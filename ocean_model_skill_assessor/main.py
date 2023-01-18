@@ -3,33 +3,30 @@ Main run functions.
 """
 
 import mimetypes
-import sys
 import warnings
 
 from collections.abc import Sequence
 from pathlib import PurePath
-from typing import Any, DefaultDict, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-import cf_pandas as cfp
-import cf_xarray as cfx
-import extract_model as em
+import extract_model.accessor
 import intake
 import logging
-import numpy as np
-import pandas as pd
-import xarray as xr
 
-from cf_pandas import Vocab
+from cf_pandas import Vocab, astype, always_iterable, merge
+from cf_pandas import set_options as cfp_set_options
+from cf_xarray import set_options as cfx_set_options
 from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
+from numpy import sum, asarray
+from .paths import CAT_PATH, PROJ_DIR, VOCAB_PATH
+from pandas import to_datetime
 from tqdm import tqdm
 
-import ocean_model_skill_assessor as omsa
+from ocean_model_skill_assessor.plot import map
 
-from ocean_model_skill_assessor.plot import map, time_series
-
+from .stats import _align, save_stats
 from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, var_and_mask
-
 
 def make_local_catalog(
     filenames: List[str],
@@ -164,7 +161,7 @@ def make_local_catalog(
                 }
 
             # set up some basic metadata for each source
-            dd.cf["T"] = pd.to_datetime(dd.cf["T"])
+            dd.cf["T"] = to_datetime(dd.cf["T"])
             dd.set_index(dd.cf["T"], inplace=True)
             if dd.index.tz is not None:
                 warnings.warn(
@@ -217,11 +214,12 @@ def make_catalog(
     kwargs: Optional[Dict[str, Any]] = None,
     kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
     kwargs_open: Optional[Dict] = None,
-    vocab: Optional[Union[cfp.Vocab, str, PurePath]] = None,
+    vocab: Optional[Union[Vocab, str, PurePath]] = None,
     return_cat: bool = True,
     save_cat: bool = False,
     verbose: bool = True,
     mode: str = "w",
+    testing: bool = False,
 ):
     """Make a catalog given input selections.
 
@@ -260,9 +258,11 @@ def make_catalog(
         Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.
     mode : str, optional
         mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
+    testing : boolean, optional
+        Set to True if testing so warnings come through instead of being logged.
     """
 
-    set_up_logging(project_name, verbose, mode=mode)
+    set_up_logging(project_name, verbose, mode=mode, testing=testing)
 
     if kwargs_search is not None and catalog_type == "local":
         warnings.warn(
@@ -287,15 +287,15 @@ def make_catalog(
     # Should I require vocab if nickname is not None?
     # if vocab is None:
     #     # READ IN DEFAULT AND SET VOCAB
-    #     vocab = cfp.Vocab("vocabs/general")
+    #     vocab = Vocab("vocabs/general")
 
     # elif isinstance(vocab, str):
-    #     vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
+    #     vocab = Vocab(omsa.VOCAB_PATH(vocab))
 
     if isinstance(vocab, str):
-        vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
+        vocab = Vocab(VOCAB_PATH(vocab))
     elif isinstance(vocab, PurePath):
-        vocab = cfp.Vocab(vocab)
+        vocab = Vocab(vocab)
 
     if description is None:
         description = f"Catalog of type {catalog_type}."
@@ -307,7 +307,7 @@ def make_catalog(
         filenames = kwargs["filenames"]
         kwargs.pop("filenames")
         cat = make_local_catalog(
-            cfp.astype(filenames, list),
+            astype(filenames, list),
             name=catalog_name,
             description=description,
             metadata=metadata,
@@ -320,7 +320,7 @@ def make_catalog(
         if "server" not in kwargs:
             raise ValueError("For `catalog_type=='erddap'`, must input `server`.")
         if vocab is not None:
-            with cfp.set_options(custom_criteria=vocab.vocab):
+            with cfp_set_options(custom_criteria=vocab.vocab):
                 cat = intake.open_erddap_cat(
                     kwargs_search=kwargs_search,
                     name=catalog_name,
@@ -341,7 +341,7 @@ def make_catalog(
     elif catalog_type == "axds":
         catalog_name = "axds_cat" if catalog_name is None else catalog_name
         if vocab is not None:
-            with cfp.set_options(custom_criteria=vocab.vocab):
+            with cfp_set_options(custom_criteria=vocab.vocab):
                 cat = intake.open_axds_cat(
                     kwargs_search=kwargs_search,
                     name=catalog_name,
@@ -360,10 +360,12 @@ def make_catalog(
 
     if save_cat:
         # save cat to file
-        cat.save(omsa.CAT_PATH(catalog_name, project_name))
+        cat.save(CAT_PATH(catalog_name, project_name))
         logging.info(
-            f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
+            f"Catalog saved to {CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
         )
+    
+    logging.shutdown()
 
     if return_cat:
         return cat
@@ -379,6 +381,7 @@ def run(
     kwargs_map: Optional[Dict] = None,
     verbose: bool = True,
     mode: str = "w",
+    testing: bool = False,
 ):
     """Run the model-data comparison.
 
@@ -404,29 +407,31 @@ def run(
         Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.
     mode : str, optional
         mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
+    testing : boolean, optional
+        Set to True if testing so warnings come through instead of being logged.
     """
 
-    set_up_logging(project_name, verbose, mode=mode)
+    set_up_logging(project_name, verbose, mode=mode, testing=testing)
 
     kwargs_map = kwargs_map or {}
 
     # After this, we have a single Vocab object with vocab stored in vocab.vocab
-    vocabs = cfp.always_iterable(vocabs)
+    vocabs = always_iterable(vocabs)
     if isinstance(vocabs[0], str):
-        vocab = cfp.merge([Vocab(omsa.VOCAB_PATH(v)) for v in vocabs])
+        vocab = merge([Vocab(VOCAB_PATH(v)) for v in vocabs])
     elif isinstance(vocabs[0], Vocab):
-        vocab = cfp.merge(vocabs)
+        vocab = merge(vocabs)
     else:
         raise ValueError(
             "Vocab(s) should be input as string paths or Vocab objects or Sequence thereof."
         )
 
     # Open catalogs.
-    catalogs = cfp.always_iterable(catalogs)
+    catalogs = always_iterable(catalogs)
     if isinstance(catalogs[0], str):
         cats = [
-            intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name))
-            for catalog_name in cfp.astype(catalogs, list)
+            intake.open_catalog(CAT_PATH(catalog_name, project_name))
+            for catalog_name in astype(catalogs, list)
         ]
     elif isinstance(catalogs[0], Catalog):
         cats = catalogs
@@ -436,7 +441,7 @@ def run(
         )
 
     # Warning about number of datasets
-    ndata = np.sum([len(list(cat)) for cat in cats])
+    ndata = sum([len(list(cat)) for cat in cats])
     if ndatasets is not None:
         logging.info(
             f"Note that we are using {ndatasets} datasets of {ndata} datasets. This might take awhile."
@@ -446,7 +451,7 @@ def run(
 
     # read in model output
     if isinstance(model_name, str):
-        model_cat = intake.open_catalog(omsa.CAT_PATH(model_name, project_name))
+        model_cat = intake.open_catalog(CAT_PATH(model_name, project_name))
     elif isinstance(model_name, Catalog):
         model_cat = model_name
     else:
@@ -497,7 +502,7 @@ def run(
                 max_time = cat[source_name].metadata["maxTime"]
 
             # Combine and align the two time series of variable
-            with cfp.set_options(custom_criteria=vocab.vocab):
+            with cfp_set_options(custom_criteria=vocab.vocab):
                 logging.info(f"source name: {source_name}")
                 dfd = cat[source_name].read()
                 if key_variable not in dfd.cf:
@@ -508,7 +513,7 @@ def run(
                     maps.pop(-1)
                     continue
 
-                dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
+                dfd.cf["T"] = to_datetime(dfd.cf["T"])
                 dfd.set_index(dfd.cf["T"], inplace=True)
                 if dfd.index.tz is not None:
                     warnings.warn(
@@ -547,7 +552,7 @@ def run(
                     model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
             
             # retain only variable in object, thus converting to DataArray for model_var
-            with cfx.set_options(custom_criteria=vocab.vocab):
+            with cfx_set_options(custom_criteria=vocab.vocab):
                 model_var = model_var.cf[key_variable]
             
 
@@ -562,17 +567,17 @@ def run(
                 continue
 
             # Combine and align the two time series of variable
-            with cfp.set_options(custom_criteria=vocab.vocab):
-                df = omsa.stats._align(dfd.cf[key_variable], model_var)
+            with cfp_set_options(custom_criteria=vocab.vocab):
+                df = _align(dfd.cf[key_variable], model_var)
 
             # pull out depth at surface?
 
             # Where to save stats to?
             stats = df.omsa.compute_stats
-            omsa.stats.save_stats(source_name, stats, project_name, key_variable)
+            save_stats(source_name, stats, project_name, key_variable)
 
             # Write stats on plot
-            figname = omsa.PROJ_DIR(project_name) / f"{source_name}_{key_variable}.png"
+            figname = PROJ_DIR(project_name) / f"{source_name}_{key_variable}.png"
             df.omsa.plot(
                 title=f"{count}: {source_name}",
                 ylabel=model_var.name,
@@ -585,8 +590,8 @@ def run(
     # map of model domain with data locations
     if len(maps) > 0:
         try:
-            figname = omsa.PROJ_DIR(project_name) / "map.png"
-            omsa.plot.map.plot_map(np.asarray(maps), figname, dam, **kwargs_map)
+            figname = PROJ_DIR(project_name) / "map.png"
+            map.plot_map(asarray(maps), figname, dam, **kwargs_map)
         except ModuleNotFoundError:
             pass
     else:
@@ -594,5 +599,6 @@ def run(
             "Not plotting map since no datasets to plot."
         )
     logging.info(
-        f"Finished analysis. Find plots, stats summaries, and log in {omsa.PROJ_DIR(project_name)}."
+        f"Finished analysis. Find plots, stats summaries, and log in {PROJ_DIR(project_name)}."
     )
+    logging.shutdown()

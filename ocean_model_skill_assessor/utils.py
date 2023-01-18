@@ -17,15 +17,16 @@ from xarray import Dataset, DataArray
 
 from intake.catalog import Catalog
 
-import ocean_model_skill_assessor as omsa
+from .paths import CAT_PATH, LOG_PATH
 
 
-def set_up_logging(project_name, verbose, mode: str="w"):
+def set_up_logging(project_name, verbose, mode: str="w", testing: bool = False):
     """set up logging"""
     
-    logging.captureWarnings(True)
+    if not testing:
+        logging.captureWarnings(True)
 
-    file_handler = logging.FileHandler(filename=omsa.LOG_PATH(project_name), mode=mode)
+    file_handler = logging.FileHandler(filename=LOG_PATH(project_name), mode=mode)
     handlers = [file_handler]
     if verbose:
         stdout_handler = logging.StreamHandler(stream=sys.stdout)
@@ -232,7 +233,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
         # read in model output
         if isinstance(kwargs_search["model_name"], str):
             model_cat = intake.open_catalog(
-                omsa.CAT_PATH(
+                CAT_PATH(
                     kwargs_search["model_name"], kwargs_search["project_name"]
                 )
             )

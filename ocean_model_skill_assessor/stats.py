@@ -2,17 +2,15 @@
 Statistics functions.
 """
 
-from typing import Tuple, Union
+from typing import Union
 
-import numpy as np
-import pandas as pd
+from numpy import corrcoef, sqrt
 import yaml
 
-from pandas import DataFrame
+from pandas import DataFrame, Series, concat
 from xarray import DataArray, Dataset
 
-import ocean_model_skill_assessor as omsa
-
+from .paths import PROJ_DIR
 
 def _align(
     obs: Union[DataFrame, DataArray], model: Union[DataFrame, DataArray]
@@ -31,7 +29,7 @@ def _align(
     # if obs or model is a dask DataArray, output will be loaded in at this point
     if isinstance(obs, DataArray):
         obs = DataFrame(obs.to_pandas())
-    elif isinstance(obs, pd.Series):
+    elif isinstance(obs, Series):
         obs = DataFrame(obs)
     if isinstance(model, (DataArray, Dataset)):
         model = DataFrame(model.to_pandas())
@@ -51,7 +49,7 @@ def _align(
     # otherwise only nan's come through
     ind = model.index.union(obs.index)
     obs = obs.reindex(ind).interpolate(method="time", limit=1).reindex(model.index)
-    aligned = pd.concat([obs, model], axis=1)
+    aligned = concat([obs, model], axis=1)
 
     # Couldn't get this to work for me:
     # TODO: try flipping order of obs and model
@@ -80,7 +78,7 @@ def compute_correlation_coefficient(obs: DataFrame, model: DataFrame) -> DataFra
         model = aligned_signals["model"]
     # can't send nan's in
     inds = obs.notnull() * model.notnull()
-    return float(np.corrcoef(obs[inds], model[inds])[0, 1])
+    return float(corrcoef(obs[inds], model[inds])[0, 1])
 
 
 def compute_index_of_agreement(obs: DataFrame, model: DataFrame) -> DataFrame:
@@ -133,7 +131,6 @@ def compute_murphy_skill_score(
 
     # if a obs forecast is not available, use mean of the *original* observations
     if not obs_model:
-        # import pdb; pdb.set_trace()
         obs_model = obs.copy()
         obs_model[:] = obs.mean()
         # obs_model[:] = obs.mean().values[0]
@@ -158,7 +155,7 @@ def compute_root_mean_square_error(
         model = aligned_signals["model"]
 
     mse = compute_mean_square_error(obs, model, centered=centered)
-    return float(np.sqrt(mse))
+    return float(sqrt(mse))
 
 
 def compute_descriptive_statistics(model: DataFrame, ddof=0) -> list:
@@ -233,6 +230,6 @@ def save_stats(source_name: str, stats: dict, project_name: str, key_variable: s
     }
 
     with open(
-        omsa.PROJ_DIR(project_name) / f"stats_{source_name}_{key_variable}.yaml", "w"
+        PROJ_DIR(project_name) / f"stats_{source_name}_{key_variable}.yaml", "w"
     ) as outfile:
         yaml.dump(stats, outfile, default_flow_style=False)

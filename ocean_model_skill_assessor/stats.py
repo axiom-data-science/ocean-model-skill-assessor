@@ -31,8 +31,11 @@ def _align(
         obs = DataFrame(obs.to_pandas())
     elif isinstance(obs, Series):
         obs = DataFrame(obs)
-    if isinstance(model, (DataArray, Dataset)):
+
+    if isinstance(model, DataArray):
         model = DataFrame(model.to_pandas())
+    elif isinstance(model, Dataset):
+        raise TypeError("Model output should be a DataArray, not Dataset, at this point.")
 
     obs.rename(columns={obs.columns[0]: "obs"}, inplace=True)
     model.rename(columns={model.columns[0]: "model"}, inplace=True)
@@ -227,6 +230,11 @@ def save_stats(source_name: str, stats: dict, project_name: str, key_variable: s
         "value": stats["descriptive"],
         "name": "Descriptive Statistics",
         "long_name": "Max, Min, Mean, Standard Deviation",
+    }
+    stats["dist"] = {
+        "value": stats["dist"],
+        "name": "Distance",
+        "long_name": "Distance in km from data location to selected model location",
     }
 
     with open(

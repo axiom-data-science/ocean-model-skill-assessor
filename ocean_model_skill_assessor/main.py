@@ -10,6 +10,7 @@ from pathlib import PurePath
 from typing import Any, Dict, List, Optional, Union
 
 import extract_model.accessor
+from extract_model import preprocess
 import intake
 import logging
 
@@ -21,12 +22,16 @@ from intake.catalog.local import LocalCatalogEntry
 from numpy import sum, asarray
 from .paths import CAT_PATH, PROJ_DIR, VOCAB_PATH
 from pandas import to_datetime
+from shapely.geometry import Point
 from tqdm import tqdm
 
 from ocean_model_skill_assessor.plot import map
 
 from .stats import _align, save_stats
-from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, var_and_mask
+from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, get_mask, find_bbox
+
+# turn off annoying warning in cf-xarray
+cfx_set_options(warn_on_missing_variables=False)
 
 def make_local_catalog(
     filenames: List[str],
@@ -164,9 +169,9 @@ def make_local_catalog(
             dd.cf["T"] = to_datetime(dd.cf["T"])
             dd.set_index(dd.cf["T"], inplace=True)
             if dd.index.tz is not None:
-                warnings.warn(
-                    f"Dataset {source} had a timezone {dd.index.tz} which is being removed. Make sure the timezone matches the model output.",
-                    RuntimeWarning,
+                logging.warning(
+                    "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.",
+                    source, str(dd.index.tz)
                 )
                 dd.index = dd.index.tz_convert(None)
                 dd.cf["T"] = dd.index
@@ -458,12 +463,21 @@ def run(
     else:
         raise ValueError("model_name should be input as string path or Catalog object.")
     dsm = model_cat[list(model_cat)[0]].to_dask()
+    
+    # process model output without using open_mfdataset
+    dsm = preprocess(dsm, kwargs={"interp_vertical": False})
 
-    # take out relevant variable and keep mask if available
-    dam = var_and_mask(dsm, vocab, key_variable)
+    with cfx_set_options(custom_criteria=vocab.vocab):
+        dam = dsm.cf[key_variable]
+
+    # take out relevant variable and identify mask if available (otherwise None)
+    mask = get_mask(dsm, dam.name)
 
     # shift if 0 to 360
     dam = shift_longitudes(dam)
+    
+    # Calculate boundary of model domain to compare with data locations and for map
+    _, _, _, p1 = find_bbox(dam, mask)
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
@@ -473,10 +487,21 @@ def run(
         # for source_name in tqdm(list(cat)[-ndatasets:]):
         for source_name in tqdm(list(cat)[:ndatasets]):
 
+            msg = f"\nsource name: {source_name}"
+            logging.info(msg)
+
             min_lon = cat[source_name].metadata["minLongitude"]
             max_lon = cat[source_name].metadata["maxLongitude"]
             min_lat = cat[source_name].metadata["minLatitude"]
             max_lat = cat[source_name].metadata["maxLatitude"]
+            
+            # see if data location is inside alphashape-calculated polygon of model domain
+            # This currently assumes that the dataset is fixed in space.
+            point = Point(min_lon, min_lat)
+            if not p1.contains(point):
+                msg = f"Dataset {source_name} at lon {min_lon}, lat {min_lat} not located within model domain. Skipping dataset.\n"
+                logging.warning(msg)
+                continue
 
             maps.append([min_lon, max_lon, min_lat, max_lat, source_name])
 
@@ -504,25 +529,33 @@ def run(
 
             # Combine and align the two time series of variable
             with cfp_set_options(custom_criteria=vocab.vocab):
-                logging.info(f"source name: {source_name}")
                 dfd = cat[source_name].read()
                 if key_variable not in dfd.cf:
-                    warnings.warn(
-                        f"Key variable {key_variable} cannot be identified in dataset {source_name}. Skipping dataset.",
-                        RuntimeWarning,
-                    )
+                    msg = f"Key variable {key_variable} cannot be identified in dataset {source_name}. Skipping dataset.\n"
+                    logging.warning(msg)
                     maps.pop(-1)
                     continue
 
                 dfd.cf["T"] = to_datetime(dfd.cf["T"])
                 dfd.set_index(dfd.cf["T"], inplace=True)
                 if dfd.index.tz is not None:
-                    warnings.warn(
-                        f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.",
-                        RuntimeWarning,
+                    logging.warning(
+                        "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.", source_name, str(dfd.index.tz)
                     )
                     dfd.index = dfd.index.tz_convert(None)
                     dfd.cf["T"] = dfd.index
+                
+                # make sure index is sorted ascending so time goes forward
+                dfd = dfd.sort_index()
+                
+                # check if all of variable is nan
+                if dfd.cf[key_variable].isnull().all():
+                    msg = f"All values of key variable {key_variable} are nan in dataset {source_name}. Skipping dataset.\n"
+                    logging.warning(msg)
+                    maps.pop(-1)
+                    continue
+                # if source_name == "noaa_nos_co_ops_8726667":
+                #     import pdb; pdb.set_trace()
 
             # Pull out nearest model output to data
             kwargs = dict(
@@ -545,46 +578,64 @@ def run(
 
             elif dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 2:
                 # time slices can't be used with `method="nearest"`, so separate out
+                # add "distances_name" to send to `sel2dcf`
+                # also send mask in so it can be accounted for in finding nearest model point
                 if isinstance(kwargs["T"], slice):
                     Targ = kwargs.pop("T")
-                    model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+                    model_var = dam.em.sel2dcf(mask=mask, distances_name="distance", **kwargs)  # .to_dataset()
                     model_var = model_var.cf.sel(T=Targ)
                 else:
-                    model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+                    model_var = dam.em.sel2dcf(mask=mask, distances_name="distance", **kwargs)  # .to_dataset()
             
-            # retain only variable in object, thus converting to DataArray for model_var
-            with cfx_set_options(custom_criteria=vocab.vocab):
-                model_var = model_var.cf[key_variable]
+            # Use distances from xoak to give context to how far the returned model points might be from
+            # the data locations
+            if model_var["distance"] > 5:
+                logging.warning("Distance between nearest model location and data location for source %s is over 5 km with a distance of %s", source_name, str(model_var["distance"].values))
+            elif model_var["distance"] > 100:
+                msg = f"Distance between nearest model location and data location for source {source_name} is over 100 km with a distance of {model_var['distance'].values}. Skipping dataset.\n"
+                logging.warning(msg)
+                maps.pop(-1)
+                continue
+            
+            # # retain only variable in object, thus converting to DataArray for model_var
+            # with cfx_set_options(custom_criteria=vocab.vocab):
+            #     model_var = model_var.cf[key_variable]
             
 
             if len(model_var.cf["T"]) == 0:
                 # model output isn't available to match data
                 # data must not be in the space/time range of model
                 maps.pop(-1)
-                warnings.warn(
-                    f"Model output is not present to match dataset {source_name}.",
-                    RuntimeWarning,
+                logging.warning(
+                    "Model output is not present to match dataset %s.",
+                    source_name,
                 )
                 continue
 
             # Combine and align the two time series of variable
-            with cfp_set_options(custom_criteria=vocab.vocab):
-                df = _align(dfd.cf[key_variable], model_var)
+            with cfp_set_options(custom_criteria=vocab.vocab), cfx_set_options(custom_criteria=vocab.vocab):
+                df = _align(dfd.cf[key_variable], model_var.cf[key_variable])
+                y_name = model_var.cf[key_variable].name
 
             # pull out depth at surface?
 
             # Where to save stats to?
             stats = df.omsa.compute_stats
+
+            # add distance in
+            stats["dist"] = float(model_var["distance"])
             save_stats(source_name, stats, project_name, key_variable)
 
             # Write stats on plot
             figname = PROJ_DIR(project_name) / f"{source_name}_{key_variable}.png"
             df.omsa.plot(
                 title=f"{count}: {source_name}",
-                ylabel=model_var.name,
+                ylabel=y_name,
                 figname=figname,
                 stats=stats,
             )
+            msg = f"Plotted time series for {source_name}\n."
+            logging.info(msg)
 
             count += 1
 
@@ -592,7 +643,7 @@ def run(
     if len(maps) > 0:
         try:
             figname = PROJ_DIR(project_name) / "map.png"
-            map.plot_map(asarray(maps), figname, dam, **kwargs_map)
+            map.plot_map(asarray(maps), figname, dam, p=p1, **kwargs_map)
         except ModuleNotFoundError:
             pass
     else:
@@ -600,6 +651,6 @@ def run(
             "Not plotting map since no datasets to plot."
         )
     logging.info(
-        f"Finished analysis. Find plots, stats summaries, and log in {PROJ_DIR(project_name)}."
+        "Finished analysis. Find plots, stats summaries, and log in %s.", str(PROJ_DIR(project_name))
     )
     logging.shutdown()

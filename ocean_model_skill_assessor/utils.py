@@ -7,11 +7,10 @@ import sys
 from typing import Dict, Optional, Union
 
 import cf_pandas as cfp
-import cf_xarray as cfx
 import extract_model as em
 import intake
 import numpy as np
-import shapely.geometry
+from shapely.geometry import Polygon
 import xarray as xr
 from xarray import Dataset, DataArray
 
@@ -41,20 +40,34 @@ def set_up_logging(project_name, verbose, mode: str="w", testing: bool = False):
     # logger = logging.getLogger('OMSA log')
 
 
-def var_and_mask(dsm, vocab, key_variable):
-    
-    with cfx.set_options(custom_criteria=vocab.vocab):
-        dam = dsm.cf[key_variable]
+def get_mask(dsm: Dataset, varname: str) -> Union[DataArray,None]:
+    """Return mask that matches x/y coords of var.
 
+    Parameters
+    ----------
+    dsm : Dataset
+        Model output
+    varname : str
+        Name of variable in dsm.
+
+    Returns
+    -------
+    DataArray or None
+        mask associated with varname in dsm, or None.
+    """
+    
+    if not varname in dsm.data_vars:
+        raise KeyError(f"varname {varname} needs to be a data variable in dsm but is not found.")
+    
     # include matching static mask if present
     masks = dsm.filter_by_attrs(flag_meanings="land water")
     if len(masks.data_vars) > 0:
-        mask_name = [mask for mask in masks.data_vars if dsm[mask].encoding["coordinates"] in dam.encoding["coordinates"]][0]
-        dam = xr.merge([dam, dsm[mask_name]])
+        mask_name = [mask for mask in masks.data_vars if dsm[mask].encoding["coordinates"] in dsm[varname].encoding["coordinates"]][0]
+        mask = dsm[mask_name]
     else:
-        dam = dam.to_dataset()
+        mask = None
     
-    return dam
+    return mask
 
 
 def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:
@@ -84,13 +97,15 @@ def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:
     return dam
 
 
-def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
+def find_bbox(ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, alpha: int = 5) -> tuple:
     """Determine bounds and boundary of model.
 
     Parameters
     ----------
     ds: DataArray
         xarray Dataset containing model output.
+    mask : DataArray, optional
+        Mask with 1's for active locations and 0's for masked.
     dd: int, optional
         Number to decimate model output lon/lat, as a stride.
     alpha: float, optional
@@ -103,10 +118,14 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
 
     Notes
     -----
-    This is from the package ``model_catalogs``.
+    This was originally from the package ``model_catalogs``.
     """
 
-    hasmask = False
+    if mask is not None:
+        hasmask = True
+    else:
+        hasmask = False
+    
 
     try:
         lon = ds.cf["longitude"].values
@@ -119,7 +138,7 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
             lonkey = "lon_rho"
             latkey = "lat_rho"
         else:
-            lonkey = list(ds.cf[["longitude"]].coords.keys())[0]
+            lonkey = ds.cf.coordinates["longitude"][0]
             # need to make sure latkey matches lonkey grid
             latkey = f"lat{lonkey[3:]}"
         # In case there are multiple grids, just take first one;
@@ -127,22 +146,30 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
         lon = ds[lonkey].values
         lat = ds[latkey].values
 
-    # this function is being used on DataArrays instead of Datasets, and the model I'm using as
-    # an example doesn't have a mask, so bring this back when I have a relevant example.
-    # check for corresponding mask (rectilinear and curvilinear grids)
-    if any([var for var in ds.data_vars if "mask" in var]):
-        if ("mask_rho" in ds) and (lonkey == "lon_rho"):
-            maskkey = lonkey.replace("lon", "mask")
-        elif "mask" in ds:
-            maskkey = "mask"
-        else:
-            maskkey = None
-        if maskkey in ds:
-            lon = ds[lonkey].where(ds[maskkey] == 1).values
-            lon = lon[~np.isnan(lon)].flatten()
-            lat = ds[latkey].where(ds[maskkey] == 1).values
-            lat = lat[~np.isnan(lat)].flatten()
-            hasmask = True
+    # # this function is being used on DataArrays instead of Datasets, and the model I'm using as
+    # # an example doesn't have a mask, so bring this back when I have a relevant example.
+    # # check for corresponding mask (rectilinear and curvilinear grids)
+    # if any([var for var in ds.data_vars if "mask" in var]):
+    #     if ("mask_rho" in ds) and (lonkey == "lon_rho"):
+    #         maskkey = lonkey.replace("lon", "mask")
+    #     elif "mask" in ds:
+    #         maskkey = "mask"
+    #     else:
+    #         maskkey = None
+    #     if maskkey in ds:
+    #         lon = ds[lonkey].where(ds[maskkey] == 1).values
+    #         lon = lon[~np.isnan(lon)].flatten()
+    #         lat = ds[latkey].where(ds[maskkey] == 1).values
+    #         lat = lat[~np.isnan(lat)].flatten()
+    #         hasmask = True
+    
+    if hasmask:
+        lon = ds[lonkey].where(mask == 1).values
+        lon = lon[~np.isnan(lon)].flatten()
+        lat = ds[latkey].where(mask == 1).values
+        lat = lat[~np.isnan(lat)].flatten()
+        
+
     # import pdb; pdb.set_trace()
     # This is structured, rectilinear
     # GFS, RTOFS, HYCOM
@@ -151,7 +178,7 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
         lonb = np.concatenate(([lon[0]] * nlat, lon[:], [lon[-1]] * nlat, lon[::-1]))
         latb = np.concatenate((lat[:], [lat[-1]] * nlon, lat[::-1], [lat[0]] * nlon))
         # boundary = np.vstack((lonb, latb)).T
-        p = shapely.geometry.Polygon(zip(lonb, latb))
+        p = Polygon(zip(lonb, latb))
         p0 = p.simplify(1)
         # Now using the more simplified version because all of these models are boxes
         p1 = p0

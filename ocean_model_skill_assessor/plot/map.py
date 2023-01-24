@@ -7,7 +7,7 @@ from typing import Optional, Sequence, Union
 
 from matplotlib.pyplot import figure
 from numpy import array, allclose
-
+from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
 
 from ..utils import find_bbox, shift_longitudes
@@ -27,6 +27,7 @@ def plot_map(
     alpha: int = 5,
     dd: int = 2,
     extent: Optional[Sequence] = None,
+    p: Optional[Polygon] = None,
 ):
     """Plot and save to file map of model domain and data locations.
 
@@ -38,8 +39,14 @@ def plot_map(
         Map will be saved here.
     ds : Union[DataArray, Dataset]
         Model output.
-    extent: 
+    alpha : int
+        parameter for alphashape. 0 returns qhull, and higher values make a tighter polygon around the points.
+    dd : int
+        number to decimate model points by. input 1 to not decimate.
+    extent: optional
         [min longitude, max longitude, min latitude, max latitude]
+    p : Shapely polygon
+        Polygon representing outer boundary of numerical model.
     """
     
     if not CARTOPY_AVAILABLE:
@@ -76,7 +83,11 @@ def plot_map(
     ax.add_feature(land_10m, facecolor="0.8")
 
     # alphashape
-    _, _, bbox, p = find_bbox(ds, dd=dd, alpha=alpha)
+    if p is None:
+        _, _, bbox, p = find_bbox(ds, dd=dd, alpha=alpha)
+    else:
+        # this needs to be checked for resulting type and order
+        bbox = p.bounds
     ax.add_geometries([p], crs=pc, facecolor="none", edgecolor="r", linestyle="-")
 
     # plot stations

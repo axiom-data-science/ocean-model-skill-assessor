@@ -19,6 +19,51 @@ from intake.catalog import Catalog
 from .paths import CAT_PATH, LOG_PATH
 
 
+def coords1Dto2D(dam: DataArray) -> DataArray:
+    """expand 1D coordinates to 2D
+
+    Parameters
+    ----------
+    dam : DataArray
+        Model output variable to work on.
+
+    Returns
+    -------
+    DataArray
+        Model output but with 2D coordinates in place of 1D coordinates, if applicable. Otherwise same as input.
+    """
+
+    if dam.cf["longitude"].ndim == 1:
+        # need to meshgrid lon/lat
+        lon2, lat2 = np.meshgrid(dam.cf["longitude"], dam.cf["latitude"])
+        lonkey, latkey = dam.cf["longitude"].name, dam.cf["latitude"].name
+        # 2D coord names
+        lonkey2, latkey2 = f"{lonkey}2", f"{latkey}2"
+        # dam = dam.assign_coords({lonkey2: ((dam.cf["Y"].name, dam.cf["X"].name), lon2, dam.cf["Longitude"].attrs),
+        #                          latkey2: ((dam.cf["Y"].name, dam.cf["X"].name), lat2, dam.cf["Latitude"].attrs)})
+        dam[lonkey2] = ((dam.cf["Y"].name, dam.cf["X"].name), lon2, dam.cf["Longitude"].attrs)
+        dam[latkey2] = ((dam.cf["Y"].name, dam.cf["X"].name), lat2, dam.cf["Latitude"].attrs)
+
+        # remove attributes from 1D lon/lats that are interpreted for coordinates (but not for axes)
+        if "standard_name" in dam[lonkey].attrs:
+            del(dam[lonkey].attrs["standard_name"])
+        if "units" in dam[lonkey].attrs:
+            del(dam[lonkey].attrs["units"]) 
+        if "standard_name" in dam[latkey].attrs:
+            del(dam[latkey].attrs["standard_name"])
+        if "units" in dam[latkey].attrs:
+            del(dam[latkey].attrs["units"])
+
+        # modify coordinates 
+        if "_CoordinateAxes" in dam.attrs:
+            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(lonkey, lonkey2)
+            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(latkey, latkey2)
+        elif "coordinates" in dam.encoding:
+            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(lonkey, lonkey2)
+            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(latkey, latkey2)
+
+    return dam
+
 def set_up_logging(project_name, verbose, mode: str="w", testing: bool = False):
     """set up logging"""
     

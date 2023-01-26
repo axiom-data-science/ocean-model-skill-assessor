@@ -11,8 +11,10 @@ from typing import Any, Dict, List, Optional, Union
 
 import extract_model.accessor
 from extract_model import preprocess
+from extract_model.utils import guess_model_type
 import intake
 import logging
+import requests
 
 from cf_pandas import Vocab, astype, always_iterable, merge
 from cf_pandas import set_options as cfp_set_options
@@ -21,14 +23,14 @@ from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from numpy import sum, asarray
 from .paths import CAT_PATH, PROJ_DIR, VOCAB_PATH
-from pandas import to_datetime
+from pandas import to_datetime, DataFrame, Series
 from shapely.geometry import Point
 from tqdm import tqdm
 
 from ocean_model_skill_assessor.plot import map
 
 from .stats import _align, save_stats
-from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, get_mask, find_bbox
+from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, get_mask, find_bbox, coords1Dto2D
 
 # turn off annoying warning in cf-xarray
 cfx_set_options(warn_on_missing_variables=False)
@@ -333,7 +335,6 @@ def make_catalog(
                     **kwargs,
                 )
         else:
-            # import pdb; pdb.set_trace()
             cat = intake.open_erddap_cat(
                 kwargs_search=kwargs_search,
                 name=catalog_name,
@@ -465,7 +466,12 @@ def run(
     dsm = model_cat[list(model_cat)[0]].to_dask()
     
     # process model output without using open_mfdataset
-    dsm = preprocess(dsm, kwargs={"interp_vertical": False})
+    # vertical coords have been an issue for ROMS and POM, related to dask and OFS models
+    if guess_model_type(dsm) in ["ROMS","POM"]:
+        kwargs_pp = {"interp_vertical": False}
+    else:
+        kwargs_pp = {}
+    dsm = preprocess(dsm, kwargs=kwargs_pp)
 
     with cfx_set_options(custom_criteria=vocab.vocab):
         dam = dsm.cf[key_variable]
@@ -476,6 +482,10 @@ def run(
     # shift if 0 to 360
     dam = shift_longitudes(dam)
     
+    # expand 1D coordinates to 2D, so all models dealt with in OMSA are treated with 2D coords.
+    # if your model is too large to be treated with this way, subset the model first.
+    dam = coords1Dto2D(dam)
+    
     # Calculate boundary of model domain to compare with data locations and for map
     _, _, _, p1 = find_bbox(dam, mask)
 
@@ -485,9 +495,12 @@ def run(
     for cat in tqdm(cats):
         logging.info(f"Catalog {cat}.")
         # for source_name in tqdm(list(cat)[-ndatasets:]):
-        for source_name in tqdm(list(cat)[:ndatasets]):
+        for i, source_name in tqdm(enumerate(list(cat)[:ndatasets])):
 
-            msg = f"\nsource name: {source_name}"
+            if ndatasets is None:
+                msg = f"\nsource name: {source_name} ({i} of {ndata} for catalog {cat}."
+            else:
+                msg = f"\nsource name: {source_name} ({i} of {ndatasets} for catalog {cat}."
             logging.info(msg)
 
             min_lon = cat[source_name].metadata["minLongitude"]
@@ -506,7 +519,6 @@ def run(
             maps.append([min_lon, max_lon, min_lat, max_lat, source_name])
 
             # if min_lon != max_lon or min_lat != max_lat:
-            #     # import pdb; pdb.set_trace()
             #     warnings.warn(
             #         f"Source {source_name} in catalog {cat.name} is not stationary so not plotting."
             #     )
@@ -529,12 +541,30 @@ def run(
 
             # Combine and align the two time series of variable
             with cfp_set_options(custom_criteria=vocab.vocab):
-                dfd = cat[source_name].read()
+                try:
+                    dfd = cat[source_name].read()
+                except requests.exceptions.HTTPError as e:
+                    logging.warning(str(e))
+                    msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
+                    logging.warning(msg)
+                    maps.pop(-1)
+                    continue
+
                 if key_variable not in dfd.cf:
                     msg = f"Key variable {key_variable} cannot be identified in dataset {source_name}. Skipping dataset.\n"
                     logging.warning(msg)
                     maps.pop(-1)
                     continue
+                
+                
+                # see if more than one column of data is being identified as key_variable
+                # if more than one, log warning and then choose first
+                if isinstance(dfd.cf[key_variable], DataFrame):
+                    msg = f"More than one variable ({dfd.cf[key_variable].columns}) have been matched to input variable {key_variable}. The first {dfd.cf[key_variable].columns[0]} is being selected. To change this, modify the vocabulary so that the two variables are not both matched, or change the input data catalog."
+                    logging.warning(msg)
+                    # remove other data columns
+                    for col in dfd.cf[key_variable].columns[1:]:
+                        dfd.drop(col, axis=1, inplace=True)
 
                 dfd.cf["T"] = to_datetime(dfd.cf["T"])
                 dfd.set_index(dfd.cf["T"], inplace=True)
@@ -554,8 +584,6 @@ def run(
                     logging.warning(msg)
                     maps.pop(-1)
                     continue
-                # if source_name == "noaa_nos_co_ops_8726667":
-                #     import pdb; pdb.set_trace()
 
             # Pull out nearest model output to data
             kwargs = dict(
@@ -568,39 +596,58 @@ def run(
 
             # xoak doesn't work for 1D lon/lat coords
             if dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 1:
-                # time slices can't be used with `method="nearest"`, so separate out
-                if isinstance(kwargs["T"], slice):
-                    Targ = kwargs.pop("T")
-                    model_var = dam.cf.sel(**kwargs)  # .to_dataset()
-                    model_var = model_var.cf.sel(T=Targ)
-                else:
-                    model_var = dam.cf.sel(**kwargs)  # .to_dataset()
+                # This shouldn't happen anymore, so make note if it does
+                msg = "1D coordinates were found for this model but that should not be possible anymore."
+                raise ValueError(msg)
+                # if isinstance(kwargs["T"], slice):
+                #     Targ = kwargs.pop("T")
+                #     model_var = dam.cf.sel(T=Targ)
+                # else:
+                #     model_var = dam
+                
+                # # find indices representing mask
+                # import numpy as np
+                # import xarray as xr
+                # eta, xi = np.where(mask.values)
+                # # make advanced indexer to flatten arrays
+                # model_var = model_var.cf.isel(
+                #     X=xr.DataArray(xi, dims="loc"), Y=xr.DataArray(eta, dims="loc")
+                # )
 
+                # model_var = model_var.cf.sel(**kwargs)
+                # # calculate distance
+                # # calculate distance for the 1 point: model location vs. requested location
+                # # https://stackoverflow.com/questions/56862277/interpreting-sklearn-haversine-outputs-to-kilometers
+                # earth_radius = 6371  # km
+                # pts = deg2rad([[kwargs["latitude"], kwargs["longitude"]], [model_var.cf["latitude"], model_var.cf["longitude"]]])
+                # tree = BallTree(pts, metric = 'haversine')
+                # ind, results = tree.query_radius(pts, r=earth_radius, return_distance=True)
+                # distance = results[0][1]*earth_radius  # distance between points in km
             elif dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 2:
                 # time slices can't be used with `method="nearest"`, so separate out
                 # add "distances_name" to send to `sel2dcf`
                 # also send mask in so it can be accounted for in finding nearest model point
                 if isinstance(kwargs["T"], slice):
                     Targ = kwargs.pop("T")
-                    model_var = dam.em.sel2dcf(mask=mask, distances_name="distance", **kwargs)  # .to_dataset()
-                    model_var = model_var.cf.sel(T=Targ)
+                    model_var = dam.cf.sel(T=Targ)
                 else:
-                    model_var = dam.em.sel2dcf(mask=mask, distances_name="distance", **kwargs)  # .to_dataset()
-            
+                    model_var = dam
+
+                model_var = model_var.em.sel2dcf(mask=mask, distances_name="distance", **kwargs)  # .to_dataset()
+
+                # downsize to DataArray
+                distance = model_var["distance"]
+                model_var = model_var[dam.name]
+
             # Use distances from xoak to give context to how far the returned model points might be from
             # the data locations
-            if model_var["distance"] > 5:
-                logging.warning("Distance between nearest model location and data location for source %s is over 5 km with a distance of %s", source_name, str(model_var["distance"].values))
-            elif model_var["distance"] > 100:
-                msg = f"Distance between nearest model location and data location for source {source_name} is over 100 km with a distance of {model_var['distance'].values}. Skipping dataset.\n"
+            if distance > 5:
+                logging.warning("Distance between nearest model location and data location for source %s is over 5 km with a distance of %s", source_name, str(distance.values))
+            elif distance > 100:
+                msg = f"Distance between nearest model location and data location for source {source_name} is over 100 km with a distance of {distance.values}. Skipping dataset.\n"
                 logging.warning(msg)
                 maps.pop(-1)
                 continue
-            
-            # # retain only variable in object, thus converting to DataArray for model_var
-            # with cfx_set_options(custom_criteria=vocab.vocab):
-            #     model_var = model_var.cf[key_variable]
-            
 
             if len(model_var.cf["T"]) == 0:
                 # model output isn't available to match data
@@ -613,9 +660,9 @@ def run(
                 continue
 
             # Combine and align the two time series of variable
-            with cfp_set_options(custom_criteria=vocab.vocab), cfx_set_options(custom_criteria=vocab.vocab):
-                df = _align(dfd.cf[key_variable], model_var.cf[key_variable])
-                y_name = model_var.cf[key_variable].name
+            with cfp_set_options(custom_criteria=vocab.vocab):
+                df = _align(dfd.cf[key_variable], model_var)
+                y_name = model_var.name
 
             # pull out depth at surface?
 
@@ -623,7 +670,7 @@ def run(
             stats = df.omsa.compute_stats
 
             # add distance in
-            stats["dist"] = float(model_var["distance"])
+            stats["dist"] = float(distance)
             save_stats(source_name, stats, project_name, key_variable)
 
             # Write stats on plot

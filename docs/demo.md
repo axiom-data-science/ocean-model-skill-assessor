@@ -55,6 +55,12 @@ cat_data = omsa.make_catalog(project_name="demo_local_package", catalog_type="lo
 cat_data
 ```
 
+You may want to make a map of the data locations before doing your full run, especially in the case that you created a catalog from an ERDDAP server or similar. You can do this as follows:
+
+```{code-cell}
+omsa.plot.map.plot_cat_on_map(catalog=cat_data, project_name="demo_local_package")
+```
+
 ## Run comparison
 
 Now that the model output and dataset catalogs are prepared, we can run the comparison of the two.

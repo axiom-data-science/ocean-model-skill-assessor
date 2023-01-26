@@ -18,7 +18,7 @@ import sys
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 # see https://pypi.org/project/setuptools-scm/ for details
-from importlib.metadata import version
+from importlib.metadata import version as imversion
 
 
 print("python exec:", sys.executable)
@@ -35,7 +35,7 @@ project = "ocean-model-skill-assessor"
 copyright = "2021-2023, Axiom Data Science"
 author = "Axiom Data Science"
 
-release = version("ocean-model-skill-assessor")
+release = imversion("ocean-model-skill-assessor")
 # for example take major/minor
 version = ".".join(release.split(".")[:2])
 

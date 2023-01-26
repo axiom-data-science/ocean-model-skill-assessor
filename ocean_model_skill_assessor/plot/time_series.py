@@ -2,8 +2,7 @@
 Time series plots.
 """
 
-from matplotlib.pyplot import subplots, legend
-
+from matplotlib.pyplot import legend, subplots
 from pandas import DataFrame
 
 
@@ -50,7 +49,7 @@ def plot(
 
     if stats is not None:
         stat_sum = ""
-        types = ["bias", "corr", "ioa", "mse", "mss", "rmse","dist"]
+        types = ["bias", "corr", "ioa", "mse", "mss", "rmse", "dist"]
         for type in types:
             stat_sum += f"{type}: {stats[type]['value']:.1f}  "
         title = f"{title}: {stat_sum}"

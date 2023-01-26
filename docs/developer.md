@@ -4,7 +4,7 @@
 
 The demo notebooks are compiled by ReadTheDocs with Myst-NB and jupytext. These packages allow for a 1-1 mapping between a Jupyter notebook and a markdown file that can be interpreted for compilation. The markdown version of each demo is what is git-tracked because changes can be tracked better in that format.
 
-The steps for updating demo pages: 
+The steps for updating demo pages:
 1. If you don't already have a notebook version of the demo you want to update, convert from markdown to notebook with `jupytext [filename].md --to ipynb`.
 2. Update notebook.
 3. Convert to markdown with `jupytext [filename].ipynb --to myst`.

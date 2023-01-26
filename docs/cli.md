@@ -73,7 +73,7 @@ Code(filename=omsa.CAT_PATH("example_local_catalog2", "test1"))
 Use this approach to set up a catalog file for your model output, so that it can be used by OMSA. Use `skip_entry_metadata=True` when running for a model.
 
 ```{code-cell} ipython3
-!omsa make_catalog --project_name test1 --catalog_type local --catalog_name model --kwargs filenames=https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time 
+!omsa make_catalog --project_name test1 --catalog_type local --catalog_name model --kwargs filenames=https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time
 ```
 
 ```{code-cell} ipython3
@@ -96,7 +96,7 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 * `vocab_name`: Name of vocabulary to use from vocab dir. Options are "standard_names" and "general". See more information [here](https://ocean-model-skill-assessor.readthedocs.io/en/latest/create_vocabs_wrapper.html).
 * `kwargs`: Some keyword arguments to make the ERDDAP catalog. See `intake-erddap.erddap_cat()` for more details.
   * `server`: ERDDAP server address, for example: "http://erddap.sensors.ioos.us/erddap"
-  * `category_search`: 
+  * `category_search`:
   * `use_source_constraints`: Any relevant search parameter defined in kwargs_search will be passed to the source objects as constraints.
   * `protocol`: str, default "tabledap"
   * `query_type`: Specifies how the catalog should apply the query parameters. Choices are ``"union"`` or ``"intersection"``. If the ``query_type`` is set to ``"intersection"``, then the set of results will be the intersection of each individual query made to ERDDAP. This is equivalent to a logical AND of the results. If the value is ``"union"`` then the results will be the union of each resulting dataset. This is equivalent to a logical OR.
@@ -137,10 +137,10 @@ You can additionally narrow your search by a text term by adding the `search_for
 
 ##### Variable selection by standard_name
 
-Narrow your search by variable. For `intake-erddap` you can filter by the CF `standard_name` of the variable directly with the following. 
+Narrow your search by variable. For `intake-erddap` you can filter by the CF `standard_name` of the variable directly with the following.
 
 ```{code-cell} ipython3
-!omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat1 --kwargs server=https://erddap.sensors.ioos.us/erddap standard_names="[sea_surface_temperature,sea_water_temperature]" 
+!omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat1 --kwargs server=https://erddap.sensors.ioos.us/erddap standard_names="[sea_surface_temperature,sea_water_temperature]"
 ```
 
 ##### Variable selection by pattern matching with vocab
@@ -207,7 +207,7 @@ Select a box and time range over which to search catalog along with standard_nam
 
 ##### Same but with vocab
 
-As in the ERDDAP catalog example above, we can instead get the same results by inputting a vocabulary to use, in this case "standard_names" which will map to variable names in Axiom systems, along with the variable nickname from the vocabulary to find: "temp". 
+As in the ERDDAP catalog example above, we can instead get the same results by inputting a vocabulary to use, in this case "standard_names" which will map to variable names in Axiom systems, along with the variable nickname from the vocabulary to find: "temp".
 
 ```{code-cell} ipython3
 !omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog2 --description "Example AXDS catalog description" --vocab_name standard_names --kwargs page_size=50000 keys_to_match='[temp]' --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2000-1-1 max_time=2002-1-1

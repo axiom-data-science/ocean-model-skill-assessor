@@ -17,7 +17,7 @@ kernelspec:
 import ocean_model_skill_assessor as omsa
 ```
 
-Set up model and data catalogs. 
+Set up model and data catalogs.
 
 ```{code-cell} ipython3
 project_name = "ciofs_ncei"
@@ -32,15 +32,15 @@ kwargs_open = dict(drop_variables=["ocean_time"])
 # data catalog set up
 catalog_name = "erddap"
 kwargs = dict(server="https://erddap.sensors.ioos.us/erddap", category_search=["standard_name", key])
-kwargs_search = dict(min_time="2020-6-1", max_time="2020-6-5", max_lat=61.5, max_lon=-149, 
+kwargs_search = dict(min_time="2020-6-1", max_time="2020-6-5", max_lat=61.5, max_lon=-149,
                      min_lat=56.8, min_lon=-156)
 ```
 
 ```{code-cell} ipython3
 # set up model catalog
-cat_model = omsa.make_catalog(project_name=project_name, 
-                              catalog_type="local", 
-                              catalog_name=model_name, 
+cat_model = omsa.make_catalog(project_name=project_name,
+                              catalog_type="local",
+                              catalog_name=model_name,
                               kwargs=dict(filenames=loc, skip_entry_metadata=True),
                               kwargs_open=kwargs_open,
                               save_cat=True)
@@ -48,9 +48,9 @@ cat_model = omsa.make_catalog(project_name=project_name,
 
 ```{code-cell} ipython3
 # set up data catalog
-cat_data = omsa.make_catalog(project_name=project_name, 
-                             catalog_type="erddap", 
-                             catalog_name=catalog_name, 
+cat_data = omsa.make_catalog(project_name=project_name,
+                             catalog_type="erddap",
+                             catalog_name=catalog_name,
                              kwargs=kwargs,
                              save_cat=True,
                              kwargs_search=kwargs_search,

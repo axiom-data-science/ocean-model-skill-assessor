@@ -4,13 +4,14 @@ Statistics functions.
 
 from typing import Union
 
-from numpy import corrcoef, sqrt
 import yaml
 
+from numpy import corrcoef, sqrt
 from pandas import DataFrame, Series, concat
 from xarray import DataArray, Dataset
 
 from .paths import PROJ_DIR
+
 
 def _align(
     obs: Union[DataFrame, DataArray], model: Union[DataFrame, DataArray]
@@ -35,7 +36,9 @@ def _align(
     if isinstance(model, DataArray):
         model = DataFrame(model.to_pandas())
     elif isinstance(model, Dataset):
-        raise TypeError("Model output should be a DataArray, not Dataset, at this point.")
+        raise TypeError(
+            "Model output should be a DataArray, not Dataset, at this point."
+        )
 
     obs.rename(columns={obs.columns[0]: "obs"}, inplace=True)
     model.rename(columns={model.columns[0]: "model"}, inplace=True)

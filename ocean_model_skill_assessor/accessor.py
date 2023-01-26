@@ -4,8 +4,10 @@ Class to facilitate some functions directly on DataFrames.
 
 from pandas import DatetimeIndex
 from pandas.api.extensions import register_dataframe_accessor
-from .stats import compute_stats
+
 from ocean_model_skill_assessor.plot import time_series
+
+from .stats import compute_stats
 
 
 @register_dataframe_accessor("omsa")
@@ -32,14 +34,10 @@ class SkillAssessorAccessor:
     def compute_stats(self):
         """Run `compute_stats` on DataFrame."""
         if not hasattr(self, "_compute_stats"):
-            stats = compute_stats(
-                self.df["obs"], self.df["model"]
-            )
+            stats = compute_stats(self.df["obs"], self.df["model"])
             self._compute_stats = stats
         return self._compute_stats
 
     def plot(self, **kwargs):
         """Plot."""
-        time_series.plot(
-            self.df["obs"], self.df["model"], **kwargs
-        )
+        time_series.plot(self.df["obs"], self.df["model"], **kwargs)

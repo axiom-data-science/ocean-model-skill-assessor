@@ -4,24 +4,27 @@ Utility functions.
 
 import logging
 import sys
+
+from pathlib import PurePath
 from typing import Dict, List, Optional, Sequence, Union
 
 import cf_pandas as cfp
-from cf_pandas import Vocab, astype, always_iterable, merge
 import extract_model as em
 import intake
 import numpy as np
-from pathlib import PurePath
-from shapely.geometry import Polygon
 import xarray as xr
-from xarray import Dataset, DataArray
 
+from cf_pandas import Vocab, always_iterable, astype, merge
 from intake.catalog import Catalog
+from shapely.geometry import Polygon
+from xarray import DataArray, Dataset
 
 from .paths import CAT_PATH, LOG_PATH, VOCAB_PATH
 
 
-def open_catalogs(catalogs: Union[str, Catalog, Sequence], project_name: str) -> List[Catalog]:
+def open_catalogs(
+    catalogs: Union[str, Catalog, Sequence], project_name: str
+) -> List[Catalog]:
     """Initialize catalog objects from inputs.
 
     Parameters
@@ -36,7 +39,7 @@ def open_catalogs(catalogs: Union[str, Catalog, Sequence], project_name: str) ->
     list[Catalog]
         Catalogs, ready to use.
     """
-    
+
     catalogs = always_iterable(catalogs)
     if isinstance(catalogs[0], str):
         cats = [
@@ -49,7 +52,7 @@ def open_catalogs(catalogs: Union[str, Catalog, Sequence], project_name: str) ->
         raise ValueError(
             "Catalog(s) should be input as string paths or Catalog objects or Sequence thereof."
         )
-    
+
     return cats
 
 
@@ -78,7 +81,7 @@ def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
         raise ValueError(
             "Vocab(s) should be input as string paths or Vocab objects or Sequence thereof."
         )
-    
+
     return vocab
 
 
@@ -104,53 +107,70 @@ def coords1Dto2D(dam: DataArray) -> DataArray:
         lonkey2, latkey2 = f"{lonkey}2", f"{latkey}2"
         # dam = dam.assign_coords({lonkey2: ((dam.cf["Y"].name, dam.cf["X"].name), lon2, dam.cf["Longitude"].attrs),
         #                          latkey2: ((dam.cf["Y"].name, dam.cf["X"].name), lat2, dam.cf["Latitude"].attrs)})
-        dam[lonkey2] = ((dam.cf["Y"].name, dam.cf["X"].name), lon2, dam.cf["Longitude"].attrs)
-        dam[latkey2] = ((dam.cf["Y"].name, dam.cf["X"].name), lat2, dam.cf["Latitude"].attrs)
+        dam[lonkey2] = (
+            (dam.cf["Y"].name, dam.cf["X"].name),
+            lon2,
+            dam.cf["Longitude"].attrs,
+        )
+        dam[latkey2] = (
+            (dam.cf["Y"].name, dam.cf["X"].name),
+            lat2,
+            dam.cf["Latitude"].attrs,
+        )
 
         # remove attributes from 1D lon/lats that are interpreted for coordinates (but not for axes)
         if "standard_name" in dam[lonkey].attrs:
-            del(dam[lonkey].attrs["standard_name"])
+            del dam[lonkey].attrs["standard_name"]
         if "units" in dam[lonkey].attrs:
-            del(dam[lonkey].attrs["units"]) 
+            del dam[lonkey].attrs["units"]
         if "standard_name" in dam[latkey].attrs:
-            del(dam[latkey].attrs["standard_name"])
+            del dam[latkey].attrs["standard_name"]
         if "units" in dam[latkey].attrs:
-            del(dam[latkey].attrs["units"])
+            del dam[latkey].attrs["units"]
 
-        # modify coordinates 
+        # modify coordinates
         if "_CoordinateAxes" in dam.attrs:
-            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(lonkey, lonkey2)
-            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(latkey, latkey2)
+            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(
+                lonkey, lonkey2
+            )
+            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(
+                latkey, latkey2
+            )
         elif "coordinates" in dam.encoding:
-            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(lonkey, lonkey2)
-            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(latkey, latkey2)
+            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(
+                lonkey, lonkey2
+            )
+            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(
+                latkey, latkey2
+            )
 
     return dam
 
-def set_up_logging(project_name, verbose, mode: str="w", testing: bool = False):
+
+def set_up_logging(project_name, verbose, mode: str = "w", testing: bool = False):
     """set up logging"""
-    
+
     if not testing:
         logging.captureWarnings(True)
 
     file_handler = logging.FileHandler(filename=LOG_PATH(project_name), mode=mode)
-    handlers = [file_handler]
+    handlers: List[Union[logging.StreamHandler, logging.FileHandler]] = [file_handler]
     if verbose:
         stdout_handler = logging.StreamHandler(stream=sys.stdout)
         handlers.append(stdout_handler)
 
     logging.basicConfig(
-        level=logging.INFO, 
-        format='[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s',
+        level=logging.INFO,
+        format="[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s",
         handlers=handlers,
     )
 
     # logger = logging.getLogger('OMSA log')
 
 
-def get_mask(dsm: Dataset, varname: str) -> Union[DataArray,None]:
+def get_mask(dsm: Dataset, varname: str) -> Union[DataArray, None]:
     """Return mask that matches x/y coords of var.
-    
+
     If no mask can be identified with `.filter_by_attrs(flag_meanings="land water")`, instead will make one of non-nans for 1 horizontal grid cross-section of varname.
 
     Parameters
@@ -165,14 +185,20 @@ def get_mask(dsm: Dataset, varname: str) -> Union[DataArray,None]:
     DataArray
         mask associated with varname in dsm
     """
-    
+
     if not varname in dsm.data_vars:
-        raise KeyError(f"varname {varname} needs to be a data variable in dsm but is not found.")
-    
+        raise KeyError(
+            f"varname {varname} needs to be a data variable in dsm but is not found."
+        )
+
     # include matching static mask if present
     masks = dsm.filter_by_attrs(flag_meanings="land water")
     if len(masks.data_vars) > 0:
-        mask_name = [mask for mask in masks.data_vars if dsm[mask].encoding["coordinates"] in dsm[varname].encoding["coordinates"]][0]
+        mask_name = [
+            mask
+            for mask in masks.data_vars
+            if dsm[mask].encoding["coordinates"] in dsm[varname].encoding["coordinates"]
+        ][0]
         mask = dsm[mask_name]
     else:
         # want just X and Y to make mask. Just use first time and surface depth value, as needed.
@@ -185,11 +211,11 @@ def get_mask(dsm: Dataset, varname: str) -> Union[DataArray,None]:
         mask = dam.notnull().load().astype(int)
         msg = "Generated mask for model using 1 horizontal cross section of model output and searching for nans."
         logging.info(msg)
-    
+
     return mask
 
 
-def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:
+def shift_longitudes(dam: Union[DataArray, Dataset]) -> Union[DataArray, Dataset]:
     """Shift longitudes from 0 to 360 to -180 to 180 if necessary.
 
     Parameters
@@ -202,7 +228,7 @@ def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:
     Union[DataArray,Dataset]
         Return model output with shifted longitudes, if it was necessary.
     """
-    
+
     if dam.cf["longitude"].max() > 180:
         lkey = dam.cf["longitude"].name
         nlon = int((dam[lkey] >= 180).sum())  # number of longitudes to roll by
@@ -216,7 +242,9 @@ def shift_longitudes(dam: Union[DataArray,Dataset]) -> Union[DataArray,Dataset]:
     return dam
 
 
-def find_bbox(ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, alpha: int = 5) -> tuple:
+def find_bbox(
+    ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, alpha: int = 5
+) -> tuple:
     """Determine bounds and boundary of model.
 
     Parameters
@@ -244,7 +272,7 @@ def find_bbox(ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, a
         hasmask = True
     else:
         hasmask = False
-    
+
     try:
         lon = ds.cf["longitude"].values
         lat = ds.cf["latitude"].values
@@ -265,19 +293,19 @@ def find_bbox(ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, a
         lat = ds[latkey].values
 
     if hasmask:
-        
+
         if mask.ndim == 2 and lon.ndim == 1:
             # # need to meshgrid lon/lat
             # lon, lat = np.meshgrid(lon, lat)
             # This shouldn't happen anymore, so make note if it does
             msg = "1D coordinates were found for this model but that should not be possible anymore."
             raise ValueError(msg)
-        
-        lon = lon[np.where(mask==1)]
+
+        lon = lon[np.where(mask == 1)]
         lon = lon[~np.isnan(lon)].flatten()
-        lat = lat[np.where(mask==1)]
+        lat = lat[np.where(mask == 1)]
         lat = lat[~np.isnan(lat)].flatten()
-        
+
     # This is structured, rectilinear
     # GFS, RTOFS, HYCOM
     if (lon.ndim == 1) and ("nele" not in ds.dims) and not hasmask:
@@ -353,9 +381,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
         # read in model output
         if isinstance(kwargs_search["model_name"], str):
             model_cat = intake.open_catalog(
-                CAT_PATH(
-                    kwargs_search["model_name"], kwargs_search["project_name"]
-                )
+                CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
             )
         elif isinstance(kwargs_search["model_name"], Catalog):
             model_cat = kwargs_search["model_name"]

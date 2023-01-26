@@ -3,7 +3,9 @@ Command Line Interface.
 """
 
 import argparse
+
 import cf_pandas as cfp
+
 import ocean_model_skill_assessor as omsa
 
 
@@ -96,7 +98,12 @@ def main():
         help="Name of vocabulary file, must be in the vocab user directory.",
     )
 
-    parser.add_argument("--verbose", help="Options are --verbose or --no-verbose. Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--verbose",
+        help="Options are --verbose or --no-verbose. Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
 
     parser.add_argument("--mode", help="File mode for log file.", default="w")
 

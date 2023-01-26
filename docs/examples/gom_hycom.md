@@ -39,9 +39,9 @@ kwargs_search = dict(min_time="2019-2-1", max_time="2019-2-5",
 
 ```{code-cell} ipython3
 # create catalog for model
-cat_model = omsa.make_catalog(project_name=project_name, 
-                              catalog_type="local", 
-                              catalog_name=model_name, 
+cat_model = omsa.make_catalog(project_name=project_name,
+                              catalog_type="local",
+                              catalog_name=model_name,
                               kwargs=dict(filenames=loc, skip_entry_metadata=True),
                               kwargs_open=kwargs_open,
                               save_cat=True)
@@ -49,9 +49,9 @@ cat_model = omsa.make_catalog(project_name=project_name,
 
 ```{code-cell} ipython3
 # create catalog for data
-cat_data = omsa.make_catalog(project_name=project_name, 
-                             catalog_type="erddap", 
-                             catalog_name=catalog_name, 
+cat_data = omsa.make_catalog(project_name=project_name,
+                             catalog_type="erddap",
+                             catalog_name=catalog_name,
                              kwargs=kwargs,
                              save_cat=True,
                              kwargs_search=kwargs_search,

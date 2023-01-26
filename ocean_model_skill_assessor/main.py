@@ -2,6 +2,7 @@
 Main run functions.
 """
 
+import logging
 import mimetypes
 import warnings
 
@@ -10,30 +11,40 @@ from pathlib import PurePath
 from typing import Any, Dict, List, Optional, Union
 
 import extract_model.accessor
-from extract_model import preprocess
-from extract_model.utils import guess_model_type
 import intake
-import logging
 import requests
 
 from cf_pandas import Vocab, astype
 from cf_pandas import set_options as cfp_set_options
 from cf_xarray import set_options as cfx_set_options
+from extract_model import preprocess
+from extract_model.utils import guess_model_type
 from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
-from numpy import sum, asarray
-from .paths import CAT_PATH, PROJ_DIR, VOCAB_PATH
-from pandas import to_datetime, DataFrame
+from numpy import asarray, sum
+from pandas import DataFrame, to_datetime
 from shapely.geometry import Point
 from tqdm import tqdm
 
 from ocean_model_skill_assessor.plot import map
 
+from .paths import CAT_PATH, PROJ_DIR, VOCAB_PATH
 from .stats import _align, save_stats
-from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, get_mask, find_bbox, coords1Dto2D, open_catalogs, open_vocabs
+from .utils import (
+    coords1Dto2D,
+    find_bbox,
+    get_mask,
+    kwargs_search_from_model,
+    open_catalogs,
+    open_vocabs,
+    set_up_logging,
+    shift_longitudes,
+)
+
 
 # turn off annoying warning in cf-xarray
 cfx_set_options(warn_on_missing_variables=False)
+
 
 def make_local_catalog(
     filenames: List[str],
@@ -173,7 +184,8 @@ def make_local_catalog(
             if dd.index.tz is not None:
                 logging.warning(
                     "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.",
-                    source, str(dd.index.tz)
+                    source,
+                    str(dd.index.tz),
                 )
                 dd.index = dd.index.tz_convert(None)
                 dd.cf["T"] = dd.index
@@ -299,9 +311,7 @@ def make_catalog(
         elif isinstance(vocab, Vocab):
             pass
         else:
-            raise ValueError(
-                "Vocab should be input as string, Path, or Vocab object."
-            )
+            raise ValueError("Vocab should be input as string, Path, or Vocab object.")
 
     if description is None:
         description = f"Catalog of type {catalog_type}."
@@ -369,7 +379,7 @@ def make_catalog(
         logging.info(
             f"Catalog saved to {CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
         )
-    
+
     logging.shutdown()
 
     if return_cat:
@@ -433,15 +443,17 @@ def run(
             f"Note that we are using {ndatasets} datasets of {ndata} datasets. This might take awhile."
         )
     else:
-        logging.info(f"Note that there are {ndata} datasets to use. This might take awhile.")
+        logging.info(
+            f"Note that there are {ndata} datasets to use. This might take awhile."
+        )
 
     # read in model output
     model_cat = open_catalogs(model_name, project_name)[0]
     dsm = model_cat[list(model_cat)[0]].to_dask()
-    
+
     # process model output without using open_mfdataset
     # vertical coords have been an issue for ROMS and POM, related to dask and OFS models
-    if guess_model_type(dsm) in ["ROMS","POM"]:
+    if guess_model_type(dsm) in ["ROMS", "POM"]:
         kwargs_pp = {"interp_vertical": False}
     else:
         kwargs_pp = {}
@@ -455,11 +467,11 @@ def run(
 
     # shift if 0 to 360
     dam = shift_longitudes(dam)
-    
+
     # expand 1D coordinates to 2D, so all models dealt with in OMSA are treated with 2D coords.
     # if your model is too large to be treated with this way, subset the model first.
     dam = coords1Dto2D(dam)
-    
+
     # Calculate boundary of model domain to compare with data locations and for map
     _, _, _, p1 = find_bbox(dam, mask)
 
@@ -472,7 +484,9 @@ def run(
         for i, source_name in tqdm(enumerate(list(cat)[:ndatasets])):
 
             if ndatasets is None:
-                msg = f"\nsource name: {source_name} ({i+1} of {ndata} for catalog {cat}."
+                msg = (
+                    f"\nsource name: {source_name} ({i+1} of {ndata} for catalog {cat}."
+                )
             else:
                 msg = f"\nsource name: {source_name} ({i+1} of {ndatasets} for catalog {cat}."
             logging.info(msg)
@@ -481,7 +495,7 @@ def run(
             max_lon = cat[source_name].metadata["maxLongitude"]
             min_lat = cat[source_name].metadata["minLatitude"]
             max_lat = cat[source_name].metadata["maxLatitude"]
-            
+
             # see if data location is inside alphashape-calculated polygon of model domain
             # This currently assumes that the dataset is fixed in space.
             point = Point(min_lon, min_lat)
@@ -529,8 +543,7 @@ def run(
                     logging.warning(msg)
                     maps.pop(-1)
                     continue
-                
-                
+
                 # see if more than one column of data is being identified as key_variable
                 # if more than one, log warning and then choose first
                 if isinstance(dfd.cf[key_variable], DataFrame):
@@ -544,14 +557,16 @@ def run(
                 dfd.set_index(dfd.cf["T"], inplace=True)
                 if dfd.index.tz is not None:
                     logging.warning(
-                        "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.", source_name, str(dfd.index.tz)
+                        "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.",
+                        source_name,
+                        str(dfd.index.tz),
                     )
                     dfd.index = dfd.index.tz_convert(None)
                     dfd.cf["T"] = dfd.index
-                
+
                 # make sure index is sorted ascending so time goes forward
                 dfd = dfd.sort_index()
-                
+
                 # check if all of variable is nan
                 if dfd.cf[key_variable].isnull().all():
                     msg = f"All values of key variable {key_variable} are nan in dataset {source_name}. Skipping dataset.\n"
@@ -578,7 +593,7 @@ def run(
                 #     model_var = dam.cf.sel(T=Targ)
                 # else:
                 #     model_var = dam
-                
+
                 # # find indices representing mask
                 # import numpy as np
                 # import xarray as xr
@@ -607,7 +622,9 @@ def run(
                 else:
                     model_var = dam
 
-                model_var = model_var.em.sel2dcf(mask=mask, distances_name="distance", **kwargs)  # .to_dataset()
+                model_var = model_var.em.sel2dcf(
+                    mask=mask, distances_name="distance", **kwargs
+                )  # .to_dataset()
 
                 # downsize to DataArray
                 distance = model_var["distance"]
@@ -616,7 +633,11 @@ def run(
             # Use distances from xoak to give context to how far the returned model points might be from
             # the data locations
             if distance > 5:
-                logging.warning("Distance between nearest model location and data location for source %s is over 5 km with a distance of %s", source_name, str(distance.values))
+                logging.warning(
+                    "Distance between nearest model location and data location for source %s is over 5 km with a distance of %s",
+                    source_name,
+                    str(distance.values),
+                )
             elif distance > 100:
                 msg = f"Distance between nearest model location and data location for source {source_name} is over 100 km with a distance of {distance.values}. Skipping dataset.\n"
                 logging.warning(msg)
@@ -668,10 +689,9 @@ def run(
         except ModuleNotFoundError:
             pass
     else:
-        logging.warning(
-            "Not plotting map since no datasets to plot."
-        )
+        logging.warning("Not plotting map since no datasets to plot.")
     logging.info(
-        "Finished analysis. Find plots, stats summaries, and log in %s.", str(PROJ_DIR(project_name))
+        "Finished analysis. Find plots, stats summaries, and log in %s.",
+        str(PROJ_DIR(project_name)),
     )
     logging.shutdown()

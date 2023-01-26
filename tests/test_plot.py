@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
-
-from ocean_model_skill_assessor.plot import time_series
-import ocean_model_skill_assessor as omsa
 import pytest
 import xarray as xr
+
+import ocean_model_skill_assessor as omsa
+
+from ocean_model_skill_assessor.plot import time_series
 
 
 def test_time_series():
@@ -23,11 +24,11 @@ def test_time_series():
 
 
 def test_map_no_cartopy():
-    
+
     CARTOPY_AVAILABLE = omsa.plot.map.CARTOPY_AVAILABLE
     omsa.plot.map.CARTOPY_AVAILABLE = False
-    
-    maps = np.array(np.ones((2,4)))
+
+    maps = np.array(np.ones((2, 4)))
     figname = "test"
     dsm = xr.Dataset()
 
@@ -35,4 +36,3 @@ def test_map_no_cartopy():
         omsa.plot.map.plot_map(maps, figname, dsm)
 
     omsa.plot.map.CARTOPY_AVAILABLE = CARTOPY_AVAILABLE
-        

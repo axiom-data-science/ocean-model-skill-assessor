@@ -10,11 +10,16 @@ from pathlib import Path
 # from appdirs import AppDirs
 import appdirs
 
+
 # set up cache directories for package to use
 # user application cache directory, appropriate to each OS
 # dirs = AppDirs("ocean-model-skill-assessor", "axiom-data-science")
 # cache_dir = Path(dirs.user_cache_dir)
-cache_dir = Path(appdirs.user_cache_dir(appname="ocean-model-skill-assessor", appauthor="axiom-data-science"))
+cache_dir = Path(
+    appdirs.user_cache_dir(
+        appname="ocean-model-skill-assessor", appauthor="axiom-data-science"
+    )
+)
 VOCAB_DIR = cache_dir / "vocab"
 VOCAB_DIR.mkdir(parents=True, exist_ok=True)
 VOCAB_DIR_INIT = Path(__file__).parent / "vocab"  # NEED THIS TO BE THE BASE PATH

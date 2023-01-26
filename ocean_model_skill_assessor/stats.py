@@ -51,7 +51,7 @@ def _align(
     # get combined index of model and obs to first interpolate then reindex obs to model
     # otherwise only nan's come through
     ind = model.index.union(obs.index)
-    obs = obs.reindex(ind).interpolate(method="time", limit=1).reindex(model.index)
+    obs = obs.reindex(ind).interpolate(method="time", limit=3).reindex(model.index)
     aligned = concat([obs, model], axis=1)
 
     # Couldn't get this to work for me:

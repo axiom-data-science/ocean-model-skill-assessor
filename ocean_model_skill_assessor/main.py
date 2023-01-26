@@ -16,21 +16,21 @@ import intake
 import logging
 import requests
 
-from cf_pandas import Vocab, astype, always_iterable, merge
+from cf_pandas import Vocab, astype
 from cf_pandas import set_options as cfp_set_options
 from cf_xarray import set_options as cfx_set_options
 from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from numpy import sum, asarray
 from .paths import CAT_PATH, PROJ_DIR, VOCAB_PATH
-from pandas import to_datetime, DataFrame, Series
+from pandas import to_datetime, DataFrame
 from shapely.geometry import Point
 from tqdm import tqdm
 
 from ocean_model_skill_assessor.plot import map
 
 from .stats import _align, save_stats
-from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, get_mask, find_bbox, coords1Dto2D
+from .utils import kwargs_search_from_model, set_up_logging, shift_longitudes, get_mask, find_bbox, coords1Dto2D, open_catalogs, open_vocabs
 
 # turn off annoying warning in cf-xarray
 cfx_set_options(warn_on_missing_variables=False)
@@ -421,31 +421,10 @@ def run(
     kwargs_map = kwargs_map or {}
 
     # After this, we have a single Vocab object with vocab stored in vocab.vocab
-    vocabs = always_iterable(vocabs)
-    if isinstance(vocabs[0], str):
-        vocab = merge([Vocab(VOCAB_PATH(v)) for v in vocabs])
-    elif isinstance(vocabs[0], PurePath):
-        vocab = merge([Vocab(v) for v in vocabs])
-    elif isinstance(vocabs[0], Vocab):
-        vocab = merge(vocabs)
-    else:
-        raise ValueError(
-            "Vocab(s) should be input as string paths or Vocab objects or Sequence thereof."
-        )
+    vocab = open_vocabs(vocabs)
 
     # Open catalogs.
-    catalogs = always_iterable(catalogs)
-    if isinstance(catalogs[0], str):
-        cats = [
-            intake.open_catalog(CAT_PATH(catalog_name, project_name))
-            for catalog_name in astype(catalogs, list)
-        ]
-    elif isinstance(catalogs[0], Catalog):
-        cats = catalogs
-    else:
-        raise ValueError(
-            "Catalog(s) should be input as string paths or Catalog objects or Sequence thereof."
-        )
+    cats = open_catalogs(catalogs, project_name)
 
     # Warning about number of datasets
     ndata = sum([len(list(cat)) for cat in cats])
@@ -457,12 +436,7 @@ def run(
         logging.info(f"Note that there are {ndata} datasets to use. This might take awhile.")
 
     # read in model output
-    if isinstance(model_name, str):
-        model_cat = intake.open_catalog(CAT_PATH(model_name, project_name))
-    elif isinstance(model_name, Catalog):
-        model_cat = model_name
-    else:
-        raise ValueError("model_name should be input as string path or Catalog object.")
+    model_cat = open_catalogs(model_name, project_name)[0]
     dsm = model_cat[list(model_cat)[0]].to_dask()
     
     # process model output without using open_mfdataset

@@ -4,19 +4,82 @@ Utility functions.
 
 import logging
 import sys
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Sequence, Union
 
 import cf_pandas as cfp
+from cf_pandas import Vocab, astype, always_iterable, merge
 import extract_model as em
 import intake
 import numpy as np
+from pathlib import PurePath
 from shapely.geometry import Polygon
 import xarray as xr
 from xarray import Dataset, DataArray
 
 from intake.catalog import Catalog
 
-from .paths import CAT_PATH, LOG_PATH
+from .paths import CAT_PATH, LOG_PATH, VOCAB_PATH
+
+
+def open_catalogs(catalogs: Union[str, Catalog, Sequence], project_name: str) -> list[Catalog]:
+    """Initialize catalog objects from inputs.
+
+    Parameters
+    ----------
+    catalogs : Union[str, Catalog, Sequence]
+        Catalog name(s) or list of names, or catalog object or list of catalog objects.
+    project_name : str
+        Subdirectory in cache dir to store files associated together.
+
+    Returns
+    -------
+    list[Catalog]
+        Catalogs, ready to use.
+    """
+    
+    catalogs = always_iterable(catalogs)
+    if isinstance(catalogs[0], str):
+        cats = [
+            intake.open_catalog(CAT_PATH(catalog_name, project_name))
+            for catalog_name in astype(catalogs, list)
+        ]
+    elif isinstance(catalogs[0], Catalog):
+        cats = catalogs
+    else:
+        raise ValueError(
+            "Catalog(s) should be input as string paths or Catalog objects or Sequence thereof."
+        )
+    
+    return cats
+
+
+def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
+    """_summary_
+
+    Parameters
+    ----------
+    vocabs : Union[str, Vocab, Sequence, PurePath]
+        Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
+
+    Returns
+    -------
+    Vocab
+        Single Vocab object with vocab stored in vocab.vocab
+    """
+
+    vocabs = always_iterable(vocabs)
+    if isinstance(vocabs[0], str):
+        vocab = merge([Vocab(VOCAB_PATH(v)) for v in vocabs])
+    elif isinstance(vocabs[0], PurePath):
+        vocab = merge([Vocab(v) for v in vocabs])
+    elif isinstance(vocabs[0], Vocab):
+        vocab = merge(vocabs)
+    else:
+        raise ValueError(
+            "Vocab(s) should be input as string paths or Vocab objects or Sequence thereof."
+        )
+    
+    return vocab
 
 
 def coords1Dto2D(dam: DataArray) -> DataArray:

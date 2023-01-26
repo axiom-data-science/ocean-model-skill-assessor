@@ -61,6 +61,10 @@ You may want to make a map of the data locations before doing your full run, esp
 omsa.plot.map.plot_cat_on_map(catalog=cat_data, project_name="demo_local_package")
 ```
 
+The image shows a map around the two dataset locations in the Alaska region. The two dataset locations are marked with black dots and marked with numeric labels.
+
++++
+
 ## Run comparison
 
 Now that the model output and dataset catalogs are prepared, we can run the comparison of the two.
@@ -77,3 +81,5 @@ cfp.Vocab(omsa.VOCAB_PATH("general"))
 omsa.run(project_name="demo_local_package", catalogs=cat_data, model_name=cat_model,
          vocabs="general", key_variable="temp")
 ```
+
+The plots show the time series comparisons for sea water temperatures of the model output and data at two locations. Also shown is a map of the Cook Inlet region where the CIOFS model is located. An approximation of the numerical domain is shown along with the two data locations.

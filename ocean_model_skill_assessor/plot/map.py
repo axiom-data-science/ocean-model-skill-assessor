@@ -6,11 +6,12 @@ from pathlib import PurePath
 from typing import Optional, Sequence, Union
 
 from matplotlib.pyplot import figure
-from numpy import array, allclose
+from numpy import array, allclose, asarray
 from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
+from intake.catalog import Catalog
 
-from ..utils import find_bbox, shift_longitudes
+from ..utils import find_bbox, shift_longitudes, open_catalogs
 
 try:
     import cartopy.crs
@@ -23,7 +24,6 @@ except ImportError:  # pragma: no cover
 def plot_map(
     maps: array,
     figname: Union[str, PurePath],
-    ds: Union[DataArray, Dataset],
     alpha: int = 5,
     dd: int = 2,
     extent: Optional[Sequence] = None,
@@ -37,8 +37,6 @@ def plot_map(
         Info about datasets. [min_lon, max_lon, min_lat, max_lat, source_name]
     figname : Union[str, PurePath]
         Map will be saved here.
-    ds : Union[DataArray, Dataset]
-        Model output.
     alpha : int
         parameter for alphashape. 0 returns qhull, and higher values make a tighter polygon around the points.
     dd : int
@@ -55,8 +53,6 @@ def plot_map(
         )
         
     import cartopy
-    
-    ds = shift_longitudes(ds)
 
     pc = cartopy.crs.PlateCarree()
     col_label = "k"  # "r"
@@ -83,12 +79,12 @@ def plot_map(
     ax.add_feature(land_10m, facecolor="0.8")
 
     # alphashape
-    if p is None:
-        _, _, bbox, p = find_bbox(ds, dd=dd, alpha=alpha)
-    else:
+    if p is not None:
         # this needs to be checked for resulting type and order
         bbox = p.bounds
-    ax.add_geometries([p], crs=pc, facecolor="none", edgecolor="r", linestyle="-")
+        ax.add_geometries([p], crs=pc, facecolor="none", edgecolor="r", linestyle="-")
+    else:
+        bbox = [min(min_lons), min(min_lats), max(max_lons), max(max_lats)]
 
     # plot stations
     # if min_lons == max_lons:  #  check these are stations
@@ -127,3 +123,33 @@ def plot_map(
     ax.set_extent(extent_use, pc)
 
     fig.savefig(figname, dpi=100, bbox_inches="tight")
+
+
+def plot_cat_on_map(catalog: Union[Catalog,str], project_name: str, figname: Optional[str] = None, **kwargs):
+    """Plot catalog on map with optional model domain polygon.
+
+    Parameters
+    ----------
+    catalog : Union[Catalog,str]
+        Which catalog of datasets to plot on map.
+    project_name : str
+        name of project in case we need to find the project files.
+    
+    Examples
+    --------
+    
+    After creating catalog with `intake-erddap`, look at data locations:
+    
+    >>> omsa.plot.map.plot_cat_on_map(catalog=catalog_name, project_name=project_name)
+    """
+        
+    cat = open_catalogs(catalog, project_name)[0]
+    
+    figname = figname or f"map_of_{cat.name}"
+
+    kwargs_map = {}
+    
+    maps = []
+    maps.extend([[cat[s].metadata["minLongitude"], cat[s].metadata["maxLongitude"], cat[s].metadata["minLatitude"], cat[s].metadata["maxLatitude"], s] for s in list(cat)])
+
+    plot_map(asarray(maps), figname, **kwargs_map)

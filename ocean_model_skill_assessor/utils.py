@@ -4,7 +4,7 @@ Utility functions.
 
 import logging
 import sys
-from typing import Dict, Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import cf_pandas as cfp
 from cf_pandas import Vocab, astype, always_iterable, merge
@@ -21,7 +21,7 @@ from intake.catalog import Catalog
 from .paths import CAT_PATH, LOG_PATH, VOCAB_PATH
 
 
-def open_catalogs(catalogs: Union[str, Catalog, Sequence], project_name: str) -> list[Catalog]:
+def open_catalogs(catalogs: Union[str, Catalog, Sequence], project_name: str) -> List[Catalog]:
     """Initialize catalog objects from inputs.
 
     Parameters

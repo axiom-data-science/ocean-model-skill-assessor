@@ -23,12 +23,19 @@ To install from PyPI:
    :hidden:
    :caption: User Guide
 
+   demo.md
+   add_vocab.md
+   examples/index.rst
+   api
+
+.. toctree::
+   :maxdepth: 3
+   :hidden:
+   :caption: User Guide: CLI
+
    demo_cli.md
    demo_erddap_cli.md
    cli.md
-   demo.md
-   add_vocab.md
-   api
 
 .. toctree::
    :maxdepth: 3

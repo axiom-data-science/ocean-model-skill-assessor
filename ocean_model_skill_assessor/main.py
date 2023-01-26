@@ -472,9 +472,9 @@ def run(
         for i, source_name in tqdm(enumerate(list(cat)[:ndatasets])):
 
             if ndatasets is None:
-                msg = f"\nsource name: {source_name} ({i} of {ndata} for catalog {cat}."
+                msg = f"\nsource name: {source_name} ({i+1} of {ndata} for catalog {cat}."
             else:
-                msg = f"\nsource name: {source_name} ({i} of {ndatasets} for catalog {cat}."
+                msg = f"\nsource name: {source_name} ({i+1} of {ndatasets} for catalog {cat}."
             logging.info(msg)
 
             min_lon = cat[source_name].metadata["minLongitude"]
@@ -664,7 +664,7 @@ def run(
     if len(maps) > 0:
         try:
             figname = PROJ_DIR(project_name) / "map.png"
-            map.plot_map(asarray(maps), figname, dam, p=p1, **kwargs_map)
+            map.plot_map(asarray(maps), figname, p=p1, **kwargs_map)
         except ModuleNotFoundError:
             pass
     else:

@@ -42,6 +42,8 @@ def set_up_logging(project_name, verbose, mode: str="w", testing: bool = False):
 
 def get_mask(dsm: Dataset, varname: str) -> Union[DataArray,None]:
     """Return mask that matches x/y coords of var.
+    
+    If no mask can be identified with `.filter_by_attrs(flag_meanings="land water")`, instead will make one of non-nans for 1 horizontal grid cross-section of varname.
 
     Parameters
     ----------
@@ -52,8 +54,8 @@ def get_mask(dsm: Dataset, varname: str) -> Union[DataArray,None]:
 
     Returns
     -------
-    DataArray or None
-        mask associated with varname in dsm, or None.
+    DataArray
+        mask associated with varname in dsm
     """
     
     if not varname in dsm.data_vars:
@@ -65,7 +67,16 @@ def get_mask(dsm: Dataset, varname: str) -> Union[DataArray,None]:
         mask_name = [mask for mask in masks.data_vars if dsm[mask].encoding["coordinates"] in dsm[varname].encoding["coordinates"]][0]
         mask = dsm[mask_name]
     else:
-        mask = None
+        # want just X and Y to make mask. Just use first time and surface depth value, as needed.
+        dam = dsm[varname]
+        if "T" in dam.cf.axes:
+            dam = dam.cf.isel(T=0)
+        if "Z" in dam.cf.axes:
+            dam = dam.cf.sel(Z=0, method="nearest")
+
+        mask = dam.notnull().load().astype(int)
+        msg = "Generated mask for model using 1 horizontal cross section of model output and searching for nans."
+        logging.info(msg)
     
     return mask
 
@@ -126,7 +137,6 @@ def find_bbox(ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, a
     else:
         hasmask = False
     
-
     try:
         lon = ds.cf["longitude"].values
         lat = ds.cf["latitude"].values
@@ -146,35 +156,24 @@ def find_bbox(ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, a
         lon = ds[lonkey].values
         lat = ds[latkey].values
 
-    # # this function is being used on DataArrays instead of Datasets, and the model I'm using as
-    # # an example doesn't have a mask, so bring this back when I have a relevant example.
-    # # check for corresponding mask (rectilinear and curvilinear grids)
-    # if any([var for var in ds.data_vars if "mask" in var]):
-    #     if ("mask_rho" in ds) and (lonkey == "lon_rho"):
-    #         maskkey = lonkey.replace("lon", "mask")
-    #     elif "mask" in ds:
-    #         maskkey = "mask"
-    #     else:
-    #         maskkey = None
-    #     if maskkey in ds:
-    #         lon = ds[lonkey].where(ds[maskkey] == 1).values
-    #         lon = lon[~np.isnan(lon)].flatten()
-    #         lat = ds[latkey].where(ds[maskkey] == 1).values
-    #         lat = lat[~np.isnan(lat)].flatten()
-    #         hasmask = True
-    
     if hasmask:
-        lon = ds[lonkey].where(mask == 1).values
+        
+        if mask.ndim == 2 and lon.ndim == 1:
+            # # need to meshgrid lon/lat
+            # lon, lat = np.meshgrid(lon, lat)
+            # This shouldn't happen anymore, so make note if it does
+            msg = "1D coordinates were found for this model but that should not be possible anymore."
+            raise ValueError(msg)
+        
+        lon = lon[np.where(mask==1)]
         lon = lon[~np.isnan(lon)].flatten()
-        lat = ds[latkey].where(mask == 1).values
+        lat = lat[np.where(mask==1)]
         lat = lat[~np.isnan(lat)].flatten()
         
-
-    # import pdb; pdb.set_trace()
     # This is structured, rectilinear
     # GFS, RTOFS, HYCOM
     if (lon.ndim == 1) and ("nele" not in ds.dims) and not hasmask:
-        nlon, nlat = ds["lon"].size, ds["lat"].size
+        nlon, nlat = ds[lonkey].size, ds[latkey].size
         lonb = np.concatenate(([lon[0]] * nlat, lon[:], [lon[-1]] * nlat, lon[::-1]))
         latb = np.concatenate((lat[:], [lat[-1]] * nlon, lat[::-1], [lat[0]] * nlon))
         # boundary = np.vstack((lonb, latb)).T
@@ -203,20 +202,6 @@ def find_bbox(ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, a
         # import pdb; pdb.set_trace()
         # pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
         p1 = alphashape.alphashape(pts, alpha)
-
-    # else:  # 2D coordinates
-
-    #     # this leads to a circular import error if read in at top level bc of other packages brought in.
-    #     import alphashape
-
-    #     lon, lat = lon.flatten()[::dd], lat.flatten()[::dd]
-
-    #     # need to calculate concave hull or alphashape of grid
-    #     # low res, same as convex hull
-    #     p0 = alphashape.alphashape(list(zip(lon, lat)), 0.0)
-    #     # downsample a bit to save time, still should clearly see shape of domain
-    #     pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
-    #     p1 = alphashape.alphashape(pts, alpha)
 
     # useful things to look at: p.wkt  #shapely.geometry.mapping(p)
     return lonkey, latkey, list(p0.bounds), p1

@@ -16,7 +16,7 @@ import ocean_model_skill_assessor as omsa
 from IPython.display import Code, Image
 ```
 
-# Demo of `ocean-model-skill-assessor` with known data files
+# CLI demo of `ocean-model-skill-assessor` with known data files
 
 This demo runs command line interface (CLI) commands only, which is accomplished in a Jupyter notebook by prefacing commands with `!`. To transfer these commands to a terminal window, remove the `!` but otherwise keep commands the same.
 
@@ -114,11 +114,15 @@ Or you can use a command:
 !omsa proj_path --project_name demo_local
 ```
 
-Here we know the names of the files so show them inline:
+Here we know the names of the files so show them inline.
+
+First we see a map of the area around Cook Inlet in Alaska, along with a red line outlining the approximate domain of the numerical model, and 2 black dots indicating 2 data locations, each with a numeric marker for matching to the model-data time series comparison.
 
 ```{code-cell} ipython3
 Image(omsa.PROJ_DIR("demo_local") / "map.png")
 ```
+
+Here we see a time series comparison at marker "1" from the map, station "noaa_nos_co_ops_9455500". It shows in black the temperature values from the data and in red the comparable values from the model. The comparison time range is January 1, 2022, through January 5, 2022. The lines are reasonably similar, as captured by the statistical values in the title.
 
 ```{code-cell} ipython3
 Image(omsa.PROJ_DIR("demo_local") / "noaa_nos_co_ops_9455500_temp.png")
@@ -127,6 +131,8 @@ Image(omsa.PROJ_DIR("demo_local") / "noaa_nos_co_ops_9455500_temp.png")
 ```{code-cell} ipython3
 Code(filename=omsa.PROJ_DIR("demo_local") / "stats_noaa_nos_co_ops_9455500_temp.yaml")
 ```
+
+Here we see a time series comparison at marker "0" from the map, station "aoos_204". It shows in black the temperature values from the data and in red the comparable values from the model. The comparison time range is January 1, 2022, through January 5, 2022. The data values are mostly missing, but the model output is present.
 
 ```{code-cell} ipython3
 Image(omsa.PROJ_DIR("demo_local") / "aoos_204_temp.png")

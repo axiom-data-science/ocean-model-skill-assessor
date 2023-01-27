@@ -25,8 +25,6 @@ except ImportError:  # pragma: no cover
 def plot_map(
     maps: array,
     figname: Union[str, PurePath],
-    alpha: int = 5,
-    dd: int = 2,
     extent: Optional[Sequence] = None,
     p: Optional[Polygon] = None,
 ):
@@ -38,10 +36,6 @@ def plot_map(
         Info about datasets. [min_lon, max_lon, min_lat, max_lat, source_name]
     figname : Union[str, PurePath]
         Map will be saved here.
-    alpha : int
-        parameter for alphashape. 0 returns qhull, and higher values make a tighter polygon around the points.
-    dd : int
-        number to decimate model points by. input 1 to not decimate.
     extent: optional
         [min longitude, max longitude, min latitude, max latitude]
     p : Shapely polygon

@@ -34,7 +34,6 @@ To install from PyPI:
    :caption: User Guide: CLI
 
    demo_cli.md
-   demo_erddap_cli.md
    cli.md
 
 .. toctree::

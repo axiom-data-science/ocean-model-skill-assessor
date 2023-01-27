@@ -108,7 +108,7 @@ html_static_path = ["_static"]
 # had this message:
 # WARNING: 'execution_timeout' is deprecated for 'nb_execution_timeout' [mystnb.config]
 # WARNING: 'execution_allow_errors' is deprecated for 'nb_execution_allow_errors' [mystnb.config]
-nb_execution_timeout = 300  # seconds.
+nb_execution_timeout = 420  # seconds.
 nb_execution_allow_errors = False
 
 

@@ -397,6 +397,8 @@ def run(
     verbose: bool = True,
     mode: str = "w",
     testing: bool = False,
+    alpha: int = 5,
+    dd: int = 2,
 ):
     """Run the model-data comparison.
 
@@ -424,6 +426,10 @@ def run(
         mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
     testing : boolean, optional
         Set to True if testing so warnings come through instead of being logged.
+    alpha : int
+        parameter for alphashape. 0 returns qhull, and higher values make a tighter polygon around the points.
+    dd : int
+        number to decimate model points by when calculating model boundary with alphashape. input 1 to not decimate.
     """
 
     set_up_logging(project_name, verbose, mode=mode, testing=testing)
@@ -473,7 +479,7 @@ def run(
     dam = coords1Dto2D(dam)
 
     # Calculate boundary of model domain to compare with data locations and for map
-    _, _, _, p1 = find_bbox(dam, mask)
+    _, _, _, p1 = find_bbox(dam, mask,alpha=alpha, dd=dd)
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []

@@ -10,6 +10,6 @@ Examples
    :maxdepth: 3
    :caption: Models
 
-   ciofs.md
-   tbofs.md
-   gom_hycom.md
+   ciofs.ipynb
+   tbofs.ipynb
+   gom_hycom.ipynb

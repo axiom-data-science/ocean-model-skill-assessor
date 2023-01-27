@@ -23,7 +23,7 @@ To install from PyPI:
    :hidden:
    :caption: User Guide
 
-   demo.md
+   demo.ipynb
    add_vocab.md
    examples/index.rst
    api
@@ -33,7 +33,7 @@ To install from PyPI:
    :hidden:
    :caption: User Guide: CLI
 
-   demo_cli.md
+   demo_cli.ipynb
    cli.md
 
 .. toctree::

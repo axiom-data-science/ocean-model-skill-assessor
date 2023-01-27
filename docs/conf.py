@@ -112,6 +112,8 @@ html_static_path = ["_static"]
 nb_execution_timeout = 600  # seconds.
 nb_execution_allow_errors = False
 
+# https://myst-nb.readthedocs.io/en/v0.9.0/use/execute.html
+jupyter_execute_notebooks = "off"
 
 # -- nbsphinx specific options ----------------------------------------------
 # this allows notebooks to be run even if they produce errors.

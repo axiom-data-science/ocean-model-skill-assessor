@@ -11,7 +11,7 @@ dependencies:
    - cf_xarray
    - extract_model
    - intake
-   - intake-axds
+  #  - intake-axds
    - intake-erddap
    - intake-xarray
    - numpy

@@ -2,39 +2,48 @@
 Main run functions.
 """
 
+import logging
 import mimetypes
 import warnings
 
 from collections.abc import Sequence
 from pathlib import PurePath
-from typing import Any, DefaultDict, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-import cf_pandas as cfp
-import cf_xarray as cfx
-import extract_model as em
+import extract_model.accessor
 import intake
-import numpy as np
-import pandas as pd
-import xarray as xr
+import requests
 
-from cf_pandas import Vocab
+from cf_pandas import Vocab, astype
+from cf_pandas import set_options as cfp_set_options
+from cf_xarray import set_options as cfx_set_options
+from extract_model import preprocess
+from extract_model.utils import guess_model_type
 from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
+from numpy import asarray, sum
+from pandas import DataFrame, to_datetime
+from shapely.geometry import Point
 from tqdm import tqdm
 
-import ocean_model_skill_assessor as omsa
+from ocean_model_skill_assessor.plot import map
 
-from ocean_model_skill_assessor.plot import map, time_series
+from .paths import CAT_PATH, PROJ_DIR, VOCAB_PATH
+from .stats import _align, save_stats
+from .utils import (
+    coords1Dto2D,
+    find_bbox,
+    get_mask,
+    kwargs_search_from_model,
+    open_catalogs,
+    open_vocabs,
+    set_up_logging,
+    shift_longitudes,
+)
 
-from .utils import kwargs_search_from_model
 
-
-try:
-    import cartopy
-
-    CARTOPY_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    CARTOPY_AVAILABLE = False  # pragma: no cover
+# turn off annoying warning in cf-xarray
+cfx_set_options(warn_on_missing_variables=False)
 
 
 def make_local_catalog(
@@ -103,7 +112,7 @@ def make_local_catalog(
             or "text" in filename
         ):
             source = getattr(intake, "open_csv")(filename, csv_kwargs=kwargs_open)
-        elif "thredds" in filename and "dodsC" in filename:
+        elif ("thredds" in filename and "dodsC" in filename) or "dods" in filename:
             # use netcdf4 engine if not input in kwargs_xarray
             kwargs_open.setdefault("engine", "netcdf4")
             source = getattr(intake, "open_opendap")(filename, **kwargs_open)
@@ -170,12 +179,13 @@ def make_local_catalog(
                 }
 
             # set up some basic metadata for each source
-            dd.cf["T"] = pd.to_datetime(dd.cf["T"])
+            dd.cf["T"] = to_datetime(dd.cf["T"])
             dd.set_index(dd.cf["T"], inplace=True)
             if dd.index.tz is not None:
-                warnings.warn(
-                    f"Dataset {source} had a timezone {dd.index.tz} which is being removed. Make sure the timezone matches the model output.",
-                    RuntimeWarning,
+                logging.warning(
+                    "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.",
+                    source,
+                    str(dd.index.tz),
                 )
                 dd.index = dd.index.tz_convert(None)
                 dd.cf["T"] = dd.index
@@ -223,9 +233,12 @@ def make_catalog(
     kwargs: Optional[Dict[str, Any]] = None,
     kwargs_search: Optional[Dict[str, Union[str, int, float]]] = None,
     kwargs_open: Optional[Dict] = None,
-    vocab: Optional[Union[cfp.Vocab, str, PurePath]] = None,
+    vocab: Optional[Union[Vocab, str, PurePath]] = None,
     return_cat: bool = True,
     save_cat: bool = False,
+    verbose: bool = True,
+    mode: str = "w",
+    testing: bool = False,
 ):
     """Make a catalog given input selections.
 
@@ -254,13 +267,21 @@ def make_catalog(
 
     kwargs_open : dict, optional
         Keyword arguments to save into local catalog for model to pass on to ``xr.open_mfdataset`` call or ``pandas`` ``open_csv``. Only for use with ``catalog_type=local``.
-    vocab : dict, optional
-        Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for.
+    vocab : str, Vocab, Path, optional
+        Way to find the criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for.
     return_cat : bool, optional
         Return catalog. For when using as a Python package instead of with command line.
     save_cat: bool, optional
         Save catalog to disk into project directory under `catalog_name`.
+    verbose : bool, optional
+        Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.
+    mode : str, optional
+        mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
+    testing : boolean, optional
+        Set to True if testing so warnings come through instead of being logged.
     """
+
+    set_up_logging(project_name, verbose, mode=mode, testing=testing)
 
     if kwargs_search is not None and catalog_type == "local":
         warnings.warn(
@@ -282,18 +303,15 @@ def make_catalog(
     if catalog_type != "local":
         kwargs_search = kwargs_search_from_model(kwargs_search)
 
-    # Should I require vocab if nickname is not None?
-    # if vocab is None:
-    #     # READ IN DEFAULT AND SET VOCAB
-    #     vocab = cfp.Vocab("vocabs/general")
-
-    # elif isinstance(vocab, str):
-    #     vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
-
-    if isinstance(vocab, str):
-        vocab = cfp.Vocab(omsa.VOCAB_PATH(vocab))
-    elif isinstance(vocab, PurePath):
-        vocab = cfp.Vocab(vocab)
+    if vocab is not None:
+        if isinstance(vocab, str):
+            vocab = Vocab(VOCAB_PATH(vocab))
+        elif isinstance(vocab, PurePath):
+            vocab = Vocab(vocab)
+        elif isinstance(vocab, Vocab):
+            pass
+        else:
+            raise ValueError("Vocab should be input as string, Path, or Vocab object.")
 
     if description is None:
         description = f"Catalog of type {catalog_type}."
@@ -305,7 +323,7 @@ def make_catalog(
         filenames = kwargs["filenames"]
         kwargs.pop("filenames")
         cat = make_local_catalog(
-            cfp.astype(filenames, list),
+            astype(filenames, list),
             name=catalog_name,
             description=description,
             metadata=metadata,
@@ -318,7 +336,7 @@ def make_catalog(
         if "server" not in kwargs:
             raise ValueError("For `catalog_type=='erddap'`, must input `server`.")
         if vocab is not None:
-            with cfp.set_options(custom_criteria=vocab.vocab):
+            with cfp_set_options(custom_criteria=vocab.vocab):
                 cat = intake.open_erddap_cat(
                     kwargs_search=kwargs_search,
                     name=catalog_name,
@@ -327,7 +345,6 @@ def make_catalog(
                     **kwargs,
                 )
         else:
-            # import pdb; pdb.set_trace()
             cat = intake.open_erddap_cat(
                 kwargs_search=kwargs_search,
                 name=catalog_name,
@@ -339,7 +356,7 @@ def make_catalog(
     elif catalog_type == "axds":
         catalog_name = "axds_cat" if catalog_name is None else catalog_name
         if vocab is not None:
-            with cfp.set_options(custom_criteria=vocab.vocab):
+            with cfp_set_options(custom_criteria=vocab.vocab):
                 cat = intake.open_axds_cat(
                     kwargs_search=kwargs_search,
                     name=catalog_name,
@@ -358,10 +375,12 @@ def make_catalog(
 
     if save_cat:
         # save cat to file
-        cat.save(omsa.CAT_PATH(catalog_name, project_name))
-        print(
-            f"Catalog saved to {omsa.CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
+        cat.save(CAT_PATH(catalog_name, project_name))
+        logging.info(
+            f"Catalog saved to {CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
         )
+
+    logging.shutdown()
 
     if return_cat:
         return cat
@@ -372,9 +391,14 @@ def run(
     project_name: str,
     key_variable: str,
     model_name: Union[str, Catalog],
-    vocabs: Union[str, Vocab, Sequence],
+    vocabs: Union[str, Vocab, Sequence, PurePath],
     ndatasets: Optional[int] = None,
     kwargs_map: Optional[Dict] = None,
+    verbose: bool = True,
+    mode: str = "w",
+    testing: bool = False,
+    alpha: int = 5,
+    dd: int = 2,
 ):
     """Run the model-data comparison.
 
@@ -390,91 +414,105 @@ def run(
         Key in vocab(s) representing variable to compare between model and datasets.
     model_name : str, Catalog
         Name of catalog for model output, created with ``make_catalog`` call, or Catalog instance.
-    vocabs : str, list, Vocab, optional
+    vocabs : str, list, Vocab, PurePath, optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     ndatasets : int, optional
         Max number of datasets from each input catalog to use.
     kwargs_map : dict, optional
         Keyword arguments to pass on to ``omsa.plot.map.plot_map`` call.
+    verbose : bool, optional
+        Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log.
+    mode : str, optional
+        mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
+    testing : boolean, optional
+        Set to True if testing so warnings come through instead of being logged.
+    alpha : int
+        parameter for alphashape. 0 returns qhull, and higher values make a tighter polygon around the points.
+    dd : int
+        number to decimate model points by when calculating model boundary with alphashape. input 1 to not decimate.
     """
+
+    set_up_logging(project_name, verbose, mode=mode, testing=testing)
 
     kwargs_map = kwargs_map or {}
 
     # After this, we have a single Vocab object with vocab stored in vocab.vocab
-    vocabs = cfp.always_iterable(vocabs)
-    if isinstance(vocabs[0], str):
-        vocab = cfp.merge([Vocab(omsa.VOCAB_PATH(v)) for v in vocabs])
-    elif isinstance(vocabs[0], Vocab):
-        vocab = cfp.merge(vocabs)
-    else:
-        raise ValueError(
-            "Vocab(s) should be input as string paths or Vocab objects or Sequence thereof."
-        )
+    vocab = open_vocabs(vocabs)
 
     # Open catalogs.
-    catalogs = cfp.always_iterable(catalogs)
-    if isinstance(catalogs[0], str):
-        cats = [
-            intake.open_catalog(omsa.CAT_PATH(catalog_name, project_name))
-            for catalog_name in cfp.astype(catalogs, list)
-        ]
-    elif isinstance(catalogs[0], Catalog):
-        cats = catalogs
-    else:
-        raise ValueError(
-            "Catalog(s) should be input as string paths or Catalog objects or Sequence thereof."
-        )
+    cats = open_catalogs(catalogs, project_name)
 
     # Warning about number of datasets
-    ndata = np.sum([len(list(cat)) for cat in cats])
+    ndata = sum([len(list(cat)) for cat in cats])
     if ndatasets is not None:
-        print(
+        logging.info(
             f"Note that we are using {ndatasets} datasets of {ndata} datasets. This might take awhile."
         )
     else:
-        print(f"Note that there are {ndata} datasets to use. This might take awhile.")
+        logging.info(
+            f"Note that there are {ndata} datasets to use. This might take awhile."
+        )
 
     # read in model output
-    if isinstance(model_name, str):
-        model_cat = intake.open_catalog(omsa.CAT_PATH(model_name, project_name))
-    elif isinstance(model_name, Catalog):
-        model_cat = model_name
-    else:
-        raise ValueError("model_name should be input as string path or Catalog object.")
+    model_cat = open_catalogs(model_name, project_name)[0]
     dsm = model_cat[list(model_cat)[0]].to_dask()
 
-    # use only one variable from model
-    with cfx.set_options(custom_criteria=vocab.vocab):
+    # process model output without using open_mfdataset
+    # vertical coords have been an issue for ROMS and POM, related to dask and OFS models
+    if guess_model_type(dsm) in ["ROMS", "POM"]:
+        kwargs_pp = {"interp_vertical": False}
+    else:
+        kwargs_pp = {}
+    dsm = preprocess(dsm, kwargs=kwargs_pp)
+
+    with cfx_set_options(custom_criteria=vocab.vocab):
         dam = dsm.cf[key_variable]
 
+    # take out relevant variable and identify mask if available (otherwise None)
+    mask = get_mask(dsm, dam.name)
+
     # shift if 0 to 360
-    if dam.cf["longitude"].max() > 180:
-        lkey = dam.cf["longitude"].name
-        dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
-        # rotate arrays so that the locations and values are -180 to 180
-        # instead of 0 to 180 to -180 to 0
-        dam = dam.roll(lon=int((dam[lkey] < 0).sum()), roll_coords=True)
-        print(
-            "Longitudes are being shifted because they look like they are not -180 to 180."
-        )
+    dam = shift_longitudes(dam)
+
+    # expand 1D coordinates to 2D, so all models dealt with in OMSA are treated with 2D coords.
+    # if your model is too large to be treated with this way, subset the model first.
+    dam = coords1Dto2D(dam)
+
+    # Calculate boundary of model domain to compare with data locations and for map
+    _, _, _, p1 = find_bbox(dam, mask, alpha=alpha, dd=dd)
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
     count = 0  # track datasets since count is used to match on map
     for cat in tqdm(cats):
-        print(f"Catalog {cat}.")
+        logging.info(f"Catalog {cat}.")
         # for source_name in tqdm(list(cat)[-ndatasets:]):
-        for source_name in tqdm(list(cat)[:ndatasets]):
+        for i, source_name in tqdm(enumerate(list(cat)[:ndatasets])):
+
+            if ndatasets is None:
+                msg = (
+                    f"\nsource name: {source_name} ({i+1} of {ndata} for catalog {cat}."
+                )
+            else:
+                msg = f"\nsource name: {source_name} ({i+1} of {ndatasets} for catalog {cat}."
+            logging.info(msg)
 
             min_lon = cat[source_name].metadata["minLongitude"]
             max_lon = cat[source_name].metadata["maxLongitude"]
             min_lat = cat[source_name].metadata["minLatitude"]
             max_lat = cat[source_name].metadata["maxLatitude"]
 
+            # see if data location is inside alphashape-calculated polygon of model domain
+            # This currently assumes that the dataset is fixed in space.
+            point = Point(min_lon, min_lat)
+            if not p1.contains(point):
+                msg = f"Dataset {source_name} at lon {min_lon}, lat {min_lat} not located within model domain. Skipping dataset.\n"
+                logging.warning(msg)
+                continue
+
             maps.append([min_lon, max_lon, min_lat, max_lat, source_name])
 
             # if min_lon != max_lon or min_lat != max_lat:
-            #     # import pdb; pdb.set_trace()
             #     warnings.warn(
             #         f"Source {source_name} in catalog {cat.name} is not stationary so not plotting."
             #     )
@@ -496,26 +534,51 @@ def run(
                 max_time = cat[source_name].metadata["maxTime"]
 
             # Combine and align the two time series of variable
-            with cfp.set_options(custom_criteria=vocab.vocab):
-                print("source name: ", source_name)
-                dfd = cat[source_name].read()
-                if key_variable not in dfd.cf:
-                    warnings.warn(
-                        f"Key variable {key_variable} cannot be identified in dataset {source_name}. Skipping dataset.",
-                        RuntimeWarning,
-                    )
+            with cfp_set_options(custom_criteria=vocab.vocab):
+                try:
+                    dfd = cat[source_name].read()
+                except requests.exceptions.HTTPError as e:
+                    logging.warning(str(e))
+                    msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
+                    logging.warning(msg)
                     maps.pop(-1)
                     continue
 
-                dfd.cf["T"] = pd.to_datetime(dfd.cf["T"])
+                if key_variable not in dfd.cf:
+                    msg = f"Key variable {key_variable} cannot be identified in dataset {source_name}. Skipping dataset.\n"
+                    logging.warning(msg)
+                    maps.pop(-1)
+                    continue
+
+                # see if more than one column of data is being identified as key_variable
+                # if more than one, log warning and then choose first
+                if isinstance(dfd.cf[key_variable], DataFrame):
+                    msg = f"More than one variable ({dfd.cf[key_variable].columns}) have been matched to input variable {key_variable}. The first {dfd.cf[key_variable].columns[0]} is being selected. To change this, modify the vocabulary so that the two variables are not both matched, or change the input data catalog."
+                    logging.warning(msg)
+                    # remove other data columns
+                    for col in dfd.cf[key_variable].columns[1:]:
+                        dfd.drop(col, axis=1, inplace=True)
+
+                dfd.cf["T"] = to_datetime(dfd.cf["T"])
                 dfd.set_index(dfd.cf["T"], inplace=True)
                 if dfd.index.tz is not None:
-                    warnings.warn(
-                        f"Dataset {source_name} had a timezone {dfd.index.tz} which is being removed. Make sure the timezone matches the model output.",
-                        RuntimeWarning,
+                    logging.warning(
+                        "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.",
+                        source_name,
+                        str(dfd.index.tz),
                     )
                     dfd.index = dfd.index.tz_convert(None)
                     dfd.cf["T"] = dfd.index
+
+                # make sure index is sorted ascending so time goes forward
+                dfd = dfd.sort_index()
+
+                # check if all of variable is nan
+                if dfd.cf[key_variable].isnull().all():
+                    msg = f"All values of key variable {key_variable} are nan in dataset {source_name}. Skipping dataset.\n"
+                    logging.warning(msg)
+                    maps.pop(-1)
+                    continue
 
             # Pull out nearest model output to data
             kwargs = dict(
@@ -528,62 +591,113 @@ def run(
 
             # xoak doesn't work for 1D lon/lat coords
             if dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 1:
-                # time slices can't be used with `method="nearest"`, so separate out
-                if isinstance(kwargs["T"], slice):
-                    Targ = kwargs.pop("T")
-                    model_var = dam.cf.sel(**kwargs)  # .to_dataset()
-                    model_var = model_var.cf.sel(T=Targ)
-                else:
-                    model_var = dam.cf.sel(**kwargs)  # .to_dataset()
+                # This shouldn't happen anymore, so make note if it does
+                msg = "1D coordinates were found for this model but that should not be possible anymore."
+                raise ValueError(msg)
+                # if isinstance(kwargs["T"], slice):
+                #     Targ = kwargs.pop("T")
+                #     model_var = dam.cf.sel(T=Targ)
+                # else:
+                #     model_var = dam
 
+                # # find indices representing mask
+                # import numpy as np
+                # import xarray as xr
+                # eta, xi = np.where(mask.values)
+                # # make advanced indexer to flatten arrays
+                # model_var = model_var.cf.isel(
+                #     X=xr.DataArray(xi, dims="loc"), Y=xr.DataArray(eta, dims="loc")
+                # )
+
+                # model_var = model_var.cf.sel(**kwargs)
+                # # calculate distance
+                # # calculate distance for the 1 point: model location vs. requested location
+                # # https://stackoverflow.com/questions/56862277/interpreting-sklearn-haversine-outputs-to-kilometers
+                # earth_radius = 6371  # km
+                # pts = deg2rad([[kwargs["latitude"], kwargs["longitude"]], [model_var.cf["latitude"], model_var.cf["longitude"]]])
+                # tree = BallTree(pts, metric = 'haversine')
+                # ind, results = tree.query_radius(pts, r=earth_radius, return_distance=True)
+                # distance = results[0][1]*earth_radius  # distance between points in km
             elif dam.cf["longitude"].ndim == dam.cf["latitude"].ndim == 2:
                 # time slices can't be used with `method="nearest"`, so separate out
+                # add "distances_name" to send to `sel2dcf`
+                # also send mask in so it can be accounted for in finding nearest model point
                 if isinstance(kwargs["T"], slice):
                     Targ = kwargs.pop("T")
-                    model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
-                    model_var = model_var.cf.sel(T=Targ)
+                    model_var = dam.cf.sel(T=Targ)
                 else:
-                    model_var = dam.em.sel2dcf(**kwargs)  # .to_dataset()
+                    model_var = dam
 
-            if model_var.size == 0:
+                model_var = model_var.em.sel2dcf(
+                    mask=mask, distances_name="distance", **kwargs
+                )  # .to_dataset()
+
+                # downsize to DataArray
+                distance = model_var["distance"]
+                model_var = model_var[dam.name]
+
+            # Use distances from xoak to give context to how far the returned model points might be from
+            # the data locations
+            if distance > 5:
+                logging.warning(
+                    "Distance between nearest model location and data location for source %s is over 5 km with a distance of %s",
+                    source_name,
+                    str(distance.values),
+                )
+            elif distance > 100:
+                msg = f"Distance between nearest model location and data location for source {source_name} is over 100 km with a distance of {distance.values}. Skipping dataset.\n"
+                logging.warning(msg)
+                maps.pop(-1)
+                continue
+
+            if len(model_var.cf["T"]) == 0:
                 # model output isn't available to match data
                 # data must not be in the space/time range of model
                 maps.pop(-1)
-                warnings.warn(
-                    f"Model output is not present to match dataset {source_name}.",
-                    RuntimeWarning,
+                logging.warning(
+                    "Model output is not present to match dataset %s.",
+                    source_name,
                 )
                 continue
 
             # Combine and align the two time series of variable
-            with cfp.set_options(custom_criteria=vocab.vocab):
-                df = omsa.stats._align(dfd.cf[key_variable], model_var)
+            with cfp_set_options(custom_criteria=vocab.vocab):
+                df = _align(dfd.cf[key_variable], model_var)
+                y_name = model_var.name
 
             # pull out depth at surface?
 
             # Where to save stats to?
             stats = df.omsa.compute_stats
-            omsa.stats.save_stats(source_name, stats, project_name, key_variable)
+
+            # add distance in
+            stats["dist"] = float(distance)
+            save_stats(source_name, stats, project_name, key_variable)
 
             # Write stats on plot
-            figname = omsa.PROJ_DIR(project_name) / f"{source_name}_{key_variable}.png"
+            figname = PROJ_DIR(project_name) / f"{source_name}_{key_variable}.png"
             df.omsa.plot(
                 title=f"{count}: {source_name}",
-                ylabel=dam.name,
+                ylabel=y_name,
                 figname=figname,
                 stats=stats,
             )
+            msg = f"Plotted time series for {source_name}\n."
+            logging.info(msg)
 
             count += 1
 
     # map of model domain with data locations
-    if CARTOPY_AVAILABLE and len(maps) > 0:
-        figname = omsa.PROJ_DIR(project_name) / "map.png"
-        omsa.plot.map.plot_map(np.asarray(maps), figname, dsm, **kwargs_map)
+    if len(maps) > 0:
+        try:
+            figname = PROJ_DIR(project_name) / "map.png"
+            map.plot_map(asarray(maps), figname, p=p1, **kwargs_map)
+        except ModuleNotFoundError:
+            pass
     else:
-        print(
-            "Not plotting map since cartopy is not installed or no datasets to work with."
-        )
-    print(
-        f"Finished analysis. Find plots and stats summaries in {omsa.PROJ_DIR(project_name)}."
+        logging.warning("Not plotting map since no datasets to plot.")
+    logging.info(
+        "Finished analysis. Find plots, stats summaries, and log in %s.",
+        str(PROJ_DIR(project_name)),
     )
+    logging.shutdown()

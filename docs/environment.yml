@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-   - python=3.8
+   - python=3.9
    # If your docs code examples depend on other packages add them here
    - aiohttp
    - cartopy
@@ -11,7 +11,7 @@ dependencies:
    - cf_xarray
    - extract_model
    - intake
-   - intake-axds
+  #  - intake-axds
    - intake-erddap
    - intake-xarray
    - numpy

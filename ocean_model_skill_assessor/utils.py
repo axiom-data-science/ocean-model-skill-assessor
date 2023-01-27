@@ -2,28 +2,257 @@
 Utility functions.
 """
 
-from typing import Dict, Optional, Union
+import logging
+import sys
+
+from pathlib import PurePath
+from typing import Dict, List, Optional, Sequence, Union
 
 import cf_pandas as cfp
-import cf_xarray
 import extract_model as em
 import intake
 import numpy as np
-import shapely.geometry
 import xarray as xr
 
+from cf_pandas import Vocab, always_iterable, astype, merge
 from intake.catalog import Catalog
+from shapely.geometry import Polygon
+from xarray import DataArray, Dataset
 
-import ocean_model_skill_assessor as omsa
+from .paths import CAT_PATH, LOG_PATH, VOCAB_PATH
 
 
-def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
+def open_catalogs(
+    catalogs: Union[str, Catalog, Sequence], project_name: str
+) -> List[Catalog]:
+    """Initialize catalog objects from inputs.
+
+    Parameters
+    ----------
+    catalogs : Union[str, Catalog, Sequence]
+        Catalog name(s) or list of names, or catalog object or list of catalog objects.
+    project_name : str
+        Subdirectory in cache dir to store files associated together.
+
+    Returns
+    -------
+    list[Catalog]
+        Catalogs, ready to use.
+    """
+
+    catalogs = always_iterable(catalogs)
+    if isinstance(catalogs[0], str):
+        cats = [
+            intake.open_catalog(CAT_PATH(catalog_name, project_name))
+            for catalog_name in astype(catalogs, list)
+        ]
+    elif isinstance(catalogs[0], Catalog):
+        cats = catalogs
+    else:
+        raise ValueError(
+            "Catalog(s) should be input as string paths or Catalog objects or Sequence thereof."
+        )
+
+    return cats
+
+
+def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
+    """_summary_
+
+    Parameters
+    ----------
+    vocabs : Union[str, Vocab, Sequence, PurePath]
+        Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
+
+    Returns
+    -------
+    Vocab
+        Single Vocab object with vocab stored in vocab.vocab
+    """
+
+    vocabs = always_iterable(vocabs)
+    if isinstance(vocabs[0], str):
+        vocab = merge([Vocab(VOCAB_PATH(v)) for v in vocabs])
+    elif isinstance(vocabs[0], PurePath):
+        vocab = merge([Vocab(v) for v in vocabs])
+    elif isinstance(vocabs[0], Vocab):
+        vocab = merge(vocabs)
+    else:
+        raise ValueError(
+            "Vocab(s) should be input as string paths or Vocab objects or Sequence thereof."
+        )
+
+    return vocab
+
+
+def coords1Dto2D(dam: DataArray) -> DataArray:
+    """expand 1D coordinates to 2D
+
+    Parameters
+    ----------
+    dam : DataArray
+        Model output variable to work on.
+
+    Returns
+    -------
+    DataArray
+        Model output but with 2D coordinates in place of 1D coordinates, if applicable. Otherwise same as input.
+    """
+
+    if dam.cf["longitude"].ndim == 1:
+        # need to meshgrid lon/lat
+        lon2, lat2 = np.meshgrid(dam.cf["longitude"], dam.cf["latitude"])
+        lonkey, latkey = dam.cf["longitude"].name, dam.cf["latitude"].name
+        # 2D coord names
+        lonkey2, latkey2 = f"{lonkey}2", f"{latkey}2"
+        # dam = dam.assign_coords({lonkey2: ((dam.cf["Y"].name, dam.cf["X"].name), lon2, dam.cf["Longitude"].attrs),
+        #                          latkey2: ((dam.cf["Y"].name, dam.cf["X"].name), lat2, dam.cf["Latitude"].attrs)})
+        dam[lonkey2] = (
+            (dam.cf["Y"].name, dam.cf["X"].name),
+            lon2,
+            dam.cf["Longitude"].attrs,
+        )
+        dam[latkey2] = (
+            (dam.cf["Y"].name, dam.cf["X"].name),
+            lat2,
+            dam.cf["Latitude"].attrs,
+        )
+
+        # remove attributes from 1D lon/lats that are interpreted for coordinates (but not for axes)
+        if "standard_name" in dam[lonkey].attrs:
+            del dam[lonkey].attrs["standard_name"]
+        if "units" in dam[lonkey].attrs:
+            del dam[lonkey].attrs["units"]
+        if "standard_name" in dam[latkey].attrs:
+            del dam[latkey].attrs["standard_name"]
+        if "units" in dam[latkey].attrs:
+            del dam[latkey].attrs["units"]
+
+        # modify coordinates
+        if "_CoordinateAxes" in dam.attrs:
+            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(
+                lonkey, lonkey2
+            )
+            dam.attrs["_CoordinateAxes"] = dam.attrs["_CoordinateAxes"].replace(
+                latkey, latkey2
+            )
+        elif "coordinates" in dam.encoding:
+            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(
+                lonkey, lonkey2
+            )
+            dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(
+                latkey, latkey2
+            )
+
+    return dam
+
+
+def set_up_logging(project_name, verbose, mode: str = "w", testing: bool = False):
+    """set up logging"""
+
+    if not testing:
+        logging.captureWarnings(True)
+
+    file_handler = logging.FileHandler(filename=LOG_PATH(project_name), mode=mode)
+    handlers: List[Union[logging.StreamHandler, logging.FileHandler]] = [file_handler]
+    if verbose:
+        stdout_handler = logging.StreamHandler(stream=sys.stdout)
+        handlers.append(stdout_handler)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s",
+        handlers=handlers,
+    )
+
+    # logger = logging.getLogger('OMSA log')
+
+
+def get_mask(dsm: Dataset, varname: str) -> Union[DataArray, None]:
+    """Return mask that matches x/y coords of var.
+
+    If no mask can be identified with `.filter_by_attrs(flag_meanings="land water")`, instead will make one of non-nans for 1 horizontal grid cross-section of varname.
+
+    Parameters
+    ----------
+    dsm : Dataset
+        Model output
+    varname : str
+        Name of variable in dsm.
+
+    Returns
+    -------
+    DataArray
+        mask associated with varname in dsm
+    """
+
+    if not varname in dsm.data_vars:
+        raise KeyError(
+            f"varname {varname} needs to be a data variable in dsm but is not found."
+        )
+
+    # include matching static mask if present
+    masks = dsm.filter_by_attrs(flag_meanings="land water")
+    if len(masks.data_vars) > 0:
+        mask_name = [
+            mask
+            for mask in masks.data_vars
+            if dsm[mask].encoding["coordinates"] in dsm[varname].encoding["coordinates"]
+        ][0]
+        mask = dsm[mask_name]
+    else:
+        # want just X and Y to make mask. Just use first time and surface depth value, as needed.
+        dam = dsm[varname]
+        if "T" in dam.cf.axes:
+            dam = dam.cf.isel(T=0)
+        if "Z" in dam.cf.axes:
+            dam = dam.cf.sel(Z=0, method="nearest")
+
+        mask = dam.notnull().load().astype(int)
+        msg = "Generated mask for model using 1 horizontal cross section of model output and searching for nans."
+        logging.info(msg)
+
+    return mask
+
+
+def shift_longitudes(dam: Union[DataArray, Dataset]) -> Union[DataArray, Dataset]:
+    """Shift longitudes from 0 to 360 to -180 to 180 if necessary.
+
+    Parameters
+    ----------
+    dam : Union[DataArray,Dataset]
+        Object with model output to check
+
+    Returns
+    -------
+    Union[DataArray,Dataset]
+        Return model output with shifted longitudes, if it was necessary.
+    """
+
+    if dam.cf["longitude"].max() > 180:
+        lkey = dam.cf["longitude"].name
+        nlon = int((dam[lkey] >= 180).sum())  # number of longitudes to roll by
+        dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
+        # rotate arrays so that the locations and values are -180 to 180
+        # instead of 0 to 180 to -180 to 0
+        dam = dam.roll(lon=nlon, roll_coords=True)
+        logging.warning(
+            "Longitudes are being shifted because they look like they are not -180 to 180."
+        )
+    return dam
+
+
+def find_bbox(
+    ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, alpha: int = 5
+) -> tuple:
     """Determine bounds and boundary of model.
 
     Parameters
     ----------
     ds: DataArray
         xarray Dataset containing model output.
+    mask : DataArray, optional
+        Mask with 1's for active locations and 0's for masked.
     dd: int, optional
         Number to decimate model output lon/lat, as a stride.
     alpha: float, optional
@@ -36,10 +265,13 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
 
     Notes
     -----
-    This is from the package ``model_catalogs``.
+    This was originally from the package ``model_catalogs``.
     """
 
-    hasmask = False
+    if mask is not None:
+        hasmask = True
+    else:
+        hasmask = False
 
     try:
         lon = ds.cf["longitude"].values
@@ -52,7 +284,7 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
             lonkey = "lon_rho"
             latkey = "lat_rho"
         else:
-            lonkey = list(ds.cf[["longitude"]].coords.keys())[0]
+            lonkey = ds.cf.coordinates["longitude"][0]
             # need to make sure latkey matches lonkey grid
             latkey = f"lat{lonkey[3:]}"
         # In case there are multiple grids, just take first one;
@@ -60,31 +292,28 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
         lon = ds[lonkey].values
         lat = ds[latkey].values
 
-    # this function is being used on DataArrays instead of Datasets, and the model I'm using as
-    # an example doesn't have a mask, so bring this back when I have a relevant example.
-    # check for corresponding mask (rectilinear and curvilinear grids)
-    if any([var for var in ds.data_vars if "mask" in var]):
-        if ("mask_rho" in ds) and (lonkey == "lon_rho"):
-            maskkey = lonkey.replace("lon", "mask")
-        elif "mask" in ds:
-            maskkey = "mask"
-        else:
-            maskkey = None
-        if maskkey in ds:
-            lon = ds[lonkey].where(ds[maskkey] == 1).values
-            lon = lon[~np.isnan(lon)].flatten()
-            lat = ds[latkey].where(ds[maskkey] == 1).values
-            lat = lat[~np.isnan(lat)].flatten()
-            hasmask = True
-    # import pdb; pdb.set_trace()
+    if hasmask:
+
+        if mask.ndim == 2 and lon.ndim == 1:
+            # # need to meshgrid lon/lat
+            # lon, lat = np.meshgrid(lon, lat)
+            # This shouldn't happen anymore, so make note if it does
+            msg = "1D coordinates were found for this model but that should not be possible anymore."
+            raise ValueError(msg)
+
+        lon = lon[np.where(mask == 1)]
+        lon = lon[~np.isnan(lon)].flatten()
+        lat = lat[np.where(mask == 1)]
+        lat = lat[~np.isnan(lat)].flatten()
+
     # This is structured, rectilinear
     # GFS, RTOFS, HYCOM
     if (lon.ndim == 1) and ("nele" not in ds.dims) and not hasmask:
-        nlon, nlat = ds["lon"].size, ds["lat"].size
+        nlon, nlat = ds[lonkey].size, ds[latkey].size
         lonb = np.concatenate(([lon[0]] * nlat, lon[:], [lon[-1]] * nlat, lon[::-1]))
         latb = np.concatenate((lat[:], [lat[-1]] * nlon, lat[::-1], [lat[0]] * nlon))
         # boundary = np.vstack((lonb, latb)).T
-        p = shapely.geometry.Polygon(zip(lonb, latb))
+        p = Polygon(zip(lonb, latb))
         p0 = p.simplify(1)
         # Now using the more simplified version because all of these models are boxes
         p1 = p0
@@ -109,20 +338,6 @@ def find_bbox(ds: xr.DataArray, dd: int = 1, alpha: int = 5) -> tuple:
         # import pdb; pdb.set_trace()
         # pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
         p1 = alphashape.alphashape(pts, alpha)
-
-    # else:  # 2D coordinates
-
-    #     # this leads to a circular import error if read in at top level bc of other packages brought in.
-    #     import alphashape
-
-    #     lon, lat = lon.flatten()[::dd], lat.flatten()[::dd]
-
-    #     # need to calculate concave hull or alphashape of grid
-    #     # low res, same as convex hull
-    #     p0 = alphashape.alphashape(list(zip(lon, lat)), 0.0)
-    #     # downsample a bit to save time, still should clearly see shape of domain
-    #     pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
-    #     p1 = alphashape.alphashape(pts, alpha)
 
     # useful things to look at: p.wkt  #shapely.geometry.mapping(p)
     return lonkey, latkey, list(p0.bounds), p1
@@ -166,9 +381,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
         # read in model output
         if isinstance(kwargs_search["model_name"], str):
             model_cat = intake.open_catalog(
-                omsa.CAT_PATH(
-                    kwargs_search["model_name"], kwargs_search["project_name"]
-                )
+                CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
             )
         elif isinstance(kwargs_search["model_name"], Catalog):
             model_cat = kwargs_search["model_name"]

@@ -18,7 +18,7 @@ import sys
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 # see https://pypi.org/project/setuptools-scm/ for details
-from pkg_resources import get_distribution
+from importlib.metadata import version as imversion
 
 
 print("python exec:", sys.executable)
@@ -35,7 +35,7 @@ project = "ocean-model-skill-assessor"
 copyright = "2021-2023, Axiom Data Science"
 author = "Axiom Data Science"
 
-release = get_distribution("ocean-model-skill-assessor").version
+release = imversion("ocean-model-skill-assessor")
 # for example take major/minor
 version = ".".join(release.split(".")[:2])
 
@@ -82,9 +82,10 @@ exclude_patterns = [
     ".DS_Store",
     "_old_docs",
     ".ipynb",
+    "notebooks",
 ]
 
-html_extra_path = ["create_vocabs.html"]
+html_extra_path = ["vocab_widget.html"]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -108,9 +109,11 @@ html_static_path = ["_static"]
 # had this message:
 # WARNING: 'execution_timeout' is deprecated for 'nb_execution_timeout' [mystnb.config]
 # WARNING: 'execution_allow_errors' is deprecated for 'nb_execution_allow_errors' [mystnb.config]
-nb_execution_timeout = 300  # seconds.
+nb_execution_timeout = 600  # seconds.
 nb_execution_allow_errors = False
 
+# https://myst-nb.readthedocs.io/en/v0.9.0/use/execute.html
+jupyter_execute_notebooks = "off"
 
 # -- nbsphinx specific options ----------------------------------------------
 # this allows notebooks to be run even if they produce errors.

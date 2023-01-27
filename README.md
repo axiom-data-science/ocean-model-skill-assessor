@@ -12,24 +12,21 @@ ocean-model-skill-assessor
 
 A package to fully run the comparison between data and model to assess model skill.
 
+You can run the analysis as a Python package or with a command-line interface.
+
+There are three steps to follow for a set of model-data validation, which is for one variable:
+1. Make a catalog for your model output.
+2. Make a catalog for your data.
+3. Run the comparison.
+
+These steps will save files into a user application directory cache. See the demos for more details.
+
 --------
 
 <p><small>Project based on the <a target="_blank" href="https://github.com/jbusecke/cookiecutter-science-project">cookiecutter science project template</a>.</small></p>
 
 
 ## Installation
-
-### Install into existing environment
-
-From `conda-forge`:
-``` base
-$ conda install -c conda-forge ocean-model-skill-assessor
-```
-
-From PyPI:
-``` base
-$ pip install ocean-model-skill-assessor
-```
 
 ### Set up environment
 
@@ -46,6 +43,32 @@ Activate your new Python environment to use it with
 ``` bash
 $ conda activate omsa
 ```
+
+Also install `cartopy` to be able to plot maps:
+``` base
+$ conda install -c conda-forge cartopy
+```
+
+
+### Install into existing environment
+
+From `conda-forge`:
+``` base
+$ conda install -c conda-forge ocean-model-skill-assessor
+```
+
+From PyPI:
+``` base
+$ pip install ocean-model-skill-assessor
+```
+
+To plot a map of the model domain with data locations, you'll need to additionally install `cartopy`. If you used `conda` above:
+``` base
+$ conda install -c conda-forge cartopy
+```
+
+If you installed from PyPI, check out the instructions for installing `cartopy` [here](https://scitools.org.uk/cartopy/docs/latest/installing.html#building-from-source).
+
 
 ### Extra packages for development
 

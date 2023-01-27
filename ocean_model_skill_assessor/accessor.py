@@ -2,14 +2,15 @@
 Class to facilitate some functions directly on DataFrames.
 """
 
-import re
+from pandas import DatetimeIndex
+from pandas.api.extensions import register_dataframe_accessor
 
-import pandas as pd
+from ocean_model_skill_assessor.plot import time_series
 
-import ocean_model_skill_assessor
+from .stats import compute_stats
 
 
-@pd.api.extensions.register_dataframe_accessor("omsa")
+@register_dataframe_accessor("omsa")
 class SkillAssessorAccessor:
     """Class to facilitate some functions directly on DataFrames."""
 
@@ -26,21 +27,17 @@ class SkillAssessorAccessor:
     @staticmethod
     def _validate(df):
         """DataFrame must have datetimes as index."""
-        if not isinstance(df.index, pd.DatetimeIndex):
+        if not isinstance(df.index, DatetimeIndex):
             raise TypeError("DataFrame index must be datetimes")
 
     @property
     def compute_stats(self):
         """Run `compute_stats` on DataFrame."""
         if not hasattr(self, "_compute_stats"):
-            stats = ocean_model_skill_assessor.compute_stats(
-                self.df["obs"], self.df["model"]
-            )
+            stats = compute_stats(self.df["obs"], self.df["model"])
             self._compute_stats = stats
         return self._compute_stats
 
     def plot(self, **kwargs):
         """Plot."""
-        ocean_model_skill_assessor.plot.time_series.plot(
-            self.df["obs"], self.df["model"], **kwargs
-        )
+        time_series.plot(self.df["obs"], self.df["model"], **kwargs)

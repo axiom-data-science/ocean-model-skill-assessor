@@ -10,30 +10,46 @@ Installation
 ------------
 
 To install from conda-forge:
+
   >>> conda install -c conda-forge ocean-model-skill-assessor
 
 To install from PyPI:
+
   >>> pip install cf-pandas
 
 
 .. toctree::
    :maxdepth: 3
+   :hidden:
+   :caption: User Guide
 
-   demo_cli.md
-   demo_erddap_cli.md
-   cli.md
-   demo.md
-   create_vocabs_wrapper
+   demo.ipynb
+   add_vocab.md
+   examples/index.rst
    api
+
+.. toctree::
+   :maxdepth: 3
+   :hidden:
+   :caption: User Guide: CLI
+
+   demo_cli.ipynb
+   cli.md
+
+.. toctree::
+   :maxdepth: 3
+   :hidden:
+   :caption: For contributors
+
+   developer.md
    GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 
 
+.. Indices and tables
+.. ==================
 
-Indices and tables
-==================
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
-.. _reStructuredText: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html
+.. .. _reStructuredText: https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html

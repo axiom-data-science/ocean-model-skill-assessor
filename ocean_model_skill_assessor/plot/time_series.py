@@ -2,9 +2,7 @@
 Time series plots.
 """
 
-
-import matplotlib.pyplot as plt
-
+from matplotlib.pyplot import legend, subplots
 from pandas import DataFrame
 
 
@@ -45,13 +43,13 @@ def plot(
     stats : dict, optional
         Statistics describing comparison, output from `df.omsa.compute_stats`.
     """
-    fig, ax = plt.subplots(1, 1, figsize=(15, 5))
+    fig, ax = subplots(1, 1, figsize=(15, 5))
     reference.plot(ax=ax, label="observation", fontsize=fs, lw=lw, color=col_obs)
     sample.plot(ax=ax, label="model", fontsize=fs, lw=lw, color=col_model)
 
     if stats is not None:
         stat_sum = ""
-        types = ["bias", "corr", "ioa", "mse", "mss", "rmse"]
+        types = ["bias", "corr", "ioa", "mse", "mss", "rmse", "dist"]
         for type in types:
             stat_sum += f"{type}: {stats[type]['value']:.1f}  "
         title = f"{title}: {stat_sum}"
@@ -60,6 +58,6 @@ def plot(
     ax.set_xlabel("", fontsize=fs)  # don't need time label
     if ylabel:
         ax.set_ylabel(ylabel, fontsize=fs)
-    plt.legend(loc="best")
+    legend(loc="best")
 
     fig.savefig(figname, dpi=dpi, bbox_inches="tight")

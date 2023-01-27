@@ -125,3 +125,22 @@ def test_find_bbox():
     assert latkey == "lat"
     assert bbox == [0.0, 0.0, 9.0, 9.0]
     assert isinstance(p1, shapely.geometry.polygon.Polygon)
+
+
+def test_shift_longitudes():
+
+    ds = xr.Dataset()
+    ds["lon"] = (
+        "lon",
+        np.linspace(0, 360, 5)[:-1],
+        {"units": "degrees_east", "standard_name": "longitude"},
+    )
+    assert all(omsa.shift_longitudes(ds).cf["longitude"] == [-180.0, -90.0, 0.0, 90.0])
+
+    ds = xr.Dataset()
+    ds["lon"] = (
+        "lon",
+        np.linspace(-180, 180, 5)[:-1],
+        {"units": "degrees_east", "standard_name": "longitude"},
+    )
+    assert all(omsa.shift_longitudes(ds).cf["longitude"] == ds.cf["longitude"])

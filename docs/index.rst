@@ -23,7 +23,7 @@ To install from PyPI:
    :hidden:
    :caption: User Guide
 
-   .. demo.md
+   demo.md
    add_vocab.md
    examples/index.rst
    api

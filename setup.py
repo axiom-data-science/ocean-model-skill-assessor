@@ -8,4 +8,6 @@ setup(
         "tag_regex": r"^(?P<prefix>v)?(?P<version>[^\+]+)(?P<suffix>.*)?$",
     },
     entry_points={"console_scripts": ["omsa=ocean_model_skill_assessor.CLI:main"]},
+    # explicitly declare packages so setuptools does not attempt auto discovery
+    packages=[],
 )

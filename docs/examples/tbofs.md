@@ -30,7 +30,7 @@ key = "temp"
 loc = "https://opendap.co-ops.nos.noaa.gov/thredds/dodsC/TBOFS/fmrc/Aggregated_7_day_TBOFS_Fields_Forecast_best.ncd"
 model_name = "model"
 kwargs_open = dict(drop_variables="ocean_time")
-# can't use chunks or model output won't be read in 
+# can't use chunks or model output won't be read in
 
 # Data catalog set up
 catalog_name = "erddap"
@@ -43,9 +43,9 @@ kwargs_search = dict(max_lat=28, max_lon=-82, min_lat=27.1, min_lon=-83.2,
 
 ```{code-cell} ipython3
 # Make model catalog
-cat_model = omsa.make_catalog(project_name=project_name, 
-                              catalog_type="local", 
-                              catalog_name=model_name, 
+cat_model = omsa.make_catalog(project_name=project_name,
+                              catalog_type="local",
+                              catalog_name=model_name,
                               kwargs=dict(filenames=loc, skip_entry_metadata=True),
                               kwargs_open=kwargs_open,
                               save_cat=True)
@@ -53,9 +53,9 @@ cat_model = omsa.make_catalog(project_name=project_name,
 
 ```{code-cell} ipython3
 # make data catalog
-cat_data = omsa.make_catalog(project_name=project_name, 
-                             catalog_type="erddap", 
-                             catalog_name=catalog_name, 
+cat_data = omsa.make_catalog(project_name=project_name,
+                             catalog_type="erddap",
+                             catalog_name=catalog_name,
                              kwargs=kwargs,
                              save_cat=True,
                              kwargs_search=kwargs_search,
@@ -74,7 +74,7 @@ omsa.run(project_name=project_name, catalogs=catalog_name, model_name=model_name
          vocabs=["general","standard_names"], key_variable=key, alpha=20, ndatasets=2)
 ```
 
-The first image shows a time series comparison for station "edu_usf_marine_comps_c10" of temperature values between the data and the model. 
+The first image shows a time series comparison for station "edu_usf_marine_comps_c10" of temperature values between the data and the model.
 
 The second image shows a map of the Tampa Bay region with a red outline of the approximate boundary of the numerical model along with a black dot for the data location and the number "0" labeling it.
 

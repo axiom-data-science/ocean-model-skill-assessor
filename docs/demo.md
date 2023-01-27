@@ -45,7 +45,7 @@ Set up a catalog of the datasets with which you want to compare your model outpu
 
 ```{code-cell}
 filenames = ["https://erddap.sensors.axds.co/erddap/tabledap/noaa_nos_co_ops_9455500.csvp?time%2Clatitude%2Clongitude%2Cz%2Csea_water_temperature&time%3E=2022-01-01T00%3A00%3A00Z&time%3C=2022-01-06T00%3A00%3A00Z",
-             "https://erddap.sensors.axds.co/erddap/tabledap/aoos_204.csvp?time%2Clatitude%2Clongitude%2Cz%2Csea_water_temperature&time%3E=2022-01-01T00%3A00%3A00Z&time%3C=2022-01-06T00%3A00%3A00Z"]
+]
 
 cat_data = omsa.make_catalog(project_name="demo_local_package", catalog_type="local", catalog_name="local",
                         kwargs=dict(filenames=filenames), kwargs_open=dict(blocksize=None))
@@ -61,7 +61,7 @@ You may want to make a map of the data locations before doing your full run, esp
 omsa.plot.map.plot_cat_on_map(catalog=cat_data, project_name="demo_local_package")
 ```
 
-The image shows a map around the two dataset locations in the Alaska region. The two dataset locations are marked with black dots and marked with numeric labels.
+The image shows a map around the dataset location in the Alaska region. The dataset location is marked with a black dot and marked with a numeric label.
 
 +++
 
@@ -82,4 +82,4 @@ omsa.run(project_name="demo_local_package", catalogs=cat_data, model_name=cat_mo
          vocabs="general", key_variable="temp")
 ```
 
-The plots show the time series comparisons for sea water temperatures of the model output and data at two locations. Also shown is a map of the Cook Inlet region where the CIOFS model is located. An approximation of the numerical domain is shown along with the two data locations.
+The plots show the time series comparisons for sea water temperatures of the model output and data at one location. Also shown is a map of the Cook Inlet region where the CIOFS model is located. An approximation of the numerical domain is shown along with the data location.

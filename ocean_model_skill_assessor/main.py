@@ -479,7 +479,7 @@ def run(
     dam = coords1Dto2D(dam)
 
     # Calculate boundary of model domain to compare with data locations and for map
-    _, _, _, p1 = find_bbox(dam, mask,alpha=alpha, dd=dd)
+    _, _, _, p1 = find_bbox(dam, mask, alpha=alpha, dd=dd)
 
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []

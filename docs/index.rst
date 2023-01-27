@@ -15,7 +15,7 @@ To install from conda-forge:
 
 To install from PyPI:
 
-  >>> pip install cf-pandas
+  >>> pip install ocean-model-skill-assessor
 
 
 .. toctree::

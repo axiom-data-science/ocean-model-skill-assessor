@@ -29,7 +29,7 @@ These steps will save files into a user application directory cache, along with 
 ## Make model catalog
 
 ```{code-cell}
-cat_model = omsa.make_catalog(project_name="demo_local_package", catalog_type="local", catalog_name="model",
+cat_model = omsa.make_catalog(project_name="demo_local_package", catalog_type="local", catalog_name="model", 
                   kwargs=dict(filenames="https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd",
                               skip_entry_metadata=True),
                   kwargs_open=dict(drop_variables="ocean_time"))
@@ -39,7 +39,7 @@ cat_model = omsa.make_catalog(project_name="demo_local_package", catalog_type="l
 cat_model
 ```
 
-## Make data catalog
+## Make data catalog 
 
 Set up a catalog of the datasets with which you want to compare your model output. In this example, we use only known data file locations to create our catalog.
 
@@ -54,16 +54,6 @@ cat_data = omsa.make_catalog(project_name="demo_local_package", catalog_type="lo
 ```{code-cell}
 cat_data
 ```
-
-You may want to make a map of the data locations before doing your full run, especially in the case that you created a catalog from an ERDDAP server or similar. You can do this as follows:
-
-```{code-cell}
-omsa.plot.map.plot_cat_on_map(catalog=cat_data, project_name="demo_local_package")
-```
-
-The image shows a map around the dataset location in the Alaska region. The dataset location is marked with a black dot and marked with a numeric label.
-
-+++
 
 ## Run comparison
 

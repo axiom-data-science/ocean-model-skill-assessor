@@ -24,8 +24,25 @@ To install from PyPI:
    :caption: User Guide
 
    demo.ipynb
-   .. add_vocab.md
-   .. examples/index.rst
+   add_vocab.md
+   examples/index.rst
+   api
+
+.. toctree::
+   :maxdepth: 3
+   :hidden:
+   :caption: User Guide: CLI
+
+   demo_cli.ipynb
+   cli.md
+
+.. toctree::
+   :maxdepth: 3
+   :hidden:
+   :caption: For contributors
+
+   developer.md
+   GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 
 
 .. Indices and tables

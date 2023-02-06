@@ -24,7 +24,7 @@ To install from PyPI:
    :caption: User Guide
 
    demo.ipynb
-   .. add_vocab.md
+   add_vocab.md
    examples/index.rst
    api
 

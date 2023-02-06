@@ -24,7 +24,6 @@ from intake.catalog.local import LocalCatalogEntry
 from numpy import asarray, sum
 from pandas import DataFrame, to_datetime
 from shapely.geometry import Point
-from tqdm import tqdm
 
 from ocean_model_skill_assessor.plot import map
 
@@ -484,10 +483,9 @@ def run(
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
     count = 0  # track datasets since count is used to match on map
-    for cat in tqdm(cats):
+    for cat in cats:
         logging.info(f"Catalog {cat}.")
-        # for source_name in tqdm(list(cat)[-ndatasets:]):
-        for i, source_name in tqdm(enumerate(list(cat)[:ndatasets])):
+        for i, source_name in enumerate(list(cat)[:ndatasets]):
 
             if ndatasets is None:
                 msg = (

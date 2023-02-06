@@ -21,7 +21,7 @@ dependencies:
    - jupytext
    - numpydoc
    - requests
-   - sphinx
+   - sphinx<5.1.0  # https://github.com/sphinx-doc/sphinx/issues/10719
    - sphinx-markdown-tables
    - ipython
    - nbconvert

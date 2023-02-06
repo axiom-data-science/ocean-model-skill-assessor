@@ -2,7 +2,7 @@
 
 Example commands are shown (but not run) below. You can copy these commands directly to a terminal window or command prompt.
 
-This page is focused on explaining all the command line options, not demonstrating a workflow. For a more clear demonstration, check out the [Python package demo](https://ocean-model-skill-assessor.readthedocs.io/en/latest/demo.html) or [CLI demo](https://ocean-model-skill-assessor.readthedocs.io/en/latest/demo_cli.html).
+This page is focused on explaining all the command line options, not demonstrating a workflow. For a more clear demonstration, check out the {doc}`Python package demo <demo>` or {doc}`CLI demo <demo_cli>`.
 
 ## Make catalog(s) for data and model
 
@@ -60,7 +60,7 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 * `catalog_name`: Name for catalog.
 * `description`: Description for catalog.
 * `metadata`: Metadata for catalog.
-* `vocab_name`: Name of vocabulary to use from vocab dir. Options are "standard_names" and "general". See more information [here](https://ocean-model-skill-assessor.readthedocs.io/en/latest/create_vocabs_wrapper.html).
+* `vocab_name`: Name of vocabulary to use from vocab dir. Options are "standard_names" and "general". See more information {doc}`here <add_vocab>`.
 * `kwargs`: Some keyword arguments to make the ERDDAP catalog. See `intake-erddap.erddap_cat()` for more details.
   * `server`: ERDDAP server address, for example: "http://erddap.sensors.ioos.us/erddap"
   * `category_search`:
@@ -104,7 +104,7 @@ Narrow your search by variable. For `intake-erddap` you can filter by the CF `st
 
 ##### Variable selection by pattern matching with vocab
 
-You can return equivalent results in your catalog by searching with a variable nickname (the keys in the dictionary) along with a dictionary defining a vocabulary of regular expressions for matching what "counts" as a particular variable. To save a custom vocabulary to a location for this command, use the `Vocab` class in `cf-pandas` ([docs](https://cf-pandas.readthedocs.io/en/latest/demo_vocab.html#save-to-file)). A premade set of vocabularies aimed at use by ocean modelers is also available to use by name; see them with command `omsa vocabs`.  See more information [here](https://ocean-model-skill-assessor.readthedocs.io/en/latest/create_vocabs_wrapper.html). Suggested uses:
+You can return equivalent results in your catalog by searching with a variable nickname (the keys in the dictionary) along with a dictionary defining a vocabulary of regular expressions for matching what "counts" as a particular variable. To save a custom vocabulary to a location for this command, use the `Vocab` class in `cf-pandas` ([docs](https://cf-pandas.readthedocs.io/en/latest/demo_vocab.html#save-to-file)). A premade set of vocabularies aimed at use by ocean modelers is also available to use by name; see them with command `omsa vocabs`.  See more information {doc}`here <add_vocab>`. Suggested uses:
 * axds catalog: vocab_name standard_names
 * erddap catalog, IOOS: vocab_name standard_names
 * erddap catalog, Coastwatch: vocab_name standard_names
@@ -133,7 +133,7 @@ Make a catalog of Axiom Data Science-stored assets using `intake-axds`.
 * `catalog_name`: Name for catalog.
 * `description`: Description for catalog.
 * `metadata`: Metadata for catalog.
-* `vocab_name`: Name of vocabulary to use from vocab dir. Options are "standard_names" and "general". See more information [here](https://ocean-model-skill-assessor.readthedocs.io/en/latest/create_vocabs_wrapper.html).
+* `vocab_name`: Name of vocabulary to use from vocab dir. Options are "standard_names" and "general". See more information {doc}`here <add_vocab>`.
 * `kwargs`: Keyword arguments to make the AXDS catalog. See `intake-axds.axds_cat()` for more details.
   * `datatype`: Which type of Axiom asset to search for? Currently only "platform2" works and that is the default.
   * `keys_to_match`: Name of keys to match with system-available variable parameterNames using criteria. To filter search by variables, either input keys_to_match and a vocabulary or input standard_names.

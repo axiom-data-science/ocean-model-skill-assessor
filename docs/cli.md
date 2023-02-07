@@ -31,7 +31,7 @@ Make a catalog with known local or remote file(s). Also use a local catalog to r
 
 ##### Basic catalog for single dataset
 
-    omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames=r"[https://erddap.sensors.axds.co/erddap/tabledap/aoos_204.csvp?time%2Clatitude%2Clongitude%2Cz%2Csea_water_temperature&time%3E=2022-01-01T00%3A00%3A00Z&time%3C=2022-01-06T00%3A00%3A00Z]"  --kwargs_open blocksize=None
+    omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://erddap.sensors.axds.co/erddap/tabledap/aoos_204.csvp?time%2Clatitude%2Clongitude%2Cz%2Csea_water_temperature&time%3E=2022-01-01T00%3A00%3A00Z&time%3C=2022-01-06T00%3A00%3A00Z]"  --kwargs_open blocksize=None
 
 ##### Dataset with no lon/lat
 
@@ -39,13 +39,13 @@ When a dataset does not contain location information, you can input it as metada
 
 Station page: https://tidesandcurrents.noaa.gov/stationhome.html?id=9455500
 
-    omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog2 --kwargs filenames=r"[https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=water_temperature&application=NOS.COOPS.TAC.PHYSOCEAN&begin_date=20230109&end_date=20230109&station=9455500&time_zone=GMT&units=english&interval=6&format=csv]" --metadata minLongitude=-151.72 maxLongitude=-151.72 minLatitude=59.44 maxLatitude=59.44
+    omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog2 --kwargs filenames="[https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=water_temperature&application=NOS.COOPS.TAC.PHYSOCEAN&begin_date=20230109&end_date=20230109&station=9455500&time_zone=GMT&units=english&interval=6&format=csv]" --metadata minLongitude=-151.72 maxLongitude=-151.72 minLatitude=59.44 maxLatitude=59.44
 
 ##### Set up model
 
 Use this approach to set up a catalog file for your model output, so that it can be used by OMSA. Use `skip_entry_metadata=True` when running for a model.
 
-    omsa make_catalog --project_name test1 --catalog_type local --catalog_name model --kwargs filenames=r"https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd" skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time
+    omsa make_catalog --project_name test1 --catalog_type local --catalog_name model --kwargs filenames="https://www.ncei.noaa.gov/thredds/dodsC/model-ciofs-agg/Aggregated_CIOFS_Fields_Forecast_best.ncd" skip_entry_metadata=True  --kwargs_open drop_variables=ocean_time
 
 ### ERDDAP Catalog
 
@@ -82,25 +82,25 @@ Make a catalog from datasets available from an ERDDAP server using `intake-erdda
 
 Select a spatial box and time range over which to search catalog:
 
-    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalogA --description "Example ERDDAP catalog description" --kwargs server=r"https://erddap.sensors.ioos.us/erddap" --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2022-1-1 max_time=2022-1-6
+    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalogA --description "Example ERDDAP catalog description" --kwargs server="https://erddap.sensors.ioos.us/erddap" --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2022-1-1 max_time=2022-1-6
 
 ##### Narrow search with model output
 
 Input model output to use to create the space search range, but choose time search range. We use the model catalog created in a previous example:
 
-    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalog --description "Example ERDDAP catalog description" --kwargs server=r"https://erddap.sensors.ioos.us/erddap" --kwargs_search model_name=model min_time=2022-1-1 max_time=2022-1-6
+    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name example_erddap_catalog --description "Example ERDDAP catalog description" --kwargs server="https://erddap.sensors.ioos.us/erddap" --kwargs_search model_name=model min_time=2022-1-1 max_time=2022-1-6
 
 ##### Narrow search also with `query_type`
 
 You can additionally narrow your search by a text term by adding the `search_for` and `query_type` keyword inputs. This example searches for datasets containing the varaible "sea_surface_temperature" and, somewhere in the dataset metadata, the term "Timeseries". If we had wanted datasets that contain one OR the other, we could use `query_type=union`.
 
-    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat2 --kwargs server=r"https://erddap.sensors.ioos.us/erddap" standard_names=r"[sea_surface_temperature]" search_for=r"[Timeseries]" query_type=intersection
+    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat2 --kwargs server="https://erddap.sensors.ioos.us/erddap" standard_names="[sea_surface_temperature]" search_for="[Timeseries]" query_type=intersection
 
 ##### Variable selection by standard_name
 
 Narrow your search by variable. For `intake-erddap` you can filter by the CF `standard_name` of the variable directly with the following.
 
-    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat1 --kwargs server=r"https://erddap.sensors.ioos.us/erddap" standard_names=r"[sea_surface_temperature,sea_water_temperature]"
+    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat1 --kwargs server="https://erddap.sensors.ioos.us/erddap" standard_names="[sea_surface_temperature,sea_water_temperature]"
 
 ##### Variable selection by pattern matching with vocab
 
@@ -118,7 +118,7 @@ The example below uses the pre-defined vocabulary "standard_names" since we are 
 vocab = cfp.Vocab(omsa.VOCAB_PATH("standard_names"))
 ```
 
-    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat3 --kwargs server=r"https://erddap.sensors.ioos.us/erddap" category_search=r"[standard_name,temp]" --vocab_name standard_names
+    omsa make_catalog --project_name test1 --catalog_type erddap --catalog_name cat3 --kwargs server="https://erddap.sensors.ioos.us/erddap" category_search="[standard_name,temp]" --vocab_name standard_names
 
 ### Catalog for Axiom assets
 
@@ -157,13 +157,13 @@ Many of the options available for an Axiom catalog are the same as for an ERDDAP
 
 Select a box and time range over which to search catalog along with standard_name selections, with `verbose=True`.
 
-    omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog1 --description "Example AXDS catalog description" --kwargs page_size=50000 standard_names=r"[sea_water_temperature]" verbose=True  --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2000-1-1 max_time=2002-1-1
+    omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog1 --description "Example AXDS catalog description" --kwargs page_size=50000 standard_names="[sea_water_temperature]" verbose=True  --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2000-1-1 max_time=2002-1-1
 
 ##### Same but with vocab
 
 As in the ERDDAP catalog example above, we can instead get the same results by inputting a vocabulary to use, in this case "standard_names" which will map to variable names in Axiom systems, along with the variable nickname from the vocabulary to find: "temp".
 
-    omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog2 --description "Example AXDS catalog description" --vocab_name standard_names --kwargs page_size=50000 keys_to_match=r"[temp]" --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2000-1-1 max_time=2002-1-1
+    omsa make_catalog --project_name test1 --catalog_type axds --catalog_name example_axds_catalog2 --description "Example AXDS catalog description" --vocab_name standard_names --kwargs page_size=50000 keys_to_match="[temp]" --kwargs_search min_lon=-170 min_lat=53 max_lon=-165 max_lat=56 min_time=2000-1-1 max_time=2002-1-1
 
 ## Run model-data comparison
 

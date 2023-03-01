@@ -27,12 +27,65 @@ class FakeResponse(object):
                                 "institution": "example institution",
                                 "geospatial_bounds": "POLYGON ((-156.25421 20.29439, -160.6308 21.64507, -161.15813 21.90021, -163.60744 23.30368, -163.83879 23.67031, -163.92656 23.83893, -162.37264 55.991, -148.04915 22.40486, -156.25421 20.29439))",
                             },
-                            "variables": {"lon": "lon", "time": "time"},
+                            "variables": {
+                                "lon": {
+                                    "attributes": {
+                                        "standard_name": "longitude",
+                                        "units": "degrees",
+                                        "units_id": "2",  # this is made up
+                                        "long_name": "Longitude",
+                                        "parameter_id": "2",  # made up
+                                    },
+                                },
+                                "temp": {
+                                    "attributes": {
+                                        "standard_name": "sea_water_temperature",
+                                        "units": "degreesC",
+                                        "units_id": "5",  # this is made up
+                                        "long_name": "Sea Water Temperature",
+                                        "parameter_id": "5",  # made up
+                                    },
+                                },
+                                "salt": {
+                                    "attributes": {
+                                        "standard_name": "sea_water_practical_salinity",
+                                        "units": "1",
+                                        "units_id": "6",  # this is made up
+                                        "long_name": "Sea Water Practical Salinity",
+                                        "parameter_id": "6",  # made up
+                                    },
+                                },
+                            },
                         },
+                        # "variables": {"lon": "lon", "time": "time"},
                         "files": {
                             "data.csv.gz": {"url": "fake.csv.gz"},
                             "data.viz.parquet": {"url": "fake.parquet"},
                         },
+                    },
+                    "data": {
+                        "location": {"coordinates": [-123.711083, 38.914556, 0.0]},
+                        "id": 106793,
+                        "figures": [
+                            {
+                                "label": "label",
+                                "parameterGroupId": "parameterGroupId",
+                                "plots": [
+                                    {
+                                        "subPlots": [
+                                            {
+                                                "datasetVariableId": "datasetVariableId",
+                                                "parameterId": "parameterId",
+                                                "label": "label",
+                                                "deviceId": "deviceId",
+                                            }
+                                        ]
+                                    }
+                                ],
+                            }
+                        ],
+                        "datumConversions": [],
+                        "version": 2,
                     },
                 },
                 {
@@ -48,11 +101,55 @@ class FakeResponse(object):
                                 "institution": "example institution",
                                 "geospatial_bounds": "POLYGON ((-156.25421 -20.29439, -160.6308 -21.64507, -161.15813 -21.90021, -163.60744 -23.30368, -163.83879 -23.67031, -163.92656 -23.83893, -162.37264 -55.991, -148.04915 -22.40486, -156.25421 -20.29439))",
                             },
-                            "variables": {"lon": "lon", "time": "time"},
+                            "variables": {
+                                "lon": {
+                                    "attributes": {
+                                        "standard_name": "longitude",
+                                        "units": "degrees",
+                                        "units_id": "2",  # this is made up
+                                        "long_name": "Longitude",
+                                        "parameter_id": "2",  # made up
+                                    },
+                                },
+                                "temp": {
+                                    "attributes": {
+                                        "standard_name": "sea_water_temperature",
+                                        "units": "degreesC",
+                                        "units_id": "5",  # this is made up
+                                        "long_name": "Sea Water Temperature",
+                                        "parameter_id": "5",  # made up
+                                    },
+                                },
+                            },
+                            # "variables": {"lon": "lon", "time": "time"},
                         },
                         "files": {
                             "data.csv.gz": {"url": "fake.csv.gz"},
                         },
+                    },
+                    "data": {
+                        "location": {"coordinates": [-123.711083, 38.914556, 0.0]},
+                        "id": 106793,
+                        "figures": [
+                            {
+                                "label": "label",
+                                "parameterGroupId": "parameterGroupId",
+                                "plots": [
+                                    {
+                                        "subPlots": [
+                                            {
+                                                "datasetVariableId": "datasetVariableId",
+                                                "parameterId": "parameterId",
+                                                "label": "label",
+                                                "deviceId": "deviceId",
+                                            }
+                                        ]
+                                    }
+                                ],
+                            }
+                        ],
+                        "datumConversions": [],
+                        "version": 2,
                     },
                 },
             ]
@@ -72,6 +169,7 @@ def test_make_catalog_axds_platform2(mock_requests):
         catalog_name="catA",
         description="description of catalog",
         kwargs_search={"min_time": "2022-1-1", "max_time": "2022-1-2"},
+        kwargs={"datatype": "platform2"},
         return_cat=True,
         save_cat=True,
     )
@@ -86,7 +184,7 @@ def test_make_catalog_axds_platform2(mock_requests):
     assert cat1.metadata["kwargs_search"]["max_time"] == "2022-1-2"
 
     mock_requests.side_effect = [FakeResponse()]
-    cat2 = intake.open_axds_cat()
+    cat2 = intake.open_axds_cat(datatype="platform2")
     assert (
         cat1["test_platform_parquet"].describe()
         == cat2["test_platform_parquet"].describe()

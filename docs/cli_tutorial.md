@@ -51,7 +51,7 @@ After running the command, check out the catalog file that was made.
 
 ### Run comparison
 
-Now that the catalogs are ready, we can run our model-data comparison. 
+Now that the catalogs are ready, we can run our model-data comparison.
 
     omsa run --project_name demo_local_B \
              --catalog_names local \

@@ -35,6 +35,7 @@ To install from PyPI:
 
    demo_cli.ipynb
    cli.md
+   cli_tutorial.md
 
 .. toctree::
    :maxdepth: 3

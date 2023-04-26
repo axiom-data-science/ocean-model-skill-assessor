@@ -75,7 +75,7 @@ def make_local_catalog(
     kwargs_open : dict, optional
         Keyword arguments to pass on to the appropriate ``intake`` ``open_*`` call for model or dataset.
     skip_entry_metadata : bool, optional
-        This is useful for testing in which case we don't want to actually read the file. If inputting ``kwargs_xarray``, you may want to set this to `True` since you are presumably making a catalog file for a model.
+        This is useful for testing in which case we don't want to actually read the file. If you are making a catalog file for a model, you may want to set this to `True` to avoid reading it all in for metadata.
 
     Returns
     -------

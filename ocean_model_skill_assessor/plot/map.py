@@ -3,7 +3,7 @@ Plot map.
 """
 
 from pathlib import PurePath
-from typing import Dict, Optional, Sequence, Union
+from typing import Dict, Optional, Sequence, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,7 +53,7 @@ def plot_map(
     dd: list = [0.0, 0.0],
     annotate: bool = True,
     annotate_fontsize: int = 12,
-    figsize: tuple[int, int] = (8, 7),
+    figsize: Tuple[int, int] = (8, 7),
     two_maps: dict = None,
     map_font_size: int = 12,
     markersize: int = 5,

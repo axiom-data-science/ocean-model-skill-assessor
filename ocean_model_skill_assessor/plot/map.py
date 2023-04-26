@@ -223,16 +223,16 @@ def plot_map(
     else:
         bbox = [min(min_lons), min(min_lats), max(max_lons), max(max_lats)]
 
-    kwargs_plot = {}
+    kwargs_plot: Dict[str, Union[str, list]] = {}
 
     # plot stations
     inds = (min_lons == max_lons) | (types == "point")
     if inds.sum() > 0:
         if legend:
             kwargs_plot["label"] = list(station_names[inds])
+            assert isinstance(colors_data, list)
             ax.set_prop_cycle(color=colors_data)
         else:
-            assert isinstance(colors_data, list)
             kwargs_plot["color"] = colors_data
         # # import pdb; pdb.set_trace()
         # ax.scatter(
@@ -271,7 +271,6 @@ def plot_map(
             kwargs_plot["label"] = list(station_names[inds])
             ax.set_prop_cycle(color=colors_data)
         else:
-            assert isinstance(colors_data, list)
             kwargs_plot["color"] = colors_data  # [inds]
         ax.plot(
             [min_lons[inds], max_lons[inds]],
@@ -289,7 +288,6 @@ def plot_map(
             kwargs_plot["label"] = list(station_names[inds])
             ax.set_prop_cycle(color=colors_data)
         else:
-            assert isinstance(colors_data, list)
             kwargs_plot["color"] = colors_data  # [inds]
         ax.plot(
             [

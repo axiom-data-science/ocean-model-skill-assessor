@@ -230,9 +230,11 @@ def plot_map(
     if inds.sum() > 0:
         if legend:
             kwargs_plot["label"] = list(station_names[inds])
+            assert isinstance(colors_data, list)
             ax.set_prop_cycle(color=colors_data)
         else:
-            assert isinstance(colors_data, list)
+            assert isinstance(colors_data, str)
+            assert isinstance(kwargs_plot["color"], str)
             kwargs_plot["color"] = colors_data
         # # import pdb; pdb.set_trace()
         # ax.scatter(
@@ -271,7 +273,8 @@ def plot_map(
             kwargs_plot["label"] = list(station_names[inds])
             ax.set_prop_cycle(color=colors_data)
         else:
-            assert isinstance(colors_data, list)
+            assert isinstance(colors_data, str)
+            assert isinstance(kwargs_plot["color"], str)
             kwargs_plot["color"] = colors_data  # [inds]
         ax.plot(
             [min_lons[inds], max_lons[inds]],
@@ -289,7 +292,8 @@ def plot_map(
             kwargs_plot["label"] = list(station_names[inds])
             ax.set_prop_cycle(color=colors_data)
         else:
-            assert isinstance(colors_data, list)
+            assert isinstance(colors_data, str)
+            assert isinstance(kwargs_plot["color"], str)
             kwargs_plot["color"] = colors_data  # [inds]
         ax.plot(
             [

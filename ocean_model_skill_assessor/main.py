@@ -402,7 +402,7 @@ def make_catalog(
             f"Catalog saved to {CAT_PATH(catalog_name, project_name)} with {len(list(cat))} entries."
         )
 
-    logger.shutdown()
+    # logger.shutdown()
 
     if return_cat:
         return cat
@@ -721,6 +721,7 @@ def run(
                 # sort out depths between model and data
                 # 1 location: interpolate or nearest neighbor horizontally
                 # have it figure out depth
+                # import pdb; pdb.set_trace()
                 if ("Z" not in dfd.cf.axes) or no_Z:
                     Z = None
                     vertical_interp = False
@@ -899,7 +900,7 @@ def run(
 
                 # # # Combine and align the two time series of variable
                 # # with cfp_set_options(custom_criteria=vocab.vocab):
-
+                # import pdb; pdb.set_trace()
                 if isinstance(dfd, DataFrame) and key_variable_data not in dfd.cf:
                     msg = f"Key variable {key_variable_data} cannot be identified in dataset {source_name}. Skipping dataset.\n"
                     logger.warning(msg)
@@ -1317,7 +1318,8 @@ def run(
                         longitude=lons,
                         latitude=lats,
                         # T=slice(user_min_time, user_max_time),
-                        T=dfd.cf["T"].values,
+                        # T=dfd.cf["T"].values,
+                        T=None,  # changed this because wasn't working with CTD profiles. Time interpolation happens during _align.
                         make_time_series=True,  # advanced index to make result time series instead of array
                         Z=Z,
                         vertical_interp=vertical_interp,

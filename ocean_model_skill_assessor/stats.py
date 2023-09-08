@@ -21,7 +21,7 @@ from .paths import PROJ_DIR
 def _align(
     obs: Union[DataFrame, xr.DataArray],
     model: Union[DataFrame, xr.DataArray],
-    already_aligned: Optional[bool] = True,
+    already_aligned: Optional[bool] = False,
 ) -> DataFrame:
     """Aligns obs and model signals in time and returns a combined DataFrame
 
@@ -36,9 +36,8 @@ def _align(
 
     Notes
     -----
-    Takes the model times as the correct times to interpolate obs to.
+    Takes the obs times as the correct times to interpolate model to.
     """
-    # import pdb; pdb.set_trace()
     if already_aligned:
         if isinstance(obs, (Series, DataFrame)):
             obs.name = "obs"
@@ -66,7 +65,6 @@ def _align(
                 model.name = "model"
                 model = DataFrame(model)
             aligned = concat([obs, model], axis=1)
-            # import pdb; pdb.set_trace()
             aligned.index.names = obs.index.names
         else:  # both xarray
             obs.name = "obs"
@@ -83,7 +81,6 @@ def _align(
         obs = DataFrame(obs)
         if isinstance(model, xr.DataArray):
             # interpolate
-            # import pdb; pdb.set_trace()
             model = model.cf.interp(T=obs.cf["T"].unique())
 
             model = model.squeeze().to_pandas()
@@ -124,7 +121,6 @@ def _align(
             aligned.index.name = obs.index.name
             return aligned
         else:
-            # import pdb; pdb.set_trace()
             # if obs or model is a dask DataArray, output will be loaded in at this point
             # if isinstance(obs, xr.DataArray):
             #     obs = DataFrame(obs.to_pandas())
@@ -156,7 +152,6 @@ def _align(
             # obs = obs.reindex(ind).interpolate(method="time", limit=3).reindex(obs.index)
             obs = obs[min_time:max_time]
             model = model[min_time:max_time]
-            # import pdb; pdb.set_trace()
             # if use_index == "Z":
             #     model = model.T
             #     obs = obs.reset_index(drop=True).set_index(obs.cf["Z"].name)
@@ -196,7 +191,6 @@ def _align(
         if len(obs) == len(model):
             return concat([obs, model], axis=1)
         else:
-            # import pdb; pdb.set_trace()
             # if obs or model is a dask DataArray, output will be loaded in at this point
             # if isinstance(obs, xr.DataArray):
             #     obs = DataFrame(obs.to_pandas())
@@ -242,7 +236,6 @@ def _align(
         for dim in ["T", "Z", "Y", "X"]:
             if dim in obs.cf.axes:
                 key = obs.cf[dim].name
-                # import pdb; pdb.set_trace()
                 model = model.rename({model.cf[dim].name: key})
 
         # don't extrapolate beyond either time range
@@ -319,7 +312,6 @@ def compute_mean_square_error(
     obs: DataFrame, model: DataFrame, centered=False
 ) -> DataFrame:
     """Given obs and model signals, return mean squared error (MSE)"""
-
     # make sure aligned
     aligned_signals = _align(obs, model)
     obs, model = aligned_signals["obs"], aligned_signals["model"]
@@ -358,7 +350,6 @@ def compute_murphy_skill_score(
     #     return -1
     # return float(1 - mse_model / mse_obs_model)
 
-    # import pdb; pdb.set_trace()
     # 1-((obs - model)**2).sum()/(obs**2).sum()
     return float(1 - ((obs - model) ** 2).sum() / ((obs - obs_model) ** 2).sum())
 

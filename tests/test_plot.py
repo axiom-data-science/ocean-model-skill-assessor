@@ -19,8 +19,9 @@ def test_line():
         {"FAKE_SAMPLES": np.sin(sample_times.values.astype("float32"))},
         index=sample_times,
     )
+    df = pd.concat([reference, sample])
 
-    line.plot(reference, sample, "test")
+    line.plot(df, xname="reference", yname="sample", title="test")
 
 
 def test_map_no_cartopy():

@@ -59,7 +59,7 @@ def open_catalogs(
 
 
 def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
-    """_summary_
+    """Open vocabularies, can input mix of forms.
 
     Parameters
     ----------
@@ -71,18 +71,22 @@ def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
     Vocab
         Single Vocab object with vocab stored in vocab.vocab
     """
-
+    vocab_objects = []
     vocabs = always_iterable(vocabs)
-    if isinstance(vocabs[0], str):
-        vocab = merge([Vocab(VOCAB_PATH(v)) for v in vocabs])
-    elif isinstance(vocabs[0], PurePath):
-        vocab = merge([Vocab(v) for v in vocabs])
-    elif isinstance(vocabs[0], Vocab):
-        vocab = merge(vocabs)
-    else:
-        raise ValueError(
-            "Vocab(s) should be input as string paths or Vocab objects or Sequence thereof."
-        )
+    for vocab in vocabs:
+        # convert to Vocab object
+        if isinstance(vocab, str):
+            vocab = Vocab(VOCAB_PATH(vocab))
+        elif isinstance(vocab, PurePath):
+            vocab = Vocab(vocab)
+        elif isinstance(vocab, Vocab):
+            vocab = vocab
+        else:
+            raise ValueError(
+                "Vocab(s) should be input as string, paths or Vocab objects or Sequence thereof."
+            )
+        vocab_objects.append(vocab)
+    vocab = merge(vocab_objects)
 
     return vocab
 
@@ -347,7 +351,7 @@ def find_bbox(
 
     # This is structured, rectilinear
     # GFS, RTOFS, HYCOM
-    if (lon.ndim == 1) and ("nele" not in ds.dims) and not hasmask:
+    if (lon.ndim == 1) and ("nele" not in ds.dims):  # and not hasmask:
         nlon, nlat = ds[lonkey].size, ds[latkey].size
         lonb = np.concatenate(([lon[0]] * nlat, lon[:], [lon[-1]] * nlat, lon[::-1]))
         latb = np.concatenate((lat[:], [lat[-1]] * nlon, lat[::-1], [lat[0]] * nlon))
@@ -357,7 +361,8 @@ def find_bbox(
         # Now using the more simplified version because all of these models are boxes
         p1 = p0
 
-    elif hasmask or ("nele" in ds.dims):  # unstructured
+    elif "nele" in ds.dims:  # unstructured
+        # elif hasmask or ("nele" in ds.dims):  # unstructured
 
         assertion = (
             "dd and alpha need to be defined in the catalog metadata for this model."

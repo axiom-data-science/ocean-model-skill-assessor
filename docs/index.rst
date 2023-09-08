@@ -43,6 +43,7 @@ To install from PyPI:
    :caption: For contributors
 
    developer.md
+   whats_new
    GitHub repository <https://github.com/axiom-data-science/ocean-model-skill-assessor>
 
 

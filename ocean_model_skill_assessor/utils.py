@@ -12,6 +12,8 @@ import cf_pandas as cfp
 import extract_model as em
 import intake
 import numpy as np
+import pandas as pd
+import pyproj
 import xarray as xr
 
 from cf_pandas import Vocab, always_iterable, astype, merge
@@ -19,7 +21,7 @@ from intake.catalog import Catalog
 from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
 
-from .paths import CAT_PATH, LOG_PATH, VOCAB_PATH
+from .paths import ALPHA_PATH, CAT_PATH, LOG_PATH, VOCAB_PATH
 
 
 def open_catalogs(
@@ -100,6 +102,8 @@ def coords1Dto2D(dam: DataArray) -> DataArray:
     """
 
     if dam.cf["longitude"].ndim == 1:
+        logging.info("Lon/lat coordinates are 1D and are being changed to 2D.")
+
         # need to meshgrid lon/lat
         lon2, lat2 = np.meshgrid(dam.cf["longitude"], dam.cf["latitude"])
         lonkey, latkey = dam.cf["longitude"].name, dam.cf["latitude"].name
@@ -161,14 +165,19 @@ def set_up_logging(project_name, verbose, mode: str = "w", testing: bool = False
 
     logging.basicConfig(
         level=logging.INFO,
-        format="[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s",
+        format="[%(asctime)s] {%(pathname)s:%(lineno)d}\n%(levelname)s - %(message)s\n",
         handlers=handlers,
     )
 
     # logger = logging.getLogger('OMSA log')
+    logger = logging.getLogger(__name__)
+
+    return logger
 
 
-def get_mask(dsm: Dataset, varname: str) -> Union[DataArray, None]:
+def get_mask(
+    dsm: Dataset, varname: str, wetdry: bool = False
+) -> Union[DataArray, None]:
     """Return mask that matches x/y coords of var.
 
     If no mask can be identified with `.filter_by_attrs(flag_meanings="land water")`, instead will make one of non-nans for 1 horizontal grid cross-section of varname.
@@ -179,6 +188,8 @@ def get_mask(dsm: Dataset, varname: str) -> Union[DataArray, None]:
         Model output
     varname : str
         Name of variable in dsm.
+    wetdry : bool
+        If True, selected mask must include "wetdry" in name and will use first time step.
 
     Returns
     -------
@@ -186,20 +197,57 @@ def get_mask(dsm: Dataset, varname: str) -> Union[DataArray, None]:
         mask associated with varname in dsm
     """
 
-    if not varname in dsm.data_vars:
-        raise KeyError(
-            f"varname {varname} needs to be a data variable in dsm but is not found."
-        )
+    logging.info("Retrieving mask")
+
+    # if not varname in dsm.data_vars:
+    #     raise KeyError(
+    #         f"varname {varname} needs to be a data variable in dsm but is not found."
+    #     )
 
     # include matching static mask if present
     masks = dsm.filter_by_attrs(flag_meanings="land water")
-    if len(masks.data_vars) > 0:
-        mask_name = [
-            mask
-            for mask in masks.data_vars
-            if dsm[mask].encoding["coordinates"] in dsm[varname].encoding["coordinates"]
-        ][0]
-        mask = dsm[mask_name]
+    # dask or something messes up the flags? just in case:
+    if len(masks.data_vars) == 0:
+        masks = dsm.filter_by_attrs(option_0="land")
+
+    if wetdry:
+        mask_names = [mask for mask in masks if "wetdry" in mask]
+        masks = dsm[mask_names]
+
+    if (len(masks.data_vars) > 0) and (varname in dsm.data_vars):
+        if wetdry:
+            mask_name = [
+                mask
+                for mask in masks.data_vars
+                if dsm[mask].encoding["coordinates"]
+                in dsm[varname].encoding["coordinates"]
+                or dsm[mask].cf.isel(T=0).shape == dsm[varname].shape
+            ][0]
+            mask = dsm[mask_name].cf.isel(T=0)
+        else:
+            mask_name = [
+                mask
+                for mask in masks.data_vars
+                if dsm[mask].encoding["coordinates"]
+                in dsm[varname].encoding["coordinates"]
+                or dsm[mask].shape == dsm[varname].shape
+            ][0]
+            mask = dsm[mask_name]
+    elif (len(masks.data_vars) > 0) and (varname in dsm.coords):
+        if wetdry:
+            mask_name = [
+                mask
+                for mask in masks.data_vars
+                if dsm[mask].cf.isel(T=0).shape == dsm[varname].shape
+            ][0]
+            mask = dsm[mask_name].cf.isel(T=0)
+        else:
+            mask_name = [
+                mask
+                for mask in masks.data_vars
+                if dsm[mask].shape == dsm[varname].shape
+            ][0]
+            mask = dsm[mask_name]
     else:
         # want just X and Y to make mask. Just use first time and surface depth value, as needed.
         dam = dsm[varname]
@@ -212,38 +260,19 @@ def get_mask(dsm: Dataset, varname: str) -> Union[DataArray, None]:
         msg = "Generated mask for model using 1 horizontal cross section of model output and searching for nans."
         logging.info(msg)
 
+    # if dask-backed, read into memory
+    if mask.chunks is not None:
+        mask = mask.load()
     return mask
 
 
-def shift_longitudes(dam: Union[DataArray, Dataset]) -> Union[DataArray, Dataset]:
-    """Shift longitudes from 0 to 360 to -180 to 180 if necessary.
-
-    Parameters
-    ----------
-    dam : Union[DataArray,Dataset]
-        Object with model output to check
-
-    Returns
-    -------
-    Union[DataArray,Dataset]
-        Return model output with shifted longitudes, if it was necessary.
-    """
-
-    if dam.cf["longitude"].max() > 180:
-        lkey = dam.cf["longitude"].name
-        nlon = int((dam[lkey] >= 180).sum())  # number of longitudes to roll by
-        dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
-        # rotate arrays so that the locations and values are -180 to 180
-        # instead of 0 to 180 to -180 to 0
-        dam = dam.roll(lon=nlon, roll_coords=True)
-        logging.warning(
-            "Longitudes are being shifted because they look like they are not -180 to 180."
-        )
-    return dam
-
-
 def find_bbox(
-    ds: xr.DataArray, mask: Optional[DataArray] = None, dd: int = 1, alpha: int = 5
+    ds: xr.DataArray,
+    mask: Optional[DataArray] = None,
+    dd: int = 1,
+    alpha: int = 5,
+    save: bool = False,
+    project_name: Optional[str] = None,
 ) -> tuple:
     """Determine bounds and boundary of model.
 
@@ -257,6 +286,10 @@ def find_bbox(
         Number to decimate model output lon/lat, as a stride.
     alpha: float, optional
         Number for alphashape to determine what counts as the convex hull. Larger number is more detailed, 1 is a good starting point.
+    save : bool, optional
+        Input True to save. If True, also need project_name.
+    project_name : str, optional
+        Input for saving.
 
     Returns
     -------
@@ -291,6 +324,12 @@ def find_bbox(
         # they are close enough
         lon = ds[lonkey].values
         lat = ds[latkey].values
+
+    # try finding mask
+    if not hasmask:
+        # try finding mask
+        mask = get_mask(ds, lonkey)
+        hasmask = True
 
     if hasmask:
 
@@ -339,8 +378,44 @@ def find_bbox(
         # pts = shapely.geometry.MultiPoint(list(zip(lon, lat)))
         p1 = alphashape.alphashape(pts, alpha)
 
+    if save:
+        if project_name is None:
+            words = "To save the model boundary, you need to input `project_name`."
+            raise ValueError(words)
+        with open(ALPHA_PATH(project_name), "w") as text_file:
+            text_file.write(p1.wkt)
+
     # useful things to look at: p.wkt  #shapely.geometry.mapping(p)
     return lonkey, latkey, list(p0.bounds), p1
+
+
+def shift_longitudes(dam: Union[DataArray, Dataset]) -> Union[DataArray, Dataset]:
+    """Shift longitudes from 0 to 360 to -180 to 180 if necessary.
+
+    Parameters
+    ----------
+    dam : Union[DataArray,Dataset]
+        Object with model output to check
+
+    Returns
+    -------
+    Union[DataArray,Dataset]
+        Return model output with shifted longitudes, if it was necessary.
+    """
+
+    if dam.cf["longitude"].max() > 180:
+        lkey, xkey = dam.cf["longitude"].name, dam.cf["X"].name
+        nlon = int((dam[lkey] >= 180).sum())  # number of longitudes to roll by
+        dam = dam.assign_coords({lkey: (((dam[lkey] + 180) % 360) - 180)})
+        # dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
+        # rotate arrays so that the locations and values are -180 to 180
+        # instead of 0 to 180 to -180 to 0
+        dam = dam.roll({xkey: nlon}, roll_coords=True)
+        # dam = dam.roll(lon=nlon, roll_coords=True)
+        logging.warning(
+            "Longitudes are being shifted because they look like they are not -180 to 180."
+        )
+    return dam
 
 
 def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dict:
@@ -441,3 +516,61 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
             )
 
     return kwargs_search
+
+
+def calculate_anomaly(dd: Union[pd.Series, xr.DataArray], monthly_mean) -> pd.Series:
+    """Given monthly mean that is indexed by month of year, subtract it from time series to get anomaly.
+
+    Should work with both pd.Series and xr. DataArray.
+    Assume that variable in monthly_mean is the same as in the input time series.
+    The way it works for DataArrays is by changing it to a DataFrame. Assumes this is a time series.
+
+    Returns either as a pd.Series. Is that a problem?
+    """
+
+    varname = dd.name
+    varname_mean = f"{varname}_mean"
+    varname_anomaly = f"{varname}_anomaly"
+
+    # if monthly_mean is None:
+    #     monthly_mean = dd[varname].groupby(dd.cf["T"].dt.month).mean()
+
+    if isinstance(dd, xr.DataArray):
+        dd = dd.squeeze().to_dataframe()
+
+    elif isinstance(dd, pd.Series):
+        dd = dd.to_frame()  # this changes dd into a DataFrame
+
+    dd["time"] = dd.index.values  # save times
+    dd = dd.set_index(dd["time"].dt.month)
+    dd[varname_mean] = monthly_mean
+    dd = dd.set_index(dd["time"].name)
+
+    # this shifts the mean for the first and last month so they are a bit off since they aren't interpolated
+    # using the month before and month after, but the middle months are good.
+    # generally this sets the mean to the 15th of the month rather than the beginning or end
+    inan = (dd.index.day != 15) * (dd.index > dd.index[0]) * (dd.index < dd.index[-1])
+    dd.loc[inan, varname_mean] = pd.NA
+
+    inan = dd[varname_mean] == dd[varname_mean].shift(1)
+    dd.loc[inan, varname_mean] = pd.NA
+
+    dd[varname_mean] = dd[varname_mean].interpolate()
+    dd[varname_anomaly] = dd[varname] - dd[varname_mean]
+
+    return dd[varname_anomaly]
+
+
+def calculate_distance(lons, lats):
+    """Calculate distance (km), esp for transects."""
+
+    G = pyproj.Geod(ellps="WGS84")
+    distance = G.inv(
+        lons[:-1],
+        lats[:-1],
+        lons[1:],
+        lats[1:],
+    )[2]
+    distance = np.hstack((np.array([0]), distance))
+    distance = distance.cumsum() / 1000  # km
+    return distance

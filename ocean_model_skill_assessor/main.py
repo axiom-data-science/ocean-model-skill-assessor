@@ -15,8 +15,6 @@ import cf_xarray
 import extract_model as em
 import extract_model.accessor
 import intake
-
-# from numpy import asarray, sum
 import numpy as np
 import pandas as pd
 import requests

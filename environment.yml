@@ -19,6 +19,7 @@ dependencies:
   - oceans
   - pandas
   - pip
+  - pyproj
   - requests
   - scipy
   - xarray

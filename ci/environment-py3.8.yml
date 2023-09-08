@@ -15,6 +15,7 @@ dependencies:
   - matplotlib-base
   - numpy
   - pandas
+  - pyproj
   - scipy
   - xarray
   ##############

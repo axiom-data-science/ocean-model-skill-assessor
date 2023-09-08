@@ -6,6 +6,8 @@ dependencies:
   ############## These will have to be adjusted to your specific project
   # - cf_pandas
   - cf_xarray
+  - cmocean
+  - datetimerange
   - extract_model
   # - intake
   # - intake-axds

@@ -9,6 +9,8 @@ dependencies:
    - cartopy
   #  - cf_pandas
    - cf_xarray
+   - cmocean
+   - datetimerange
    - extract_model
    - intake
   #  - intake-axds
@@ -20,6 +22,7 @@ dependencies:
    # These are needed for the docs themselves
    - jupytext
    - numpydoc
+   - pyproj
    - requests
    - sphinx
    - sphinx-markdown-tables

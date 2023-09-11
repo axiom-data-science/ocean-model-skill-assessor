@@ -30,6 +30,7 @@ res = "10m"
 
 
 def setup_ax(ax, land_10m, left_labels=True, fontsize=12):
+    """Basic plot setup for map."""
     gl = ax.gridlines(
         linewidth=0.2, color="gray", alpha=0.5, linestyle="-", draw_labels=True
     )
@@ -60,6 +61,7 @@ def plot_map(
     markeredgewidth: float = 0.5,
     linewidth_data: int = 3,
     linewidth_poly: int = 2,
+    alpha_marker: float = 1.0,
     colors_data: Union[str, list] = col_label,
     legend: bool = False,
     loc: str = "best",
@@ -103,6 +105,8 @@ def plot_map(
         Line width for plotting data when it involves lines.
     linewidth_poly : int
         Line width for plotting polygon.
+    alpha_marker: float
+        alpha for markers for points
     colors_data : str
         One color to use for all or colors in a list matching number of stations.
     legend : bool
@@ -261,6 +265,7 @@ def plot_map(
             # color = colors_data,
             transform=pc,
             ls="",
+            alpha=alpha_marker,
             **kwargs_plot,
         )
 

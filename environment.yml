@@ -8,14 +8,18 @@ dependencies:
   - aiohttp
   # - cf_pandas
   - cf_xarray
+  - cmocean
+  - datetimerange
   - extract_model
   - intake
   # - intake-axds
   # - intake-erddap
   - intake-xarray
   - matplotlib-base
+  - oceans
   - pandas
   - pip
+  - pyproj
   - requests
   - scipy
   - xarray

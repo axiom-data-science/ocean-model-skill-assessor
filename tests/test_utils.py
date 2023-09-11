@@ -18,16 +18,28 @@ ds["time"] = (
     np.arange(10),
     {"standard_name": "time"},
 )
+lon, lat = np.arange(10), np.arange(10)
 ds["lat"] = (
-    "lat",
-    np.arange(10),
+    ("lat"),
+    lat,
     {"units": "degrees_north", "standard_name": "latitude"},
 )
 ds["lon"] = (
-    "lon",
-    np.arange(10),
+    ("lon"),
+    lon,
     {"units": "degrees_east", "standard_name": "longitude"},
 )
+# lon, lat = np.meshgrid(np.arange(10), np.arange(10))
+# ds["lat"] = (
+#     ("y", "x"),
+#     lat,
+#     {"units": "degrees_north", "standard_name": "latitude"},
+# )
+# ds["lon"] = (
+#     ("y","x"),
+#     lon,
+#     {"units": "degrees_east", "standard_name": "longitude"},
+# )
 
 
 @mock.patch("intake_xarray.base.DataSourceMixin.to_dask")
@@ -133,7 +145,7 @@ def test_shift_longitudes():
     ds["lon"] = (
         "lon",
         np.linspace(0, 360, 5)[:-1],
-        {"units": "degrees_east", "standard_name": "longitude"},
+        {"units": "degrees_east", "standard_name": "longitude", "axis": "X"},
     )
     assert all(omsa.shift_longitudes(ds).cf["longitude"] == [-180.0, -90.0, 0.0, 90.0])
 
@@ -141,6 +153,6 @@ def test_shift_longitudes():
     ds["lon"] = (
         "lon",
         np.linspace(-180, 180, 5)[:-1],
-        {"units": "degrees_east", "standard_name": "longitude"},
+        {"units": "degrees_east", "standard_name": "longitude", "axis": "X"},
     )
     assert all(omsa.shift_longitudes(ds).cf["longitude"] == ds.cf["longitude"])

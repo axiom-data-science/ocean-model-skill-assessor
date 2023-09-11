@@ -5,10 +5,10 @@ import xarray as xr
 
 import ocean_model_skill_assessor as omsa
 
-from ocean_model_skill_assessor.plot import time_series
+from ocean_model_skill_assessor.plot import line
 
 
-def test_time_series():
+def test_line():
     ref_times = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6H")
     reference = pd.DataFrame(
         {"reference": np.sin(ref_times.values.astype("float32"))}, index=ref_times
@@ -19,8 +19,9 @@ def test_time_series():
         {"FAKE_SAMPLES": np.sin(sample_times.values.astype("float32"))},
         index=sample_times,
     )
+    df = pd.concat([reference, sample])
 
-    time_series.plot(reference, sample, "test")
+    line.plot(df, xname="reference", yname="sample", title="test")
 
 
 def test_map_no_cartopy():

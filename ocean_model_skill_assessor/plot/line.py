@@ -97,7 +97,6 @@ def plot(
         ax.set_xlim(df[xname].min(), df[xname].max())
     # df[xname].plot(ax=ax, label="observation", fontsize=fs, lw=lw, color=col_obs)
     # df[yname].plot(ax=ax, label="model", fontsize=fs, lw=lw, color=col_model)
-
     if stats is not None:
         stat_sum = ""
         types = ["bias", "corr", "ioa", "mse", "ss", "rmse"]

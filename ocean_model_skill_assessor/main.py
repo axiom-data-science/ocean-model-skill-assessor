@@ -721,7 +721,6 @@ def run(
                 # sort out depths between model and data
                 # 1 location: interpolate or nearest neighbor horizontally
                 # have it figure out depth
-                # import pdb; pdb.set_trace()
                 if ("Z" not in dfd.cf.axes) or no_Z:
                     Z = None
                     vertical_interp = False
@@ -755,7 +754,6 @@ def run(
                             dfd.cf["Z"].encoding = encoding
 
                     elif isinstance(dfd, (pd.DataFrame, pd.Series)):
-                        # import pdb; pdb.set_trace()
                         if dsm[zkeym].attrs["positive"] == "up":
                             ilev = dfd.index.names.index(dfd.cf["Z"].name)
                             dfd.index = dfd.index.set_levels(
@@ -888,7 +886,11 @@ def run(
                     source_name,
                 )
                 if isinstance(dfd, pd.DataFrame):
-                    dd = pd.read_csv(fname_aligned, parse_dates=True)
+                    dd = pd.read_csv(fname_aligned)  # , parse_dates=True)
+
+                    if "T" in dd.cf:
+                        dd[dd.cf["T"].name] = pd.to_datetime(dd.cf["T"])
+
                     # assume all columns except last two are index columns
                     # last two should be obs and model
                     dd = dd.set_index(list(dd.columns[:-2]))
@@ -900,7 +902,6 @@ def run(
 
                 # # # Combine and align the two time series of variable
                 # # with cfp_set_options(custom_criteria=vocab.vocab):
-                # import pdb; pdb.set_trace()
                 if isinstance(dfd, DataFrame) and key_variable_data not in dfd.cf:
                     msg = f"Key variable {key_variable_data} cannot be identified in dataset {source_name}. Skipping dataset.\n"
                     logger.warning(msg)
@@ -1318,8 +1319,8 @@ def run(
                         longitude=lons,
                         latitude=lats,
                         # T=slice(user_min_time, user_max_time),
-                        # T=dfd.cf["T"].values,
-                        T=None,  # changed this because wasn't working with CTD profiles. Time interpolation happens during _align.
+                        T=dfd.cf["T"].values,
+                        # T=None,  # changed this because wasn't working with CTD profiles. Time interpolation happens during _align.
                         make_time_series=True,  # advanced index to make result time series instead of array
                         Z=Z,
                         vertical_interp=vertical_interp,
@@ -1328,6 +1329,7 @@ def run(
                         extrap=extrap,
                         extrap_val=None,
                         locstream=True,
+                        # locstream_dim="z_rho",
                         weights=None,
                         mask=mask,
                         use_xoak=False,
@@ -1337,7 +1339,6 @@ def run(
                         xgcm_grid=grid,
                         return_info=True,
                     )
-                    # import pdb; pdb.set_trace()
                     # save pickle of triangulation to project dir
                     if (
                         interpolate_horizontal
@@ -1399,7 +1400,6 @@ def run(
                         logger.info("Trying to drop vertical coordinates time series")
                         model_var = model_var.drop_vars(model_var.cf["vertical"].name)
 
-                    # import pdb; pdb.set_trace()
                     # try rechunking to avoid killing kernel
                     if model_var.dims == (model_var.cf["T"].name,):
                         # for simple case of only time, just rechunk into pieces if no chunks
@@ -1409,7 +1409,6 @@ def run(
 
                     logger.info(f"Loading model output...")
                     model_var = model_var.compute()
-                    # import pdb; pdb.set_trace()
                     # depths shouldn't need to be saved if interpolated since then will be a dimension
                     if Z is not None and not vertical_interp:
                         # find Z index
@@ -1430,7 +1429,6 @@ def run(
                         model_var["distance"].attrs["units"] = "km"
                         # model_var.attrs["distance_from_location_km"] = float(distance)
                     else:
-                        # import pdb; pdb.set_trace()
                         # when lons/lats are function of time, add them back in
                         if dam.cf["longitude"].name not in model_var.coords:
                             # if model_var.ndim == 1 and len(model_var[model_var.dims[0]]) == lons.size:
@@ -1543,7 +1541,6 @@ def run(
                 # varnames += [dfd.cf.coordinates[col][0] for col in cols if col in dfd.cf.coordinates]
                 # varnames += [dfd.cf[key_variable_data].name]
                 # dd = _align(dfd[varnames], model_var, key_variable=key_variable_data)
-                # import pdb; pdb.set_trace()
                 dd = _align(dfd.cf[key_variable_data], model_var)
                 # read in from newly made file to make sure output is loaded
                 if isinstance(dd, pd.DataFrame):
@@ -1614,7 +1611,6 @@ def run(
                 title = f"{count}: {source_name}"
             else:
                 title = f"{source_name}"
-            # import pdb; pdb.set_trace()
             dd.omsa.plot(
                 title=title,
                 key_variable=key_variable,

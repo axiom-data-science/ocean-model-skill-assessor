@@ -48,7 +48,6 @@ class SkillAssessorAccessor:
 
     def plot(self, featuretype=None, key_variable=None, **kwargs):
         """Plot."""
-        # import pdb; pdb.set_trace()
         import xcmocean
 
         # cmap and cmapdiff
@@ -65,7 +64,6 @@ class SkillAssessorAccessor:
                     )
                     xlabel, ylabel = "", key_variable
                     # xname, yname, zname = self.dd.cf["T"].name, ["obs","model"], None
-                    # import pdb; pdb.set_trace()
                     line.plot(
                         self.dd.reset_index(),
                         xname,
@@ -100,13 +98,11 @@ class SkillAssessorAccessor:
                     # surface.plot(xname, yname, self.dd["obs"].squeeze(), self.dd["model"].squeeze(), **kwargs)
                 elif featuretype == "profile":
                     # use transpose so that index depth is plotted on y axis instead of x axis
-                    # import pdb; pdb.set_trace()
                     xname, yname, zname = (
                         ["obs", "model"],
                         self.dd.index.name or "index",
                         None,
                     )
-                    # import pdb; pdb.set_trace()
                     xlabel, ylabel = key_variable, yname
                     # xname, yname, zname = ["obs","model"], self.dd.cf["Z"].name, None
                     line.plot(

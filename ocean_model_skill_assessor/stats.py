@@ -21,7 +21,7 @@ from .paths import PROJ_DIR
 def _align(
     obs: Union[DataFrame, xr.DataArray],
     model: Union[DataFrame, xr.DataArray],
-    already_aligned: Optional[bool] = False,
+    already_aligned: Optional[bool] = None,
 ) -> DataFrame:
     """Aligns obs and model signals in time and returns a combined DataFrame
 
@@ -38,6 +38,14 @@ def _align(
     -----
     Takes the obs times as the correct times to interpolate model to.
     """
+
+    # guess about being already_aligned
+    if already_aligned is None:
+        if len(obs) == len(model):
+            already_aligned = True
+        else:
+            already_aligned = False
+
     if already_aligned:
         if isinstance(obs, (Series, DataFrame)):
             obs.name = "obs"
@@ -53,11 +61,25 @@ def _align(
                     for index in ["T", "Z", "latitude", "longitude"]:
                         # if index in obs, have as index for model too
                         if index in obs.cf.keys():
-                            indices.append(model.cf[index].name)
+                            # if index has only 1 unique value drop that index at this point
+                            # for ilevel in and don't include for model indices
+
+                            if (
+                                len(
+                                    obs.index.get_level_values(
+                                        obs.cf[index].name
+                                    ).unique()
+                                )
+                                > 1
+                            ):
+                                indices.append(model.cf[index].name)
+                            else:
+                                obs.index = obs.index.droplevel(obs.cf[index].name)
                     # Indices have to match exactly to concat correctly
                     # so if lon/lat are in indices, need to have interpolated to those values
                     # instead of finding nearest neighbors
                     model = model.to_pandas().reset_index().set_index(indices)[var_name]
+
                 else:
                     model = model.squeeze().to_pandas()
                 model.name = "model"

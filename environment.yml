@@ -29,6 +29,7 @@ dependencies:
     - intake-axds
     - intake-erddap
   #   - git+https://github.com/intake/intake
+    - nested_lookup
     - tqdm
   #   # use these from github to include recent changes while packages are changing a lot
   #   # - git+git://github.com/axiom-data-science/extract_model#egg=extract_model

@@ -42,6 +42,7 @@ dependencies:
      - docrep<=0.2.7
      - furo
      - nbsphinx
+     - nested_lookup
      - jupyter_client
      - myst-nb
      - sphinx_pangeo_theme

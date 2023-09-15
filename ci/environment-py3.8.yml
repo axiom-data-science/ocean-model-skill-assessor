@@ -26,6 +26,7 @@ dependencies:
     - intake-axds
     - intake-erddap
     - intake
+    - nested_lookup
     - tqdm
     - codecov
     - pytest-cov

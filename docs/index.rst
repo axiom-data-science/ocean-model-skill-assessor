@@ -24,6 +24,7 @@ To install from PyPI:
    :caption: User Guide
 
    demo.ipynb
+   datasets.md
    add_vocab.md
    examples/index.rst
    api

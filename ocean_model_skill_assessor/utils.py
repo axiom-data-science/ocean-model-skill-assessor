@@ -2,7 +2,9 @@
 Utility functions.
 """
 
+import json
 import logging
+import pathlib
 import sys
 
 from pathlib import PurePath
@@ -21,11 +23,11 @@ from intake.catalog import Catalog
 from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
 
-from .paths import ALPHA_PATH, CAT_PATH, LOG_PATH, VOCAB_PATH
+from .paths import Paths
 
 
 def open_catalogs(
-    catalogs: Union[str, Catalog, Sequence], project_name: str
+    catalogs: Union[str, Catalog, Sequence], paths: Paths,
 ) -> List[Catalog]:
     """Initialize catalog objects from inputs.
 
@@ -33,8 +35,8 @@ def open_catalogs(
     ----------
     catalogs : Union[str, Catalog, Sequence]
         Catalog name(s) or list of names, or catalog object or list of catalog objects.
-    project_name : str
-        Subdirectory in cache dir to store files associated together.
+    paths : Paths
+        Paths object for finding paths to use.
 
     Returns
     -------
@@ -45,7 +47,7 @@ def open_catalogs(
     catalogs = always_iterable(catalogs)
     if isinstance(catalogs[0], str):
         cats = [
-            intake.open_catalog(CAT_PATH(catalog_name, project_name))
+            intake.open_catalog(paths.CAT_PATH(catalog_name))
             for catalog_name in astype(catalogs, list)
         ]
     elif isinstance(catalogs[0], Catalog):
@@ -58,13 +60,15 @@ def open_catalogs(
     return cats
 
 
-def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
+def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath], paths: Paths) -> Vocab:
     """Open vocabularies, can input mix of forms.
 
     Parameters
     ----------
     vocabs : Union[str, Vocab, Sequence, PurePath]
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
+    paths : Paths
+        Paths object for finding paths to use.
 
     Returns
     -------
@@ -76,7 +80,7 @@ def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
     for vocab in vocabs:
         # convert to Vocab object
         if isinstance(vocab, str):
-            vocab = Vocab(VOCAB_PATH(vocab))
+            vocab = Vocab(paths.VOCAB_PATH(vocab))
         elif isinstance(vocab, PurePath):
             vocab = Vocab(vocab)
         elif isinstance(vocab, Vocab):
@@ -89,6 +93,41 @@ def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
     vocab = merge(vocab_objects)
 
     return vocab
+
+
+def open_vocab_labels(vocab_labels: Union[str, dict, PurePath], paths: Optional[Paths] = None) -> dict:
+    """Open dict of vocab_labels if needed
+
+    Parameters
+    ----------
+    vocab_labels : Union[str, Vocab, Sequence, PurePath]
+        Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
+    paths : Paths
+        Paths object for finding paths to use.
+
+    Returns
+    -------
+    dict
+        dict of vocab_labels for plotting
+    """ 
+
+    if isinstance(vocab_labels, str):
+        assert paths is not None, "need to input `paths` to `open_vocab_labels()` if inputting string."
+        vocab_labels = json.loads(
+                open(pathlib.PurePath(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"), "r").read()
+            )
+    elif isinstance(vocab_labels, PurePath):
+        vocab_labels = json.loads(
+                open(vocab_labels.with_suffix(".json"), "r").read()
+            )
+    elif isinstance(vocab_labels, dict):
+        vocab_labels = vocab_labels
+    else:
+        raise ValueError(
+            "vocab_labels should be input as string, Path, or dict."
+        )
+
+    return vocab_labels
 
 
 def coords1Dto2D(dam: DataArray) -> DataArray:
@@ -155,13 +194,13 @@ def coords1Dto2D(dam: DataArray) -> DataArray:
     return dam
 
 
-def set_up_logging(project_name, verbose, mode: str = "w", testing: bool = False):
+def set_up_logging(verbose, paths: Paths, mode: str = "w", testing: bool = False):
     """set up logging"""
 
     if not testing:
         logging.captureWarnings(True)
 
-    file_handler = logging.FileHandler(filename=LOG_PATH(project_name), mode=mode)
+    file_handler = logging.FileHandler(filename=paths.LOG_PATH, mode=mode)
     handlers: List[Union[logging.StreamHandler, logging.FileHandler]] = [file_handler]
     if verbose:
         stdout_handler = logging.StreamHandler(stream=sys.stdout)
@@ -272,11 +311,11 @@ def get_mask(
 
 def find_bbox(
     ds: xr.DataArray,
+    paths: Optional[Paths] = None,
     mask: Optional[DataArray] = None,
     dd: int = 1,
     alpha: int = 5,
     save: bool = False,
-    project_name: Optional[str] = None,
 ) -> tuple:
     """Determine bounds and boundary of model.
 
@@ -284,6 +323,8 @@ def find_bbox(
     ----------
     ds: DataArray
         xarray Dataset containing model output.
+    paths : Paths
+        Paths object for finding paths to use.
     mask : DataArray, optional
         Mask with 1's for active locations and 0's for masked.
     dd: int, optional
@@ -291,9 +332,7 @@ def find_bbox(
     alpha: float, optional
         Number for alphashape to determine what counts as the convex hull. Larger number is more detailed, 1 is a good starting point.
     save : bool, optional
-        Input True to save. If True, also need project_name.
-    project_name : str, optional
-        Input for saving.
+        Input True to save.
 
     Returns
     -------
@@ -384,10 +423,10 @@ def find_bbox(
         p1 = alphashape.alphashape(pts, alpha)
 
     if save:
-        if project_name is None:
-            words = "To save the model boundary, you need to input `project_name`."
+        if paths is None:
+            words = "To save the model boundary, you need to input `paths`."
             raise ValueError(words)
-        with open(ALPHA_PATH(project_name), "w") as text_file:
+        with open(paths.ALPHA_PATH, "w") as text_file:
             text_file.write(p1.wkt)
 
     # useful things to look at: p.wkt  #shapely.geometry.mapping(p)
@@ -412,18 +451,16 @@ def shift_longitudes(dam: Union[DataArray, Dataset]) -> Union[DataArray, Dataset
         lkey, xkey = dam.cf["longitude"].name, dam.cf["X"].name
         nlon = int((dam[lkey] >= 180).sum())  # number of longitudes to roll by
         dam = dam.assign_coords({lkey: (((dam[lkey] + 180) % 360) - 180)})
-        # dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
         # rotate arrays so that the locations and values are -180 to 180
         # instead of 0 to 180 to -180 to 0
         dam = dam.roll({xkey: nlon}, roll_coords=True)
-        # dam = dam.roll(lon=nlon, roll_coords=True)
         logging.warning(
             "Longitudes are being shifted because they look like they are not -180 to 180."
         )
     return dam
 
 
-def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dict:
+def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]], paths: Paths) -> dict:
     """Adds spatial and/or temporal range from model output to dict.
 
     Examines model output and uses the bounding box of the model as the search spatial range if needed, and the time range of the model as the search time search if needed. They are added into `kwargs_search` and the dict is returned.
@@ -432,6 +469,8 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
     ----------
     kwargs_search : dict
         Keyword arguments to input to search on the server before making the catalog.
+    paths : Paths
+        Paths object for finding paths to use.
 
     Returns
     -------
@@ -461,7 +500,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
         # read in model output
         if isinstance(kwargs_search["model_name"], str):
             model_cat = intake.open_catalog(
-                CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
+                paths.CAT_PATH(kwargs_search["model_name"])
             )
         elif isinstance(kwargs_search["model_name"], Catalog):
             model_cat = kwargs_search["model_name"]

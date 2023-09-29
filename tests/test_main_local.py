@@ -10,9 +10,15 @@ import pytest
 import ocean_model_skill_assessor as omsa
 
 
-def test_make_catalog_local():
+@pytest.fixture(scope="session")
+def project_cache(tmp_path_factory):
+    directory = tmp_path_factory.mktemp("cache")
+    return directory
 
-    catloc2 = omsa.paths.CAT_PATH("catAlocal", "projectA")
+
+def test_make_catalog_local(project_cache):
+    paths = omsa.paths.Paths(project_name="projectA", cache_dir=project_cache)
+    catloc2 = paths.CAT_PATH("catAlocal")
 
     kwargs = {"filenames": "filename.csv", "skip_entry_metadata": True}
     cat1 = omsa.make_catalog(
@@ -23,6 +29,7 @@ def test_make_catalog_local():
         kwargs=kwargs,
         return_cat=True,
         save_cat=True,
+        cache_dir=project_cache,
     )
     assert os.path.exists(catloc2)
     assert list(cat1) == ["filename"]
@@ -87,4 +94,4 @@ def test_make_catalog_local_read(read):
     )
     assert cat["filename"].metadata["minLongitude"] == 0.0
     assert cat["filename"].metadata["maxLatitude"] == 8.0
-    assert cat["filename"].metadata["minTime"] == "1970-01-01 00:00:00"
+    assert pd.Timestamp(cat["filename"].metadata["minTime"]) == pd.Timestamp("1970-01-01 00:00:00")

@@ -23,6 +23,8 @@ dependencies:
   - requests
   - scipy
   - xarray
+  - xcmocean
+  - xroms
   - pip:
     - alphashape
     - cf_pandas

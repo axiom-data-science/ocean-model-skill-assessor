@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from ocean_model_skill_assessor.accessor import SkillAssessorAccessor
 
 from .main import make_catalog, run
-from .paths import CAT_PATH, LOG_PATH, PROJ_DIR, VOCAB_DIR, VOCAB_PATH
+from .paths import Paths
 from .utils import shift_longitudes
 
 

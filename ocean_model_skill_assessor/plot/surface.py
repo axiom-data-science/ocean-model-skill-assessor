@@ -5,156 +5,196 @@ from typing import Optional, Union
 
 import cf_pandas
 import cf_xarray
-import cmocean.cm as cmo
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from pandas import DataFrame
+from xarray import Dataset
 
 import ocean_model_skill_assessor as omsa
 
+fs = 14
+fs_title = 16
+
 
 def plot(
-    dd: Union[pd.DataFrame, xr.Dataset],
+    obs: Union[DataFrame, Dataset],
+    model: Dataset,
     xname: str,
     yname: str,
-    zname: Union[str, list],
-    nsubplots: int = 3,
-    title: Optional[str] = None,
+    zname: str,
+    suptitle: str,
+    xlabel: Optional[str] = None,
     ylabel: Optional[str] = None,
+    zlabel: Optional[str] = None,
+    along_transect_distance: bool = False,
+    kind = "pcolormesh",
+    nsubplots: int = 3,
     figname: str = "figure.png",
     dpi: int = 100,
-    stats: dict = None,
-    clabel: Optional[str] = None,
-    kind="pcolormesh",
+    figsize=(15, 4),
+    return_plot: bool = False,
     **kwargs,
 ):
-    """Surface plot."""
+    """Plot scatter or surface plot.
 
-    # cmap = cmap or xr.get_options()["cmap_divergent"]
-    # cmap_diff = cm
+    For featuretype of trajectoryProfile or timeSeriesProfile.
 
-    # dds = dd[zname[1]] - dd[zname[0]]
-    dd["diff"] = dd[zname[1]] - dd[zname[0]]
+    Parameters
+    ----------
+    obs: DataFrame, Dataset
+        Observation time series
+    mode: Dataset
+        Model time series to compare against obs
+    xname : str
+        Name of variable to plot on x-axis when interpreted with cf-xarray and cf-pandas
+    yname : str
+        Name of variable to plot on y-axis when interpreted with cf-xarray and cf-pandas
+    zname : str
+        Name of variable to plot with color when interpreted with cf-xarray and cf-pandas
+    suptitle: str, optional
+        Title for plot, over all the subplots.
+    xlabel: str, optional
+        Label for x-axis.
+    ylabel: str, optional
+        Label for y-axis.
+    zlabel: str, optional
+        Label for colorbar.
+    along_transect_distance:
+        Set to True to calculate the along-transect distance in km from the longitude and latitude, which must be interpretable through cf-pandas or cf-xarray as "longitude" and "latitude".
+    kind: str
+        Can be "pcolormesh" for surface plot or "scatter" for scatter plot.
+    nsubplots : int, optional
+        Number of subplots. Might always be 3, and that is the default.
+    figname: str
+        Filename for figure (as absolute or relative path).
+    dpi: int, optional
+        dpi for figure. Default is 100.
+    figsize : tuple, optional
+        Figsize to pass to `plt.figure()`. Default is (15,5).
+    return_plot : bool
+        If True, return plot. Use for testing.
+    """
+    
+    # want obs and data as DataFrames
+    if kind == "scatter":
+        if isinstance(obs, xr.Dataset):
+            obs = obs.to_dataframe()
+        if isinstance(model, xr.Dataset):
+            model = model.to_dataframe()
+        # using .values on obs prevents name clashes for time and depth
+        model["diff"] = obs.cf[zname].values - model.cf[zname]
+    # want obs and data as Datasets
+    elif kind == "pcolormesh":
+        if isinstance(obs, pd.DataFrame):
+            obs = obs.to_xarray()
+            obs = obs.assign_coords({obs.cf["T"].name: obs.cf["T"], model.cf["Z"].name: obs.cf["Z"]})
+        if isinstance(model, pd.DataFrame):
+            model = model.to_xarray()
+        # using .values on obs prevents name clashes for time and depth
+        model["diff"] = obs.cf[zname].values - model.cf[zname]
+        model["diff"].attrs = {}
+    else:
+        raise ValueError("`kind` should be scatter or pcolormesh.")
 
-    # # for diverging property
-    # # import pdb; pdb.set_trace()
-    # vmax = dd[zname + ["diff"]].max().max()
-    # vmin = -vmax
+
+    if along_transect_distance:
+        obs["distance"] = omsa.utils.calculate_distance(
+            obs.cf["longitude"], obs.cf["latitude"]
+        )
+        if isinstance(model, xr.Dataset):
+            model["distance"] = (model.cf["T"].name, omsa.utils.calculate_distance(
+                model.cf["longitude"], model.cf["latitude"]
+            ))
+            model = model.assign_coords({"distance": model["distance"]})
+        elif isinstance(model, pd.DataFrame):
+            model["distance"] = omsa.utils.calculate_distance(
+                model.cf["longitude"], model.cf["latitude"]
+            )
+            
+        # diff = diff.assign_coords({"distance": distance})
 
     # for first two plots
     # vmin, vmax, cmap, extend, levels, norm
-    cmap_params = xr.plot.utils._determine_cmap_params(dd[zname].values, robust=True)
+    cmap_params = xr.plot.utils._determine_cmap_params(np.vstack((obs.cf[zname].values, model.cf[zname].values)), robust=True)
     # including `center=0` forces this to return the diverging colormap option
     cmap_params_diff = xr.plot.utils._determine_cmap_params(
-        dd["diff"].values, robust=True, center=0
+        model["diff"].values, robust=True, center=0
     )
 
-    # reference = pd.DataFrame(reference)
-    # sample = pd.DataFrame(sample)
-    if xname == "distance":
-        dd["distance [km]"] = omsa.utils.calculate_distance(
-            dd.cf["longitude"], dd.cf["latitude"]
-        )
+    # sharex and sharey removed the y ticklabels so don't use. 
+    # maybe don't work with layout="constrained"
+    fig, axes = plt.subplots(1, nsubplots, figsize=figsize, layout="constrained",)
+                            #  sharex=True, sharey=True)  
 
-    fig, axes = plt.subplots(1, nsubplots, figsize=(15, 4))
-
-    # vmax = max((dd[zname[0]].max(), dd[zname[1]].max(), dds.max(), xr.apply_ufunc(np.absolute, dd[zname[0]]).max(),
-    #             xr.apply_ufunc(np.abs, dd[zname[1]]).max(), xr.apply_ufunc(np.absolute, dds).max()))
-    # vmin = -vmax
-
-    # kwargs = dict(cmap=cmap, x=dd.cf[xname].name, y=dd.cf[yname].name,
-    #               vmin=vmin, vmax=vmax)
-
-    kwargs = dict(x=dd.cf[xname].name, y=dd.cf[yname].name)
-    kwargs.update({key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]})
-
-    xarray_kwargs = dict(add_labels=False, add_colorbar=False)
+    # setup
+    xarray_kwargs = dict(add_labels=False, add_colorbar=False, )
     pandas_kwargs = dict(colorbar=False)
 
-    if isinstance(dd, xr.Dataset):
-        kwargs.update(xarray_kwargs)
-    elif isinstance(dd, pd.DataFrame):
-        kwargs.update(pandas_kwargs)
-
-    # plot obs
-    dd.plot(kind=kind, c=zname[0], ax=axes[0], **kwargs)
-    axes[0].set_title("Observation")
-    axes[0].set_ylabel(kwargs["y"])
-    # don't add label if x dim is time since its obvious then
-    if not xname == "T":
-        axes[0].set_xlabel(kwargs["x"])
+    kwargs = {key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]}
+    
+    if kind == "scatter":
+        obs.plot(kind=kind, x=obs.cf[xname].name, y=obs.cf[yname].name, 
+                           c=obs.cf[zname].name, ax=axes[0], **kwargs, **pandas_kwargs)
+    elif kind == "pcolormesh":
+        obs.cf[zname].cf.plot.pcolormesh(x=xname, y=yname,
+                                ax=axes[0], **kwargs, **xarray_kwargs)
+    axes[0].set_title("Observation", fontsize=fs_title)
+    axes[0].set_ylabel(ylabel, fontsize=fs)
+    axes[0].set_xlabel(xlabel, fontsize=fs)
+    axes[0].tick_params(axis="both", labelsize=fs)
 
     # plot model
-    # import pdb; pdb.set_trace()
-    dd.plot(kind=kind, c=zname[1], ax=axes[1], ylabel="", **kwargs)
-    axes[1].set_title("Model")
-    # don't add label if x dim is time since its obvious then
-    if not xname == "T":
-        axes[1].set_xlabel(kwargs["x"])
+    if kind == "scatter":
+        model.plot(kind=kind, x=model.cf[xname].name, y=model.cf[yname].name, 
+                           c=model.cf[zname].name, ax=axes[1], **kwargs, **pandas_kwargs)
+    elif kind == "pcolormesh":
+        model.cf[zname].cf.plot.pcolormesh(x=xname, y=yname,
+                                ax=axes[1], **kwargs, **xarray_kwargs)
+    axes[1].set_title("Model", fontsize=fs_title)
+    axes[1].set_xlabel(xlabel, fontsize=fs)
+    axes[1].set_ylabel("")
+    axes[1].set_ylim(axes[0].get_ylim())
+    # save space by not relabeling y axis
     axes[1].set_yticklabels("")
+    axes[1].tick_params(axis="x", labelsize=fs)
 
-    # plot difference
-
+    # plot difference (assume Dataset)
     # for last (diff) plot
     kwargs.update({key: cmap_params_diff.get(key) for key in ["vmin", "vmax", "cmap"]})
-
-    # import pdb; pdb.set_trace()
-    dd.plot(
-        kind=kind, c="diff", ax=axes[2], ylabel="", **kwargs
-    )  # , cbar_kwargs={'label':clabel})
-    axes[2].set_title("Obs - Model")
-    # don't add label if x dim is time since its obvious then
-    if not xname == "T":
-        axes[2].set_xlabel(kwargs["x"])
+    if kind == "scatter":
+        model.plot(kind=kind, x=model.cf[xname].name, y=model.cf[yname].name, 
+                           c="diff", ax=axes[2], **kwargs, **pandas_kwargs)
+    elif kind == "pcolormesh":
+        model["diff"].cf.plot.pcolormesh(x=xname, y=yname,
+                                ax=axes[2], **kwargs, **xarray_kwargs)
+    axes[2].set_title("Obs - Model", fontsize=fs_title)
+    axes[2].set_xlabel(xlabel, fontsize=fs)
+    axes[2].set_ylabel("")
+    axes[2].set_ylim(axes[0].get_ylim())
+    axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())
     axes[2].set_yticklabels("")
-
-    # separate colorbar(s)
-    # one long colorbar
-    if cmap_params["cmap"].name == cmap_params_diff["cmap"].name:
-        cbar_ax = fig.add_axes([0.2, -0.1, 0.6, 0.05])  # Left, bottom, width, height.
-        # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py
-        norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
-        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
-        cbar = fig.colorbar(mappable, cax=cbar_ax, orientation="horizontal")
-        cbar.set_label(clabel)
-    # axes[2].clabel
+    axes[2].tick_params(axis="x", labelsize=fs)
 
     # two colorbars, 1 for obs and model and 1 for diff
-    else:
-        cbar_ax1 = fig.add_axes(
-            [0.175, -0.1, 0.4, 0.05]
-        )  # Left, bottom, width, height.
-        # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py
-        norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
-        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
-        cbar1 = fig.colorbar(mappable, cax=cbar_ax1, orientation="horizontal")
-        cbar1.set_label(clabel)
+    # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py
+    norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
+    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
+    cbar1 = fig.colorbar(mappable, ax=axes[:2], orientation="horizontal", shrink=0.5)    
+    cbar1.set_label(zlabel, fontsize=fs)
+    cbar1.ax.tick_params(axis="both", labelsize=fs)    
 
-        cbar_ax2 = fig.add_axes(
-            [0.719, -0.1, 0.15, 0.05]
-        )  # Left, bottom, width, height.
-        # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py
-        norm = mpl.colors.Normalize(
-            vmin=cmap_params_diff["vmin"], vmax=cmap_params_diff["vmax"]
-        )
-        mappable_diff = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params_diff["cmap"])
-        cbar2 = fig.colorbar(mappable_diff, cax=cbar_ax2, orientation="horizontal")
-        cbar2.set_label(f"{clabel} difference")
+    norm = mpl.colors.Normalize(vmin=cmap_params_diff["vmin"], vmax=cmap_params_diff["vmax"])
+    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params_diff["cmap"])
+    cbar2 = fig.colorbar(mappable, ax=axes[2], orientation="horizontal")#shrink=0.6)    
+    cbar2.set_label(f"{zlabel} difference", fontsize=fs)
+    cbar2.ax.tick_params(axis="both", labelsize=fs)
 
-    # add stats to suptitle
-    if stats is not None:
-        stat_sum = ""
-        types = ["bias", "corr", "ioa", "mse", "ss", "rmse"]
-        if "dist" in stats:
-            types += ["dist"]
-        for type in types:
-            stat_sum += f"{type}: {stats[type]['value']:.1f}  "
+    fig.suptitle(suptitle, wrap=True,fontsize=fs_title)#, loc="left")
 
-        title = f"{title}: {stat_sum}"
+    fig.savefig(figname, dpi=dpi)#, bbox_inches="tight")
 
-    fig.suptitle(title)  # , fontsize=fs_title, loc="left")
-
-    # plt.tight_layout()
-    fig.savefig(figname, dpi=dpi, bbox_inches="tight")
+    if return_plot:
+        return fig

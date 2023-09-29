@@ -3,6 +3,7 @@ import os
 from unittest import mock
 
 import intake
+import pytest
 
 import ocean_model_skill_assessor as omsa
 
@@ -156,12 +157,18 @@ class FakeResponse(object):
         }
         return res
 
+@pytest.fixture(scope="session")
+def project_cache(tmp_path_factory):
+    directory = tmp_path_factory.mktemp("cache")
+    return directory
+
 
 @mock.patch("requests.get")
-def test_make_catalog_axds_platform2(mock_requests):
+def test_make_catalog_axds_platform2(mock_requests, project_cache):
 
     mock_requests.side_effect = [FakeResponse()]
-    catloc2 = omsa.CAT_PATH("catA", "projectA")
+    paths = omsa.paths.Paths(project_name="projectA", cache_dir=project_cache)
+    catloc2 = paths.CAT_PATH("catA")
 
     cat1 = omsa.make_catalog(
         catalog_type="axds",
@@ -172,6 +179,7 @@ def test_make_catalog_axds_platform2(mock_requests):
         kwargs={"datatype": "platform2"},
         return_cat=True,
         save_cat=True,
+        cache_dir=project_cache,
     )
 
     assert os.path.exists(catloc2)

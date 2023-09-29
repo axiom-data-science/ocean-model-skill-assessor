@@ -13,6 +13,7 @@ pre-commit
 pylint
 pytest
 pytest-cov
+pytest-mpl
 pytest-xdist
 setuptools_scm
 sphinx

@@ -1,5 +1,6 @@
 import pathlib
-from unittest import mock
+
+from unittest import TestCase, mock
 
 import cf_pandas
 import intake_xarray
@@ -10,7 +11,6 @@ import xarray as xr
 
 from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
-from unittest import TestCase
 
 import ocean_model_skill_assessor as omsa
 
@@ -43,6 +43,7 @@ ds["lon"] = (
 #     lon,
 #     {"units": "degrees_east", "standard_name": "longitude"},
 # )
+
 
 @pytest.fixture(scope="session")
 def project_cache(tmp_path_factory):
@@ -168,17 +169,13 @@ def test_shift_longitudes():
     assert all(omsa.shift_longitudes(ds).cf["longitude"] == ds.cf["longitude"])
 
 
-@pytest.fixture(scope="session")
-def project_cache(tmp_path_factory):
-    directory = tmp_path_factory.mktemp("cache")
-    return directory
-
-
 def test_vocab(project_cache):
     paths = omsa.paths.Paths(project_name="projectA", cache_dir=project_cache)
     v1 = omsa.utils.open_vocabs("general", paths)
     v2 = omsa.utils.open_vocabs(["general"], paths)
-    v3 = omsa.utils.open_vocabs(project_cache / pathlib.PurePath("vocab/general"), paths)
+    v3 = omsa.utils.open_vocabs(
+        project_cache / pathlib.PurePath("vocab/general"), paths
+    )
     v4 = cf_pandas.Vocab(project_cache / pathlib.PurePath("vocab/general.json"))
     TestCase().assertDictEqual(v1.vocab, v2.vocab)
     TestCase().assertDictEqual(v1.vocab, v3.vocab)
@@ -188,5 +185,7 @@ def test_vocab(project_cache):
 def test_vocab_labels(project_cache):
     paths = omsa.paths.Paths(project_name="projectA", cache_dir=project_cache)
     v1 = omsa.utils.open_vocab_labels("vocab_labels", paths)
-    v2 = omsa.utils.open_vocab_labels(project_cache / pathlib.PurePath("vocab/vocab_labels"), paths)
+    v2 = omsa.utils.open_vocab_labels(
+        project_cache / pathlib.PurePath("vocab/vocab_labels"), paths
+    )
     TestCase().assertDictEqual(v1, v2)

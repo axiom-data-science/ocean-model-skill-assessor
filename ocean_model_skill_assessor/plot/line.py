@@ -3,6 +3,7 @@ Time series plots.
 """
 
 import pathlib
+
 from typing import Optional, Union
 
 import cf_pandas
@@ -19,6 +20,7 @@ fs_title = 16
 lw = 2
 col_model = "r"
 col_obs = "k"
+
 
 def plot(
     obs: Union[DataFrame, Dataset],
@@ -67,7 +69,13 @@ def plot(
 
     fig, ax = plt.subplots(1, 1, figsize=figsize, layout="constrained")
     ax.plot(obs.cf[xname], obs.cf[yname], label="data", lw=lw, color=col_obs)
-    ax.plot(np.array(model.cf[xname]), np.array(model.cf[yname]), label="model", lw=lw, color=col_model)
+    ax.plot(
+        np.array(model.cf[xname]),
+        np.array(model.cf[yname]),
+        label="model",
+        lw=lw,
+        color=col_model,
+    )
 
     plt.tick_params(axis="both", labelsize=fs)
 
@@ -78,7 +86,10 @@ def plot(
         ax.set_xlabel(xlabel, fontsize=fs)
     plt.legend(loc="best")
 
-    fig.savefig(figname, dpi=dpi,)#, bbox_inches="tight")
-    
+    fig.savefig(
+        figname,
+        dpi=dpi,
+    )  # , bbox_inches="tight")
+
     if return_plot:
         return fig

@@ -157,6 +157,7 @@ class FakeResponse(object):
         }
         return res
 
+
 @pytest.fixture(scope="session")
 def project_cache(tmp_path_factory):
     directory = tmp_path_factory.mktemp("cache")

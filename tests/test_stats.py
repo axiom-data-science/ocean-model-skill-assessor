@@ -50,7 +50,9 @@ class TestStats:
         assert np.isclose(bias, -0.23061779141426086)
 
     def test_correlation_coefficient(self):
-        corr_coef = stats.compute_correlation_coefficient(self.obs["temp"], self.model["temp"])
+        corr_coef = stats.compute_correlation_coefficient(
+            self.obs["temp"], self.model["temp"]
+        )
 
         assert np.isclose(corr_coef, 0.906813)
 
@@ -60,12 +62,16 @@ class TestStats:
         assert np.isclose(ioa, 0.9174428656697273)
 
     def test_mean_square_error(self):
-        mse = stats.compute_mean_square_error(self.obs["temp"], self.model["temp"], centered=False)
+        mse = stats.compute_mean_square_error(
+            self.obs["temp"], self.model["temp"], centered=False
+        )
 
         assert np.isclose(mse, 0.14343716204166412)
 
     def test_mean_square_error_centered(self):
-        mse = stats.compute_mean_square_error(self.obs["temp"], self.model["temp"], centered=True)
+        mse = stats.compute_mean_square_error(
+            self.obs["temp"], self.model["temp"], centered=True
+        )
 
         assert np.isclose(mse, 0.0902525931596756)
 
@@ -75,12 +81,16 @@ class TestStats:
         assert np.isclose(mss, 0.7155986726284027)
 
     def test_root_mean_square_error(self):
-        rmse = stats.compute_root_mean_square_error(self.obs["temp"], self.model["temp"])
+        rmse = stats.compute_root_mean_square_error(
+            self.obs["temp"], self.model["temp"]
+        )
 
         assert np.isclose(rmse, 0.3787309890168272)
 
     def test_descriptive_statistics(self):
-        max, min, mean, std = stats.compute_descriptive_statistics(self.model["temp"], ddof=0)
+        max, min, mean, std = stats.compute_descriptive_statistics(
+            self.model["temp"], ddof=0
+        )
 
         assert np.isclose(max, 0.882148)
         assert np.isclose(min, -1.2418900728225708)

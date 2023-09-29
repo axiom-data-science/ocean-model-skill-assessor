@@ -8,7 +8,7 @@ import xarray as xr
 # from pandas import DatetimeIndex
 from pandas.api.extensions import register_dataframe_accessor
 
-from ocean_model_skill_assessor.plot import line, scatter, surface
+from ocean_model_skill_assessor.plot import line, surface
 
 from .stats import compute_stats
 

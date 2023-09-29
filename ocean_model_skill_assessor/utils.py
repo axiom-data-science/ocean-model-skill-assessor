@@ -27,7 +27,8 @@ from .paths import Paths
 
 
 def open_catalogs(
-    catalogs: Union[str, Catalog, Sequence], paths: Paths,
+    catalogs: Union[str, Catalog, Sequence],
+    paths: Paths,
 ) -> List[Catalog]:
     """Initialize catalog objects from inputs.
 
@@ -95,38 +96,42 @@ def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath], paths: Paths) -> 
     return vocab
 
 
-def open_vocab_labels(vocab_labels: Union[str, dict, PurePath], paths: Optional[Paths] = None) -> dict:
+def open_vocab_labels(
+    vocab_labels: Union[str, dict, PurePath],
+    paths: Optional[Paths] = None,
+) -> dict:
     """Open dict of vocab_labels if needed
 
     Parameters
     ----------
-    vocab_labels : Union[str, Vocab, Sequence, PurePath]
+    vocab_labels : Union[str, Vocab, Sequence, PurePath], optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
-    paths : Paths
+    paths : Paths, optional
         Paths object for finding paths to use.
 
     Returns
     -------
     dict
         dict of vocab_labels for plotting
-    """ 
+    """
 
     if isinstance(vocab_labels, str):
-        assert paths is not None, "need to input `paths` to `open_vocab_labels()` if inputting string."
+        assert (
+            paths is not None
+        ), "need to input `paths` to `open_vocab_labels()` if inputting string."
         vocab_labels = json.loads(
-                open(pathlib.PurePath(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"), "r").read()
-            )
+            open(
+                pathlib.PurePath(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"),
+                "r",
+            ).read()
+        )
     elif isinstance(vocab_labels, PurePath):
-        vocab_labels = json.loads(
-                open(vocab_labels.with_suffix(".json"), "r").read()
-            )
+        vocab_labels = json.loads(open(vocab_labels.with_suffix(".json"), "r").read())
     elif isinstance(vocab_labels, dict):
         vocab_labels = vocab_labels
     else:
-        raise ValueError(
-            "vocab_labels should be input as string, Path, or dict."
-        )
-
+        raise ValueError("vocab_labels should be input as string, Path, or dict.")
+    assert isinstance(vocab_labels, dict)
     return vocab_labels
 
 
@@ -329,7 +334,7 @@ def find_bbox(
         Mask with 1's for active locations and 0's for masked.
     dd: int, optional
         Number to decimate model output lon/lat, as a stride.
-    alpha: float, optional
+    alpha: int, optional
         Number for alphashape to determine what counts as the convex hull. Larger number is more detailed, 1 is a good starting point.
     save : bool, optional
         Input True to save.
@@ -460,7 +465,9 @@ def shift_longitudes(dam: Union[DataArray, Dataset]) -> Union[DataArray, Dataset
     return dam
 
 
-def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]], paths: Paths) -> dict:
+def kwargs_search_from_model(
+    kwargs_search: Dict[str, Union[str, float]], paths: Paths
+) -> dict:
     """Adds spatial and/or temporal range from model output to dict.
 
     Examines model output and uses the bounding box of the model as the search spatial range if needed, and the time range of the model as the search time search if needed. They are added into `kwargs_search` and the dict is returned.
@@ -499,9 +506,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]], paths:
 
         # read in model output
         if isinstance(kwargs_search["model_name"], str):
-            model_cat = intake.open_catalog(
-                paths.CAT_PATH(kwargs_search["model_name"])
-            )
+            model_cat = intake.open_catalog(paths.CAT_PATH(kwargs_search["model_name"]))
         elif isinstance(kwargs_search["model_name"], Catalog):
             model_cat = kwargs_search["model_name"]
         else:

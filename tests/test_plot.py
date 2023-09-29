@@ -9,13 +9,14 @@ import ocean_model_skill_assessor as omsa
 @pytest.mark.mpl_image_compare
 def test_line():
     """Test line plot with nothing extra."""
-    
+
     t = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6H")
     x = np.linspace(0, 10, t.size)
     obs = pd.DataFrame({"xaxis": t, "yaxis": x**2})
     model = xr.Dataset({"xaxis": t, "yaxis": x**3})
     fig = omsa.plot.line.plot(obs, model, "xaxis", "yaxis", return_plot=True)
     return fig
+
 
 # @pytest.mark.mpl_image_compare
 # def test_selection():
@@ -48,7 +49,7 @@ def test_line():
 #     key_variable = "temp"
 #     stats = omsa.stats.compute_stats(obs[key_variable], model[key_variable])
 #     vocab_labels = {"temp": "Sea water temperature [C]"}
-#     fig = omsa.plot.selection(obs, model, featuretype, key_variable, featuretype, stats, 
+#     fig = omsa.plot.selection(obs, model, featuretype, key_variable, featuretype, stats,
 #                         vocab_labels=vocab_labels, return_plot=True)
 #     return fig
 

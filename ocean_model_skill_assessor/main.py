@@ -34,9 +34,9 @@ from shapely.geometry import Point
 # from ocean_model_skill_assessor.plot import map
 import ocean_model_skill_assessor.plot as plot
 
-from .paths import Paths
 from .featuretype import ftconfig
-from .stats import save_stats, compute_stats
+from .paths import Paths
+from .stats import compute_stats, save_stats
 from .utils import (
     coords1Dto2D,
     find_bbox,
@@ -301,9 +301,9 @@ def make_catalog(
     cache_dir: str, Path
         Pass on to omsa.paths to set cache directory location if you don't want to use the default. Good for testing.
     """
-    
+
     paths = Paths(project_name, cache_dir=cache_dir)
-    
+
     logger = set_up_logging(verbose, paths=paths, mode=mode, testing=testing)
 
     if kwargs_search is not None and catalog_type == "local":
@@ -407,14 +407,15 @@ def make_catalog(
         return cat
 
 
-def _initial_model_handling(model_name: Union[str, Catalog],
-                           paths: Paths,
-                           model_source_name: Optional[str] = None,
-                           ) -> xr.Dataset:
+def _initial_model_handling(
+    model_name: Union[str, Catalog],
+    paths: Paths,
+    model_source_name: Optional[str] = None,
+) -> xr.Dataset:
     """Initial model handling.
-    
+
     cf-xarray needs to be able to identify Z, T, longitude, latitude coming out of here.
-    
+
     Parameters
     ----------
     model_name : str, Catalog
@@ -423,38 +424,40 @@ def _initial_model_handling(model_name: Union[str, Catalog],
         Paths object for finding paths to use.
     model_source_name : str, optional
         Use this to access a specific source in the input model_catalog instead of otherwise just using the first source in the catalog.
-    
+
     Returns
     -------
     Dataset
         Dataset pointing to model output.
-    """    
-    
+    """
+
     # read in model output
-    model_cat = open_catalogs(model_name, paths.project_name, paths)[0]
+    model_cat = open_catalogs(model_name, paths)[0]
     model_source_name = model_source_name or list(model_cat)[0]
     dsm = model_cat[model_source_name].to_dask()
 
     # the main preprocessing happens later, but do a minimal job here
     # so that cf-xarray can be used hopefully
     dsm = em.preprocess(dsm)
-    
+
     return dsm, model_source_name
 
 
-def _narrow_model_time_range(dsm: xr.Dataset, 
-                            user_min_time: pd.Timestamp,
-                            user_max_time: pd.Timestamp,
-                            model_min_time: pd.Timestamp,
-                            model_max_time: pd.Timestamp,
-                            data_min_time: pd.Timestamp,
-                            data_max_time: pd.Timestamp) -> xr.Dataset:
+def _narrow_model_time_range(
+    dsm: xr.Dataset,
+    user_min_time: pd.Timestamp,
+    user_max_time: pd.Timestamp,
+    model_min_time: pd.Timestamp,
+    model_max_time: pd.Timestamp,
+    data_min_time: pd.Timestamp,
+    data_max_time: pd.Timestamp,
+) -> xr.Dataset:
     """Narrow the model time range to approximately what is needed, to save memory.
-    
+
     If user_min_time and user_max_time were input and are not null values and are narrower than the model time range, use those to control time range.
-    
+
     Otherwise use data_min_time and data_max_time to narrow the time range, but add 1 model timestep on either end to make sure to have extra model output if need to interpolate in that range.
-    
+
     Do not deal with time in detail here since that will happen when the model and data
     are "aligned" a little later. For now, just return a slice of model times, outside of the
     extract_model code since not interpolating yet.
@@ -483,7 +486,7 @@ def _narrow_model_time_range(dsm: xr.Dataset,
     xr.Dataset
         Model dataset, but narrowed in time.
     """
-    
+
     # calculate delta time for model
     dt = pd.Timestamp(dsm.cf["T"][1].values) - pd.Timestamp(dsm.cf["T"][0].values)
 
@@ -503,14 +506,13 @@ def _narrow_model_time_range(dsm: xr.Dataset,
                 data_max_time + dt,
             )
         )
-    
+
     return dsm2
 
 
-def _find_data_time_range(cat: Catalog, 
-                          source_name: str) -> tuple:
+def _find_data_time_range(cat: Catalog, source_name: str) -> tuple:
     """Determine min and max data times.
-    
+
     Parameters
     ----------
     cat : Catalog
@@ -531,8 +533,7 @@ def _find_data_time_range(cat: Catalog,
         data_min_time = cat[source_name].metadata["minTime"]
     # use kwargs_search min/max times if available
     elif (
-        "kwargs_search" in cat.metadata
-        and "min_time" in cat.metadata["kwargs_search"]
+        "kwargs_search" in cat.metadata and "min_time" in cat.metadata["kwargs_search"]
     ):
         data_min_time = cat.metadata["kwargs_search"]["min_time"]
     else:
@@ -543,8 +544,7 @@ def _find_data_time_range(cat: Catalog,
         data_max_time = cat[source_name].metadata["maxTime"]
     # use kwargs_search min/max times if available
     elif (
-        "kwargs_search" in cat.metadata
-        and "max_time" in cat.metadata["kwargs_search"]
+        "kwargs_search" in cat.metadata and "max_time" in cat.metadata["kwargs_search"]
     ):
         data_max_time = cat.metadata["kwargs_search"]["max_time"]
     else:
@@ -577,18 +577,21 @@ def _find_data_time_range(cat: Catalog,
         )
         if constrained_max_time < data_max_time:
             data_max_time = constrained_max_time
-    
+
     return data_min_time, data_max_time
 
 
-def _choose_depths(dd: Union[pd.DataFrame, xr.Dataset], 
-                   model_depth_attr_positive: str, 
-                   no_Z: bool, 
-                   want_vertical_interp: bool, logger=None) -> tuple:
+def _choose_depths(
+    dd: Union[pd.DataFrame, xr.Dataset],
+    model_depth_attr_positive: str,
+    no_Z: bool,
+    want_vertical_interp: bool,
+    logger=None,
+) -> tuple:
     """Determine depths to interpolate to, if any.
-    
+
     This assumes the data container does not have indices, or at least no depth indices.
-    
+
     Parameters
     ----------
     dd: DataFrame or Dataset
@@ -597,11 +600,11 @@ def _choose_depths(dd: Union[pd.DataFrame, xr.Dataset],
         result of model.cf["Z"].attrs["positive"]: "up" or "down", from model
     no_Z : bool
         If True, set Z=None so no vertical interpolation or selection occurs. Do this if your variable has no concept of depth, like the sea surface height.
-    want_vertical_interp: optional, bool
-        This is None unless the user wants to specify that vertical interpolation should happen. This is used in only certain cases but in those cases it is important so that it is known to interpolate instead of try to figure out a vertical level index (which is not possible currently).
+    want_vertical_interp: bool
+        This is False unless the user wants to specify that vertical interpolation should happen. This is used in only certain cases but in those cases it is important so that it is known to interpolate instead of try to figure out a vertical level index (which is not possible currently).
     logger : logger, optional
         Logger for messages.
-    
+
     Returns
     -------
     dd
@@ -666,15 +669,21 @@ def _choose_depths(dd: Union[pd.DataFrame, xr.Dataset],
         raise NotImplementedError(
             "Method to find index for depth not at surface not available yet."
         )
-    
+
     return dd, Z, vertical_interp
 
 
-def _dam_from_dsm(dsm2: xr.Dataset, key_variable: Union[str,dict], key_variable_data: str, source_metadata: dict, logger=None) -> xr.DataArray:
+def _dam_from_dsm(
+    dsm2: xr.Dataset,
+    key_variable: Union[str, dict],
+    key_variable_data: str,
+    source_metadata: dict,
+    logger=None,
+) -> xr.DataArray:
     """Select or calculate variable from Dataset.
-    
+
     cf-xarray needs to work for Z, T, longitude, latitude after this
-    
+
     dsm2 : Dataset
         Dataset containing model output. If this is being run from `main`, the model output has already been narrowed to the relevant time range.
     key_variable : str, dict
@@ -685,7 +694,7 @@ def _dam_from_dsm(dsm2: xr.Dataset, key_variable: Union[str,dict], key_variable_
         Metadata for dataset source. Accessed by `cat[source_name].metadata`.
     logger : logger, optional
         Logger for messages.
-    
+
     Returns
     -------
     DataArray:
@@ -699,12 +708,8 @@ def _dam_from_dsm(dsm2: xr.Dataset, key_variable: Union[str,dict], key_variable_
             new_input_val = source_metadata[
                 list(key_variable["add_to_inputs"].values())[0]
             ]
-            new_input_key = list(key_variable["add_to_inputs"].keys())[
-                0
-            ]
-            key_variable["inputs"].update(
-                {new_input_key: new_input_val}
-            )
+            new_input_key = list(key_variable["add_to_inputs"].keys())[0]
+            key_variable["inputs"].update({new_input_key: new_input_val})
 
         # e.g. ds.xroms.east_rotated(angle=-90, reference="compass", isradians=False, name="along_channel")
         dam = getattr(
@@ -714,21 +719,21 @@ def _dam_from_dsm(dsm2: xr.Dataset, key_variable: Union[str,dict], key_variable_
     else:
         dam = dsm2.cf[key_variable_data]
 
-            # # this is the case in which need to find the depth index
-            # # swap z_rho and z_rho0 in order to do this
-            # # doing this here since now we know the variable and have a DataArray
-            # if Z is not None and Z != 0 and not vertical_interp:
+        # # this is the case in which need to find the depth index
+        # # swap z_rho and z_rho0 in order to do this
+        # # doing this here since now we know the variable and have a DataArray
+        # if Z is not None and Z != 0 and not vertical_interp:
 
-            #     zkey = dam.cf["vertical"].name
-            #     zkey0 = f"{zkey}0"
-            #     if zkey0 not in dsm2.coords:
-            #         raise KeyError("missing time-invariant version of z coordinates.")
-            #     if zkey0 not in dam.coords:
-            #         dam[zkey0] = dsm[zkey0]
-            #         dam[zkey0].attrs = dam[zkey].attrs
-            #         dam = dam.drop(zkey)
-            #         if hasattr(dam, "encoding") and "coordinates" in dam.encoding:
-            #             dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(zkey,zkey0)
+        #     zkey = dam.cf["vertical"].name
+        #     zkey0 = f"{zkey}0"
+        #     if zkey0 not in dsm2.coords:
+        #         raise KeyError("missing time-invariant version of z coordinates.")
+        #     if zkey0 not in dam.coords:
+        #         dam[zkey0] = dsm[zkey0]
+        #         dam[zkey0].attrs = dam[zkey].attrs
+        #         dam = dam.drop(zkey)
+        #         if hasattr(dam, "encoding") and "coordinates" in dam.encoding:
+        #             dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(zkey,zkey0)
 
     # if dask-backed, read into memory
     if dam.cf["longitude"].chunks is not None:
@@ -743,21 +748,29 @@ def _dam_from_dsm(dsm2: xr.Dataset, key_variable: Union[str,dict], key_variable_
                 "the 'vertical' key cannot be identified in dam by cf-xarray. Maybe you need to include the xgcm grid and vertical metrics for xgcm grid, but maybe your variable does not have a vertical axis."
             )
         # raise KeyError("the 'vertical' key cannot be identified in dam by cf-xarray. Maybe you need to include the xgcm grid and vertical metrics for xgcm grid.")
-    
+
     return dam
 
 
-def _processed_file_names(fname_processed_orig: pathlib.Path, dfd_type: type, user_min_time: pd.Timestamp, user_max_time: pd.Timestamp, paths: Paths, ts_mods: list, logger=None) -> tuple:
+def _processed_file_names(
+    fname_processed_orig: Union[str, pathlib.Path],
+    dfd_type: type,
+    user_min_time: pd.Timestamp,
+    user_max_time: pd.Timestamp,
+    paths: Paths,
+    ts_mods: list,
+    logger=None,
+) -> tuple:
     """Determine file names for base of stats and figure names and processed data and model names
 
     fname_processed_orig: no info about time modifications
     fname_processed: fully specific name
     fname_processed_data: processed data file
     fname_processed_model: processed model file
-    
+
     Parameters
     ----------
-    fname_processed_orig : Path
+    fname_processed_orig : str
         Filename based but without modification if user_min_time and user_max_time were input. Does include info about ts_mods if present.
     dfd_type : type
         pd.DataFrame or xr.Dataset depending on the data container type.
@@ -768,16 +781,16 @@ def _processed_file_names(fname_processed_orig: pathlib.Path, dfd_type: type, us
     paths : Paths
         Paths object for finding paths to use.
     ts_mods : list
-        list of time series modifications to apply to data and model.
+        list of time series modifications to apply to data and model. Can be an empty list if no modifications to apply.
     logger : logger, optional
         Logger for messages.
-        
+
     Returns
     -------
     tuple of Paths
         fname_processed: base to be used for stats and figure
         fname_processed_data: file name for processed data
-        fname_processed_model: file name for processed model 
+        fname_processed_model: file name for processed model
         model_file_name: (unprocessed) model output
     """
 
@@ -788,47 +801,53 @@ def _processed_file_names(fname_processed_orig: pathlib.Path, dfd_type: type, us
 
     # also for ts_mods
     fnamemods = ""
-    if ts_mods is not None:
-        for mod in ts_mods:
-            fnamemods += f"_{mod['name_mod']}"
+    for mod in ts_mods:
+        fnamemods += f"_{mod['name_mod']}"
     fname_processed = fname_processed_orig.with_name(
         fname_processed_orig.stem + fnamemods
     ).with_suffix(fname_processed_orig.suffix)
 
     if dfd_type == pd.DataFrame:
-        fname_processed_data = (fname_processed.parent / (fname_processed.stem + "_data")).with_suffix(".csv")
+        fname_processed_data = (
+            fname_processed.parent / (fname_processed.stem + "_data")
+        ).with_suffix(".csv")
     elif dfd_type == xr.Dataset:
-        fname_processed_data = (fname_processed.parent / (fname_processed.stem + "_data")).with_suffix(".nc")
+        fname_processed_data = (
+            fname_processed.parent / (fname_processed.stem + "_data")
+        ).with_suffix(".nc")
     else:
         raise TypeError("object is neither DataFrame nor Dataset.")
-    
-    fname_processed_model = (fname_processed.parent / (fname_processed.stem + "_model")).with_suffix(".nc")
+
+    fname_processed_model = (
+        fname_processed.parent / (fname_processed.stem + "_model")
+    ).with_suffix(".nc")
 
     # use same file name as for processed but with different path base and
     # make sure .nc
-    model_file_name = (
-        paths.MODEL_CACHE_DIR / fname_processed_orig.stem
-    ).with_suffix(".nc")
+    model_file_name = (paths.MODEL_CACHE_DIR / fname_processed_orig.stem).with_suffix(
+        ".nc"
+    )
 
     if logger is not None:
         logger.info(f"Processed data file name is {fname_processed_data}.")
         logger.info(f"Processed model file name is {fname_processed_model}.")
         logger.info(f"model file name is {model_file_name}.")
-    
+
     return fname_processed, fname_processed_data, fname_processed_model, model_file_name
 
 
-def _check_prep_narrow_data(dd: Union[pd.DataFrame, xr.Dataset], 
-                            key_variable_data: str, 
-                            source_name: str, 
-                            maps: list, 
-                            vocab: Vocab, 
-                            user_min_time: pd.Timestamp,
-                            user_max_time: pd.Timestamp,
-                            data_min_time: pd.Timestamp, 
-                            data_max_time: pd.Timestamp,
-                            logger=None, 
-                            ) -> tuple:
+def _check_prep_narrow_data(
+    dd: Union[pd.DataFrame, xr.Dataset],
+    key_variable_data: str,
+    source_name: str,
+    maps: list,
+    vocab: Vocab,
+    user_min_time: pd.Timestamp,
+    user_max_time: pd.Timestamp,
+    data_min_time: pd.Timestamp,
+    data_max_time: pd.Timestamp,
+    logger=None,
+) -> tuple:
     """Check, prep, and narrow the data in time range.
 
     Parameters
@@ -950,15 +969,17 @@ def _check_prep_narrow_data(dd: Union[pd.DataFrame, xr.Dataset],
     return dd, maps
 
 
-def _check_time_ranges(source_name: str,
-                            data_min_time: pd.Timestamp,
-                            data_max_time: pd.Timestamp,
-                            model_min_time: pd.Timestamp,
-                            model_max_time: pd.Timestamp,
-                            user_min_time: pd.Timestamp,
-                            user_max_time: pd.Timestamp,
-                            maps, 
-                        logger=None) -> tuple:
+def _check_time_ranges(
+    source_name: str,
+    data_min_time: pd.Timestamp,
+    data_max_time: pd.Timestamp,
+    model_min_time: pd.Timestamp,
+    model_max_time: pd.Timestamp,
+    user_min_time: pd.Timestamp,
+    user_max_time: pd.Timestamp,
+    maps,
+    logger=None,
+) -> tuple:
     """Compare time ranges in case should skip dataset source_name.
 
     Parameters
@@ -981,14 +1002,14 @@ def _check_time_ranges(source_name: str,
         Each entry is a list of information about a dataset; the last entry is for the present source_name or dataset. Each entry contains [min_lon, max_lon, min_lat, max_lat, source_name] and possibly an additional element containing "maptype".
     logger : logger, optional
         Logger for messages.
-    
+
     Returns
     -------
     tuple
         skip_dataset: bool that is True if this dataset should be skipped
         maps: list of dataset information with the final entry (representing the present dataset) removed if skip_dataset is True.
     """
-    
+
     if logger is not None:
         min_lon, max_lon, min_lat, max_lat = maps[-1][:4]
         logger.info(
@@ -999,7 +1020,7 @@ def _check_time_ranges(source_name: str,
                         Data lon range: {min_lon} to {max_lon}.
                         Data lat range: {min_lat} to {max_lat}."""
         )
-    
+
     data_time_range = DateTimeRange(data_min_time, data_max_time)
     model_time_range = DateTimeRange(model_min_time, model_max_time)
     user_time_range = DateTimeRange(user_min_time, user_max_time)
@@ -1036,8 +1057,9 @@ def _check_time_ranges(source_name: str,
     return False, maps
 
 
-def _return_p1(paths: Paths, 
-               dsm: xr.Dataset, alpha: float, dd: int, logger=None) -> shapely.Polygon:
+def _return_p1(
+    paths: Paths, dsm: xr.Dataset, alpha: int, dd: int, logger=None
+) -> shapely.Polygon:
     """Find and return the model domain boundary.
 
     Parameters
@@ -1046,7 +1068,7 @@ def _return_p1(paths: Paths,
         _description_
     dsm : xr.Dataset
         _description_
-    alpha: float, optional
+    alpha: int, optional
         Number for alphashape to determine what counts as the convex hull. Larger number is more detailed, 1 is a good starting point.
     dd: int, optional
         Number to decimate model output lon/lat, as a stride.
@@ -1067,7 +1089,6 @@ def _return_p1(paths: Paths,
             alpha=alpha,
             dd=dd,
             save=True,
-            project_name=paths.project_name,
         )
         if logger is not None:
             logger.info("Calculating numerical domain boundary.")
@@ -1077,13 +1098,13 @@ def _return_p1(paths: Paths,
         with open(paths.ALPHA_PATH) as f:
             p1wkt = f.readlines()[0]
         p1 = shapely.wkt.loads(p1wkt)
-    
+
     return p1
 
 
-def _return_data_locations(maps: list, 
-                           dd: Union[pd.DataFrame, xr.Dataset], 
-                           logger=None) -> tuple:
+def _return_data_locations(
+    maps: list, dd: Union[pd.DataFrame, xr.Dataset], logger=None
+) -> tuple:
     """Return lon, lat locations from dataset.
 
     Parameters
@@ -1116,15 +1137,17 @@ def _return_data_locations(maps: list,
         )
     else:
         lons, lats = min_lon, max_lat
-    
+
     return lons, lats
 
 
-def _is_outside_boundary(p1: shapely.Polygon, lon: float, lat: float, source_name: str, logger=None) -> bool:
+def _is_outside_boundary(
+    p1: shapely.Polygon, lon: float, lat: float, source_name: str, logger=None
+) -> bool:
     """Checks point to see if is outside model domain.
-    
+
     This currently assumes that the dataset is fixed in space.
-    
+
     Parameters
     ----------
     p1 : shapely.Polygon
@@ -1137,13 +1160,13 @@ def _is_outside_boundary(p1: shapely.Polygon, lon: float, lat: float, source_nam
         Name of dataset within cat to examine.
     logger : optional
         logger, by default None
-    
+
     Returns
     -------
     bool
         True if lon, lat point is outside the model domain boundary, otherwise False.
     """
-                    
+
     # BUT — might want to just use nearest point so make this optional
     point = Point(lon, lat)
     if not p1.contains(point):
@@ -1154,8 +1177,14 @@ def _is_outside_boundary(p1: shapely.Polygon, lon: float, lat: float, source_nam
     else:
         return False
 
-    
-def _process_model(dsm2: xr.Dataset, preprocess: bool, need_xgcm_grid: bool, kwargs_xroms: dict, logger=None) -> tuple:
+
+def _process_model(
+    dsm2: xr.Dataset,
+    preprocess: bool,
+    need_xgcm_grid: bool,
+    kwargs_xroms: dict,
+    logger=None,
+) -> tuple:
     """Process model output a second time, possibly.
 
     Parameters
@@ -1179,7 +1208,7 @@ def _process_model(dsm2: xr.Dataset, preprocess: bool, need_xgcm_grid: bool, kwa
         preprocessed: bool that is True if model output was processed in this function
     """
     preprocessed = False
-    
+
     # process model output without using open_mfdataset
     # vertical coords have been an issue for ROMS and POM, related to dask and OFS models
     if preprocess and need_xgcm_grid:
@@ -1203,7 +1232,6 @@ def _process_model(dsm2: xr.Dataset, preprocess: bool, need_xgcm_grid: bool, kwa
                     logger.info(
                         "setting up for model output with xroms, might take a few minutes..."
                     )
-                kwargs_xroms = kwargs_xroms or {}
                 dsm2, grid = xroms.roms_dataset(dsm2, **kwargs_xroms)
                 dsm2.xroms.set_grid(grid)
 
@@ -1211,14 +1239,21 @@ def _process_model(dsm2: xr.Dataset, preprocess: bool, need_xgcm_grid: bool, kwa
         preprocessed = True
     else:
         grid = None
-    
+
     return dsm2, grid, preprocessed
 
 
-def _return_mask(mask: xr.DataArray, dsm: xr.Dataset, lon_name: str, wetdry: bool, 
-                 key_variable_data: str, paths: Paths, logger=None) -> xr.DataArray:
+def _return_mask(
+    mask: xr.DataArray,
+    dsm: xr.Dataset,
+    lon_name: str,
+    wetdry: bool,
+    key_variable_data: str,
+    paths: Paths,
+    logger=None,
+) -> xr.DataArray:
     """Find or calculate and check mask.
-    
+
     Parameters
     ----------
     mask : xr.DataArray or None
@@ -1235,7 +1270,7 @@ def _return_mask(mask: xr.DataArray, dsm: xr.Dataset, lon_name: str, wetdry: boo
         Paths to files and directories for this project.
     logger
         optional
-    
+
     Returns
     -------
     DataArray
@@ -1248,17 +1283,14 @@ def _return_mask(mask: xr.DataArray, dsm: xr.Dataset, lon_name: str, wetdry: boo
         if paths.MASK_PATH(key_variable_data).is_file():
             if logger is not None:
                 logger.info("Using cached mask.")
-            mask = xr.open_dataarray(
-                paths.MASK_PATH(key_variable_data)
-            )
+            mask = xr.open_dataarray(paths.MASK_PATH(key_variable_data))
         else:
             if logger is not None:
                 logger.info("Finding and saving mask to cache.")
             # # dam variable might not be in Dataset itself, but its coordinates probably are.
             # mask = get_mask(dsm, dam.name)
-            mask = get_mask(
-                dsm, lon_name, wetdry=wetdry
-            )
+            mask = get_mask(dsm, lon_name, wetdry=wetdry)
+            assert mask is not None
             mask.to_netcdf(paths.MASK_PATH(key_variable_data))
 
     # there should not be any nans in the mask!
@@ -1272,15 +1304,24 @@ def _return_mask(mask: xr.DataArray, dsm: xr.Dataset, lon_name: str, wetdry: boo
     return mask
 
 
-def _select_process_save_model(select_kwargs: dict, source_name: str, model_source_name: str, model_file_name: pathlib.Path, key_variable_data: str, maps: list, paths: Paths, logger=None) -> tuple:
+def _select_process_save_model(
+    select_kwargs: dict,
+    source_name: str,
+    model_source_name: str,
+    model_file_name: pathlib.Path,
+    key_variable_data: str,
+    maps: list,
+    paths: Paths,
+    logger=None,
+) -> tuple:
     """Select model output, process, and save to file
-    
+
     Parameters
     ----------
     select_kwargs : dict
         Keyword arguments to send to `em.select()` for model extraction
     source_name : str
-        Name of dataset within cat to examine.    
+        Name of dataset within cat to examine.
     model_source_name : str
         Source name for model in the model catalog
     model_file_name : pathlib.Path
@@ -1293,7 +1334,7 @@ def _select_process_save_model(select_kwargs: dict, source_name: str, model_sour
         Paths object for finding paths to use.
     logger : logger, optional
         Logger for messages.
-    
+
     Returns
     -------
     tuple
@@ -1303,7 +1344,7 @@ def _select_process_save_model(select_kwargs: dict, source_name: str, model_sour
     """
 
     dam = select_kwargs.pop("dam")
-    
+
     skip_dataset = False
 
     # use pickle of triangulation from project dir if available
@@ -1324,7 +1365,7 @@ def _select_process_save_model(select_kwargs: dict, source_name: str, model_sour
             tri = pickle.load(handle)
     else:
         tri = None
-        
+
     # add tri to select_kwargs to use in em.select
     select_kwargs["triangulation"] = tri
 
@@ -1498,7 +1539,7 @@ def _select_process_save_model(select_kwargs: dict, source_name: str, model_sour
     if logger is not None:
         logger.info(f"Saving model output to file...")
     model_var.to_netcdf(model_file_name)
-    
+
     return model_var, skip_dataset, maps
 
 
@@ -1521,7 +1562,7 @@ def run(
     kwargs_xroms: Optional[dict] = None,
     interpolate_horizontal: bool = True,
     horizontal_interp_code="delaunay",
-    want_vertical_interp: Optional[bool] = None,
+    want_vertical_interp: bool = False,
     extrap: bool = False,
     model_source_name: Optional[str] = None,
     catalog_source_names=None,
@@ -1529,7 +1570,7 @@ def run(
     user_max_time: Optional[Union[str, pd.Timestamp]] = None,
     check_in_boundary: bool = True,
     tidal_filtering: Optional[Dict[str, bool]] = None,
-    ts_mods: list = None,
+    ts_mods: Optional[list] = None,
     model_only: bool = False,
     plot_map: bool = True,
     no_Z: bool = False,
@@ -1581,8 +1622,8 @@ def run(
         If True, interpolate horizontally. Otherwise find nearest model points.
     horizontal_interp_code: str
         Default "xesmf" to use package ``xESMF`` for horizontal interpolation, which is probably better if you need to interpolate to many points. To use ``xESMF`` you have install it as an optional dependency. Input "tree" to use BallTree to find nearest 3 neighbors and interpolate using barycentric coordinates. This has been tested for interpolating to 3 locations so far. Input "delaunay" to use a delaunay triangulation to find the nearest triangle points and interpolate the same as with "tree" using barycentric coordinates. This should be faster when you have more points to interpolate to, especially if you save and reuse the triangulation.
-    want_vertical_interp: optional, bool
-        This is None unless the user wants to specify that vertical interpolation should happen. This is used in only certain cases but in those cases it is important so that it is known to interpolate instead of try to figure out a vertical level index (which is not possible currently).
+    want_vertical_interp: bool
+        This is False unless the user wants to specify that vertical interpolation should happen. This is used in only certain cases but in those cases it is important so that it is known to interpolate instead of try to figure out a vertical level index (which is not possible currently).
     extrap: bool
         Passed to `extract_model.select()`. Defaults to False. Pass True to extrapolate outside the model domain.
     model_source_name : str, optional
@@ -1616,7 +1657,7 @@ def run(
     return_fig: bool
         Set to True to return all outputs from this function. Use for testing. Only works if using a single source.
     """
-    
+
     paths = Paths(project_name, cache_dir=cache_dir)
 
     logger = set_up_logging(verbose, paths=paths, mode=mode, testing=testing)
@@ -1624,6 +1665,8 @@ def run(
     logger.info(f"Input parameters: {locals()}")
 
     kwargs_map = kwargs_map or {}
+    kwargs_xroms = kwargs_xroms or {}
+    ts_mods = ts_mods or []
 
     mask = None
 
@@ -1633,11 +1676,12 @@ def run(
     cfp_set_options(custom_criteria=vocab.vocab)
     cfx_set_options(custom_criteria=vocab.vocab)
 
-    # After this, we have a dict with key, values of vocab keys, string description for plot labels
-    vocab_labels = open_vocab_labels(vocab_labels, paths)
+    # After this, we have None or a dict with key, values of vocab keys, string description for plot labels
+    if vocab_labels is not None:
+        vocab_labels = open_vocab_labels(vocab_labels, paths)
 
     # Open catalogs.
-    cats = open_catalogs(catalogs, project_name, paths)
+    cats = open_catalogs(catalogs, paths)
 
     # Warning about number of datasets
     ndata = np.sum([len(list(cat)) for cat in cats])
@@ -1695,10 +1739,15 @@ def run(
             # first loop dsm should be None
             # this is just a simple connection, no extra processing etc
             if dsm is None:
-                dsm, model_source_name = _initial_model_handling(model_name, paths, model_source_name)
+                dsm, model_source_name = _initial_model_handling(
+                    model_name, paths, model_source_name
+                )
+            assert isinstance(model_source_name, str)  # for mypy
 
             # Determine data min and max times
-            user_min_time, user_max_time = pd.Timestamp(user_min_time), pd.Timestamp(user_max_time)
+            user_min_time, user_max_time = pd.Timestamp(user_min_time), pd.Timestamp(
+                user_max_time
+            )
             model_min_time = pd.Timestamp(str(dsm.cf["T"][0].values))
             model_max_time = pd.Timestamp(str(dsm.cf["T"][-1].values))
             data_min_time, data_max_time = _find_data_time_range(cat, source_name)
@@ -1713,9 +1762,17 @@ def run(
             # with cfp_set_options(custom_criteria=vocab.vocab):
 
             # skip this dataset if times between data and model don't align
-            skip_dataset, maps = _check_time_ranges(source_name, data_min_time, data_max_time, 
-                                      model_min_time, model_max_time,
-                                      user_min_time, user_max_time, maps, logger)
+            skip_dataset, maps = _check_time_ranges(
+                source_name,
+                data_min_time,
+                data_max_time,
+                model_min_time,
+                model_max_time,
+                user_min_time,
+                user_max_time,
+                maps,
+                logger,
+            )
             if skip_dataset:
                 continue
 
@@ -1733,23 +1790,40 @@ def run(
             # aligned file doesn't exist yet, this needs to run to update the sign of the
             # data depths in certain cases.
             zkeym = dsm.cf.coordinates["vertical"][0]
-            dfd, Z, vertical_interp = _choose_depths(dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp, logger)
+            dfd, Z, vertical_interp = _choose_depths(
+                dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp, logger
+            )
 
             # check for already-aligned model-data file
             fname_processed_orig = f"{cat.name}_{source_name}_{key_variable_data}"
-            fname_processed, fname_processed_data, fname_processed_model, model_file_name = _processed_file_names(fname_processed_orig, type(dfd), user_min_time, user_max_time, paths, ts_mods, logger)
+            (
+                fname_processed,
+                fname_processed_data,
+                fname_processed_model,
+                model_file_name,
+            ) = _processed_file_names(
+                fname_processed_orig,
+                type(dfd),
+                user_min_time,
+                user_max_time,
+                paths,
+                ts_mods,
+                logger,
+            )
 
             # read in previously-saved processed model output and obs.
             if fname_processed_data.is_file() or fname_processed_model.is_file():
                 # make sure both exist if either exist
-                assert fname_processed_data.is_file() and fname_processed_model.is_file()
+                assert (
+                    fname_processed_data.is_file() and fname_processed_model.is_file()
+                )
 
                 logger.info(
                     "Reading previously-processed model output and data for %s.",
                     source_name,
                 )
                 if isinstance(dfd, pd.DataFrame):
-                    obs = pd.read_csv(fname_processed_data)#, parse_dates=True)
+                    obs = pd.read_csv(fname_processed_data)  # , parse_dates=True)
 
                     if "T" in obs.cf:
                         obs[obs.cf["T"].name] = pd.to_datetime(obs.cf["T"])
@@ -1761,7 +1835,7 @@ def run(
                     obs = xr.open_dataset(fname_processed_data)
                 else:
                     raise TypeError("object is neither DataFrame nor Dataset.")
-                
+
                 model = xr.open_dataset(fname_processed_model)
             else:
 
@@ -1769,11 +1843,20 @@ def run(
                     "No previously processed model output and data available for %s, so setting up now.",
                     source_name,
                 )
-                
+
                 # Check, prep, and possibly narrow data time range
-                dfd, maps = _check_prep_narrow_data(dfd, key_variable_data, source_name, maps, 
-                                                    vocab, user_min_time, user_max_time,
-                                                    data_min_time, data_max_time, logger, )
+                dfd, maps = _check_prep_narrow_data(
+                    dfd,
+                    key_variable_data,
+                    source_name,
+                    maps,
+                    vocab,
+                    user_min_time,
+                    user_max_time,
+                    data_min_time,
+                    data_max_time,
+                    logger,
+                )
                 # if there were any issues in the last function, dfd should be None and we should
                 # skip this dataset
                 if dfd is None:
@@ -1806,18 +1889,28 @@ def run(
                     # don't need p1 if check_in_boundary False and plot_map False
                     if (check_in_boundary or plot_map) and p1 is None:
                         p1 = _return_p1(paths, dsm, alpha, dd, logger)
-                    
+
                     # see if data location is inside alphashape-calculated polygon of model domain
-                    if check_in_boundary and _is_outside_boundary(p1, min_lon, min_lat, source_name, logger):
+                    if check_in_boundary and _is_outside_boundary(
+                        p1, min_lon, min_lat, source_name, logger
+                    ):
                         continue
 
                     # narrow time range to limit how much model output to deal with
-                    dsm2 = _narrow_model_time_range(dsm, user_min_time, user_max_time,
-                                                    model_min_time, model_max_time,
-                                                    data_min_time, data_max_time)
-                    
+                    dsm2 = _narrow_model_time_range(
+                        dsm,
+                        user_min_time,
+                        user_max_time,
+                        model_min_time,
+                        model_max_time,
+                        data_min_time,
+                        data_max_time,
+                    )
+
                     # more processing opportunity and chance to use xroms if needed
-                    dsm2, grid, preprocessed = _process_model(dsm2, preprocess, need_xgcm_grid, kwargs_xroms, logger)
+                    dsm2, grid, preprocessed = _process_model(
+                        dsm2, preprocess, need_xgcm_grid, kwargs_xroms, logger
+                    )
 
                     # Narrow model from Dataset to DataArray here
                     # key_variable = ["xroms", "ualong", "theta"]  # and all necessary steps to get there will happen
@@ -1827,7 +1920,13 @@ def run(
                     # dam might be a Dataset but it has to be on a single grid, that is, e.g., all variable on the ROMS rho grid.
                     # well, that is only partially true. em.select requires DataArrays for certain operations like vertical
                     # interpolation.
-                    dam = _dam_from_dsm(dsm2, key_variable, key_variable_data, cat[source_name].metadata, logger)
+                    dam = _dam_from_dsm(
+                        dsm2,
+                        key_variable,
+                        key_variable_data,
+                        cat[source_name].metadata,
+                        logger,
+                    )
 
                     # shift if 0 to 360
                     dam = shift_longitudes(dam)  # this is fast if not needed
@@ -1838,45 +1937,67 @@ def run(
 
                     # take out relevant variable and identify mask if available (otherwise None)
                     # this mask has to match dam for em.select()
-                    mask = _return_mask(mask, dsm, dam.cf["longitude"].name, wetdry, key_variable_data, paths, logger)
-                    
+                    mask = _return_mask(
+                        mask,
+                        dsm,
+                        dam.cf["longitude"].name,
+                        wetdry,
+                        key_variable_data,
+                        paths,
+                        logger,
+                    )
+
                     # if make_time_series then want to keep all the data times (like a CTD transect)
                     # if not, just want the unique values (like a CTD profile)
-                    make_time_series = ftconfig[cat[source_name].metadata["featuretype"]]["make_time_series"]
+                    make_time_series = ftconfig[
+                        cat[source_name].metadata["featuretype"]
+                    ]["make_time_series"]
                     if make_time_series:
                         T = [pd.Timestamp(date) for date in dfd.cf["T"].values]
                     else:
-                        T = [pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)]
+                        T = [
+                            pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)
+                        ]
 
-                    select_kwargs = dict(dam=dam,
-                                        longitude=lons,
-                                        latitude=lats,
-                                        # T=slice(user_min_time, user_max_time),
-                                        # T=np.unique(dfd.cf["T"].values),  # works for Datasets
-                                        # T=np.unique(dfd.cf["T"].values).tolist(),  # works for DataFrame
-                                        # T=list(np.unique(dfd.cf["T"].values)),  # might work for both
-                                        # T=[pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)],  
-                                        T=T,
-                                        # # works for both
-                                        # T=None,  # changed this because wasn't working with CTD profiles. Time interpolation happens during _align.
-                                        make_time_series=make_time_series,
-                                        Z=Z,
-                                        vertical_interp=vertical_interp,
-                                        iT=None,
-                                        iZ=None,
-                                        extrap=extrap,
-                                        extrap_val=None,
-                                        locstream=True,
-                                        # locstream_dim="z_rho",
-                                        weights=None,
-                                        mask=mask,
-                                        use_xoak=False,
-                                        horizontal_interp=interpolate_horizontal,
-                                        horizontal_interp_code=horizontal_interp_code,
-                                        xgcm_grid=grid,
-                                        return_info=True,
+                    select_kwargs = dict(
+                        dam=dam,
+                        longitude=lons,
+                        latitude=lats,
+                        # T=slice(user_min_time, user_max_time),
+                        # T=np.unique(dfd.cf["T"].values),  # works for Datasets
+                        # T=np.unique(dfd.cf["T"].values).tolist(),  # works for DataFrame
+                        # T=list(np.unique(dfd.cf["T"].values)),  # might work for both
+                        # T=[pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)],
+                        T=T,
+                        # # works for both
+                        # T=None,  # changed this because wasn't working with CTD profiles. Time interpolation happens during _align.
+                        make_time_series=make_time_series,
+                        Z=Z,
+                        vertical_interp=vertical_interp,
+                        iT=None,
+                        iZ=None,
+                        extrap=extrap,
+                        extrap_val=None,
+                        locstream=True,
+                        # locstream_dim="z_rho",
+                        weights=None,
+                        mask=mask,
+                        use_xoak=False,
+                        horizontal_interp=interpolate_horizontal,
+                        horizontal_interp_code=horizontal_interp_code,
+                        xgcm_grid=grid,
+                        return_info=True,
                     )
-                    model_var, skip_dataset, maps = _select_process_save_model(select_kwargs, source_name, model_source_name, model_file_name, key_variable_data, maps, paths, logger)
+                    model_var, skip_dataset, maps = _select_process_save_model(
+                        select_kwargs,
+                        source_name,
+                        model_source_name,
+                        model_file_name,
+                        key_variable_data,
+                        maps,
+                        paths,
+                        logger,
+                    )
                     if skip_dataset:
                         continue
 
@@ -1886,22 +2007,21 @@ def run(
 
                 # opportunity to modify time series data
                 # fnamemods = ""
-                if ts_mods is not None:
-                    for mod in ts_mods:
-                        logger.info(
-                            f"Apply a time series modification called {mod['function']}."
-                        )
-                        dfd[dfd.cf[key_variable_data].name] = mod["function"](
-                            dfd.cf[key_variable_data], **mod["inputs"]
-                        )
-                        model_var = mod["function"](model_var, **mod["inputs"])
-                
+                for mod in ts_mods:
+                    logger.info(
+                        f"Apply a time series modification called {mod['function']}."
+                    )
+                    dfd[dfd.cf[key_variable_data].name] = mod["function"](
+                        dfd.cf[key_variable_data], **mod["inputs"]
+                    )
+                    model_var = mod["function"](model_var, **mod["inputs"])
+
                 # Save processed data and model files
                 # read in from newly made file to make sure output is loaded
                 if isinstance(dfd, pd.DataFrame):
                     dfd.to_csv(fname_processed_data, index=False)
                     # obs = pd.read_csv(fname_processed_data, index_col=0, parse_dates=True)
-                    obs = pd.read_csv(fname_processed_data)#, parse_dates=True)
+                    obs = pd.read_csv(fname_processed_data)  # , parse_dates=True)
 
                     if "T" in obs.cf:
                         obs[obs.cf["T"].name] = pd.to_datetime(obs.cf["T"])
@@ -1933,7 +2053,9 @@ def run(
                     stats = yaml.safe_load(stream)
 
             else:
-                stats = compute_stats(obs.cf[key_variable_data], model.cf[key_variable_data])
+                stats = compute_stats(
+                    obs.cf[key_variable_data], model.cf[key_variable_data]
+                )
                 # stats = obs.omsa.compute_stats
 
                 # add distance in
@@ -1951,9 +2073,7 @@ def run(
                 logger.info("Saved stats file.")
 
             # Write stats on plot
-            figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(
-                ".png"
-            )
+            figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(".png")
 
             # # currently title is being set in plot.selection
             # if plot_count_title:
@@ -1961,7 +2081,17 @@ def run(
             # else:
             #     title = f"{source_name}"
 
-            fig = plot.selection(obs, model, cat[source_name].metadata["featuretype"], key_variable_data, source_name, stats, figname, vocab_labels, **kwargs)
+            fig = plot.selection(
+                obs,
+                model,
+                cat[source_name].metadata["featuretype"],
+                key_variable_data,
+                source_name,
+                stats,
+                figname,
+                vocab_labels,
+                **kwargs,
+            )
             msg = f"Plotted time series for {source_name}\n."
             logger.info(msg)
 
@@ -1982,7 +2112,7 @@ def run(
         str(paths.PROJ_DIR),
     )
 
-    # just have option for returning info for testing and if dealing with 
+    # just have option for returning info for testing and if dealing with
     # a single source
     if len(maps) == 1 and return_fig:
         # model output, processed data, processed model, stats, fig

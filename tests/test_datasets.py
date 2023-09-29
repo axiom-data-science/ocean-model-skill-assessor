@@ -1,25 +1,30 @@
 """Test synthetic datasets representing featuretypes."""
 
+import pathlib
+
+from unittest import TestCase
+
 import cf_pandas as cfp
 import cf_xarray as cfx
-import ocean_model_skill_assessor as omsa
 import pandas as pd
-import pathlib
 import pytest
 import xarray as xr
 import xroms
 import yaml
+
 from make_test_datasets import make_test_datasets
-from unittest import TestCase
+
+import ocean_model_skill_assessor as omsa
+
 
 project_name = "tests"
 base_dir = pathlib.Path("tests/test_results")
 
 vocab = cfp.Vocab()
 # Make an entry to add to your vocabulary
-reg = cfp.Reg(include="tem", exclude=["F_","qc","air","dew"], ignore_case=True)
+reg = cfp.Reg(include="tem", exclude=["F_", "qc", "air", "dew"], ignore_case=True)
 vocab.make_entry("temp", reg.pattern(), attr="name")
-reg = cfp.Reg(include="sal", exclude=["F_","qc"], ignore_case=True)
+reg = cfp.Reg(include="sal", exclude=["F_", "qc"], ignore_case=True)
 vocab.make_entry("salt", reg.pattern(), attr="name")
 cfp.set_options(custom_criteria=vocab.vocab)
 cfx.set_options(custom_criteria=vocab.vocab)
@@ -60,7 +65,7 @@ def make_catalogs(dataset_filenames, featuretype):
     filenames = dataset_filenames  # contains all test filenames in dict
     filename = filenames[featuretype]
     # user might choose a different maptype depending on details but default list:
-    if featuretype in ["timeSeries","profile","timeSeriesProfile"]:
+    if featuretype in ["timeSeries", "profile", "timeSeriesProfile"]:
         maptype = "point"
     elif featuretype == "trajectoryProfile":
         maptype = "line"
@@ -71,8 +76,10 @@ def make_catalogs(dataset_filenames, featuretype):
         catalog_type="local",
         project_name=project_name,
         catalog_name=featuretype,
-        metadata={"featuretype": featuretype,
-                  "maptype": maptype,},
+        metadata={
+            "featuretype": featuretype,
+            "maptype": maptype,
+        },
         kwargs=kwargs,
         return_cat=True,
     )
@@ -82,9 +89,10 @@ def make_catalogs(dataset_filenames, featuretype):
 def model_catalog():
     # this dataset is managed by xroms and stored in local cache after the first time it is downloaded.
     url = xroms.datasets.CLOVER.fetch("ROMS_example_full_grid.nc")
-    kwargs = {"filenames": [url],
+    kwargs = {
+        "filenames": [url],
         "skip_entry_metadata": True,
-              }
+    }
     # metadata = {"minLongitude": -93.04208535842456,
     #             "minLatitude": 27.488004525650847,
     #             "maxLongitude": -88.01377130152251,
@@ -99,17 +107,28 @@ def model_catalog():
     )
     return cat
 
+
 def test_initial_model_handling(project_cache):
     cat_model = model_catalog()
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model,
-                           paths=paths,
-                           model_source_name=None)
-    
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
+
     # make sure cf-xarray will work after this is run
-    axdict = {'X': ['xi_rho', 'xi_u'], 'Y': ['eta_rho', 'eta_v'], 'Z': ['s_rho', 's_w'], 'T': ['ocean_time']}
+    axdict = {
+        "X": ["xi_rho", "xi_u"],
+        "Y": ["eta_rho", "eta_v"],
+        "Z": ["s_rho", "s_w"],
+        "T": ["ocean_time"],
+    }
     assert dsm.cf.axes == axdict
-    cdict = {'longitude': ['lon_rho', 'lon_u', 'lon_v'], 'latitude': ['lat_rho', 'lat_u', 'lat_v'], 'vertical': ['z_rho', 'z_w'], 'time': ['ocean_time']}
+    cdict = {
+        "longitude": ["lon_rho", "lon_u", "lon_v"],
+        "latitude": ["lat_rho", "lat_u", "lat_v"],
+        "vertical": ["z_rho", "z_w"],
+        "time": ["ocean_time"],
+    }
     assert dsm.cf.coordinates == cdict
     assert isinstance(dsm, xr.Dataset)
 
@@ -117,54 +136,69 @@ def test_initial_model_handling(project_cache):
 def test_narrow_model_time_range(project_cache):
     cat_model = model_catalog()
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model,
-                           paths=paths,
-                           model_source_name=None)
-    
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
+
     model_min_time = pd.Timestamp(dsm.ocean_time.min().values)
     model_max_time = pd.Timestamp(dsm.ocean_time.max().values)
-    
+
     # not-null user_min_time and user_max_time should control the time range
     user_min_time, user_max_time = model_min_time, model_min_time
     # these wouldn't be nan in the actual code but aren't used in the function in this scenario
     data_min_time, data_max_time = pd.Timestamp(None), pd.Timestamp(None)
-    dsm2 = omsa.main._narrow_model_time_range(dsm,
-                                user_min_time, user_max_time,
-                                model_min_time, model_max_time,
-                                data_min_time, data_max_time)
+    dsm2 = omsa.main._narrow_model_time_range(
+        dsm,
+        user_min_time,
+        user_max_time,
+        model_min_time,
+        model_max_time,
+        data_min_time,
+        data_max_time,
+    )
     assert dsm2.ocean_time.values[0] == model_min_time
 
-    # not-null user_min_time and user_max_time but model shorter, then data 
+    # not-null user_min_time and user_max_time but model shorter, then data
     # should control the time range
-    user_min_time, user_max_time = model_min_time-pd.Timedelta("7D"), model_max_time+pd.Timedelta("7D")
+    user_min_time, user_max_time = model_min_time - pd.Timedelta(
+        "7D"
+    ), model_max_time + pd.Timedelta("7D")
     data_min_time, data_max_time = model_min_time, model_min_time
-    dsm2 = omsa.main._narrow_model_time_range(dsm,
-                                user_min_time, user_max_time,
-                                model_min_time, model_max_time,
-                                data_min_time, data_max_time)
+    dsm2 = omsa.main._narrow_model_time_range(
+        dsm,
+        user_min_time,
+        user_max_time,
+        model_min_time,
+        model_max_time,
+        data_min_time,
+        data_max_time,
+    )
     assert dsm2.ocean_time.values[0] == model_min_time
 
     # null user_min_time and user_max_time then data should control the time range
     # but the code takes a model time step extra in each direction, so then get the min time
     user_min_time, user_max_time = pd.Timestamp(None), pd.Timestamp(None)
     data_min_time, data_max_time = model_max_time, model_max_time
-    dsm2 = omsa.main._narrow_model_time_range(dsm,
-                                user_min_time, user_max_time,
-                                model_min_time, model_max_time,
-                                data_min_time, data_max_time)
+    dsm2 = omsa.main._narrow_model_time_range(
+        dsm,
+        user_min_time,
+        user_max_time,
+        model_min_time,
+        model_max_time,
+        data_min_time,
+        data_max_time,
+    )
     assert dsm2.ocean_time.values[0] == model_min_time
- 
+
 
 def test_mask_creation(project_cache):
     cat_model = model_catalog()
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model,
-                           paths=paths,
-                           model_source_name=None)
-    dam = dsm["temp"]
-    mask = omsa.utils.get_mask(
-        dsm, dam.cf["longitude"].name, wetdry=False
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
     )
+    dam = dsm["temp"]
+    mask = omsa.utils.get_mask(dsm, dam.cf["longitude"].name, wetdry=False)
     assert not mask.isnull().any()
     assert mask.shape == dam.cf["longitude"].shape
 
@@ -172,58 +206,79 @@ def test_mask_creation(project_cache):
 def test_dam_from_dsm(project_cache):
     cat_model = model_catalog()
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model, paths=paths)
-    
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths
+    )
+
     # Add vocab for testing
     # After this, we have a single Vocab object with vocab stored in vocab.vocab
-    vocabs = ["general","standard_names"]
+    vocabs = ["general", "standard_names"]
     vocab = omsa.utils.open_vocabs(vocabs, paths)
     # cfp.set_options(custom_criteria=vocab.vocab)
-    
+
     # test key_variable as string case
     key_variable, key_variable_data = "temp", "temp"
-    with cfx.set_options(custom_criteria=vocab.vocab):    
-        dam = omsa.main._dam_from_dsm(dsm, vocab, key_variable, key_variable_data, cat_model['ROMS_example_full_grid'].metadata)
+    with cfx.set_options(custom_criteria=vocab.vocab):
+        dam = omsa.main._dam_from_dsm(
+            dsm,
+            vocab,
+            key_variable,
+            key_variable_data,
+            cat_model["ROMS_example_full_grid"].metadata,
+        )
     # make sure cf-xarray will work after this is run
-    axdict = {'X': ['xi_rho'], 'Y': ['eta_rho'], 'Z': ['s_rho'], 'T': ['ocean_time']}
+    axdict = {"X": ["xi_rho"], "Y": ["eta_rho"], "Z": ["s_rho"], "T": ["ocean_time"]}
     assert dam.cf.axes == axdict
-    cdict = {'longitude': ['lon_rho'], 'latitude': ['lat_rho'], 'vertical': ['z_rho'], 'time': ['ocean_time']}
+    cdict = {
+        "longitude": ["lon_rho"],
+        "latitude": ["lat_rho"],
+        "vertical": ["z_rho"],
+        "time": ["ocean_time"],
+    }
     assert dam.cf.coordinates == cdict
     assert isinstance(dam, xr.DataArray)
 
 
 def check_output(cat, featuretype, key_variable, project_cache):
     # compare saved model output
-    rel_path = pathlib.Path("model_output", f"{cat.name}_{featuretype}_{key_variable}.nc")
+    rel_path = pathlib.Path(
+        "model_output", f"{cat.name}_{featuretype}_{key_variable}.nc"
+    )
     dsexpected = xr.open_dataset(base_dir / rel_path)
     dsactual = xr.open_dataset(project_cache / "tests" / rel_path)
     assert dsexpected.equals(dsactual)
     # compare saved stats
     rel_path = pathlib.Path("out", f"{cat.name}_{featuretype}_{key_variable}.yaml")
-    with open(base_dir / rel_path, 'r') as fp:
+    with open(base_dir / rel_path, "r") as fp:
         statsexpected = yaml.safe_load(fp)
-    with open(project_cache / "tests" / rel_path, 'r') as fp:
+    with open(project_cache / "tests" / rel_path, "r") as fp:
         statsactual = yaml.safe_load(fp)
     TestCase().assertDictEqual(statsexpected, statsactual)
     # compare saved processed files
-    rel_path = pathlib.Path("processed", f"{cat.name}_{featuretype}_{key_variable}_data")
+    rel_path = pathlib.Path(
+        "processed", f"{cat.name}_{featuretype}_{key_variable}_data"
+    )
     if (base_dir / rel_path).with_suffix(".csv").is_file():
         dfexpected = pd.read_csv((base_dir / rel_path).with_suffix(".csv"))
     elif (base_dir / rel_path).with_suffix(".nc").is_file():
         dfexpected = xr.open_dataset((base_dir / rel_path).with_suffix(".nc"))
-    
+
     if (project_cache / "tests" / rel_path).with_suffix(".csv").is_file():
         dfactual = pd.read_csv((project_cache / "tests" / rel_path).with_suffix(".csv"))
     elif (project_cache / "tests" / rel_path).with_suffix(".nc").is_file():
-        dfactual = xr.open_dataset((project_cache / "tests" / rel_path).with_suffix(".nc"))
+        dfactual = xr.open_dataset(
+            (project_cache / "tests" / rel_path).with_suffix(".nc")
+        )
     if isinstance(dfexpected, pd.DataFrame):
         pd.testing.assert_frame_equal(dfexpected, dfactual)
     elif isinstance(dfexpected, xr.Dataset):
-        assert dfexpected.equals(dfactual)    
-    rel_path = pathlib.Path("processed", f"{cat.name}_{featuretype}_{key_variable}_model.nc")
+        assert dfexpected.equals(dfactual)
+    rel_path = pathlib.Path(
+        "processed", f"{cat.name}_{featuretype}_{key_variable}_model.nc"
+    )
     dsexpected = xr.open_dataset(base_dir / rel_path)
     dsactual = xr.open_dataset(project_cache / "tests" / rel_path)
-    assert dsexpected.equals(dsactual)    
+    assert dsexpected.equals(dsactual)
 
 
 @pytest.mark.mpl_image_compare(style="default")
@@ -236,45 +291,60 @@ def test_timeSeries_temp(dataset_filenames, project_cache):
 
     cat = make_catalogs(dataset_filenames, featuretype)
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
-    
+
     # test data time range
-    data_min_time, data_max_time = omsa.main._find_data_time_range(cat, source_name=featuretype)
-    assert data_min_time, data_max_time == (pd.Timestamp('2009-11-19 12:00:00'), pd.Timestamp('2009-11-19 16:00:00'))
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19 12:00:00"),
+        pd.Timestamp("2009-11-19 16:00:00"),
+    )
 
     # test depth selection
     cat_model = model_catalog()
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model,
-                           paths=paths,
-                           model_source_name=None)
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
     zkeym = dsm.cf.coordinates["vertical"][0]
-    
+
     dfd = cat[featuretype].read()
-    
+
     # test depth selection for temp/salt
-    dfdout, Z, vertical_interp = omsa.main._choose_depths(dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp)
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
     pd.testing.assert_frame_equal(dfdout, dfd)
     assert Z == 0
     assert not vertical_interp
-        
-    kwargs = dict(catalogs=cat, model_name=cat_model,
-                preprocess=True,
-                vocabs=["general","standard_names"], 
-                mode="a",
-                alpha=5, dd=5, 
-                want_vertical_interp=want_vertical_interp,
-                extrap=False,
-                check_in_boundary=False,
-                need_xgcm_grid=need_xgcm_grid,
-                plot_map=True,
-                plot_count_title=False,
-                cache_dir=project_cache,
-                vocab_labels="vocab_labels",)
-    
+
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=True,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+    )
+
     # temp, with horizontal interpolation
-    fig = omsa.run(project_name=project_name, key_variable=key_variable,
-             interpolate_horizontal=interpolate_horizontal, no_Z=no_Z,
-             return_fig=True,
-             **kwargs)
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
     check_output(cat, featuretype, key_variable, project_cache)
     return fig
 
@@ -289,40 +359,50 @@ def test_timeSeries_ssh(dataset_filenames, project_cache):
 
     cat = make_catalogs(dataset_filenames, featuretype)
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
-    
+
     # test depth selection
     cat_model = model_catalog()
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model,
-                           paths=paths,
-                           model_source_name=None)
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
     zkeym = dsm.cf.coordinates["vertical"][0]
-    
+
     dfd = cat[featuretype].read()
     # test depth selection for SSH
-    dfdout, Z, vertical_interp = omsa.main._choose_depths(dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp)
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
     pd.testing.assert_frame_equal(dfdout, dfd)
     assert Z is None
     assert not vertical_interp
-        
-    kwargs = dict(catalogs=cat, model_name=cat_model,
-                preprocess=True,
-                vocabs=["general","standard_names"], 
-                mode="a",
-                alpha=5, dd=5, 
-                want_vertical_interp=want_vertical_interp,
-                extrap=False,
-                check_in_boundary=False,
-                need_xgcm_grid=need_xgcm_grid,
-                plot_map=True,
-                plot_count_title=False,
-                cache_dir=project_cache,
-                vocab_labels="vocab_labels",)    
+
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=True,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+    )
 
     # without horizontal interpolation and ssh
-    fig = omsa.run(project_name=project_name, key_variable=key_variable,
-             interpolate_horizontal=interpolate_horizontal, no_Z=no_Z,
-             return_fig=True,
-             **kwargs)
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
     check_output(cat, featuretype, key_variable, project_cache)
     return fig
 
@@ -339,39 +419,56 @@ def test_profile(dataset_filenames, project_cache):
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
 
     # test data time range
-    data_min_time, data_max_time = omsa.main._find_data_time_range(cat, source_name=featuretype)
-    assert data_min_time, data_max_time == (pd.Timestamp('2009-11-19T14:00'), pd.Timestamp('2009-11-19T14:00'))
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19T14:00"),
+        pd.Timestamp("2009-11-19T14:00"),
+    )
 
     # test depth selection
     cat_model = model_catalog()
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model, paths=paths, model_source_name=None)
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
     zkeym = dsm.cf.coordinates["vertical"][0]
-    
+
     dfd = cat[featuretype].read()
     # test depth selection for temp/salt
-    dfdout, Z, vertical_interp = omsa.main._choose_depths(dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp)
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
     pd.testing.assert_frame_equal(dfdout, dfd)
     assert (Z == dfd.cf["Z"]).all()
     assert vertical_interp == want_vertical_interp
-        
-    kwargs = dict(catalogs=cat, model_name=cat_model,
-                preprocess=True,
-                vocabs=["general","standard_names"], 
-                mode="a",
-                alpha=5, dd=5, 
-                want_vertical_interp=want_vertical_interp,
-                extrap=False,
-                check_in_boundary=False,
-                need_xgcm_grid=need_xgcm_grid,
-                plot_map=False,
-                plot_count_title=False,
-                cache_dir=project_cache,
-                vocab_labels="vocab_labels",)
-    
-    fig = omsa.run(project_name=project_name, key_variable=key_variable,
-             interpolate_horizontal=interpolate_horizontal, no_Z=no_Z,
-             return_fig=True,
-             **kwargs)
+
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+    )
+
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
 
     check_output(cat, featuretype, key_variable, project_cache)
     return fig
@@ -391,39 +488,56 @@ def test_timeSeriesProfile(dataset_filenames, project_cache):
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
 
     # test data time range
-    data_min_time, data_max_time = omsa.main._find_data_time_range(cat, source_name=featuretype)
-    assert data_min_time, data_max_time == (pd.Timestamp('2009-11-19T12:00'), pd.Timestamp('2009-11-19T16:00'))
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19T12:00"),
+        pd.Timestamp("2009-11-19T16:00"),
+    )
 
     # test depth selection
     cat_model = model_catalog()
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model, paths=paths, model_source_name=None)
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
     zkeym = dsm.cf.coordinates["vertical"][0]
-    
+
     dfd = cat[featuretype].read()
     # test depth selection for temp/salt. These are Datasets
-    dfdout, Z, vertical_interp = omsa.main._choose_depths(dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp)
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
     assert dfd.equals(dfdout)
     assert (Z == dfd.cf["Z"]).all()
     assert vertical_interp == want_vertical_interp
-        
-    kwargs = dict(catalogs=cat, model_name=cat_model,
-                preprocess=True,
-                vocabs=["general","standard_names"], 
-                mode="a",
-                alpha=5, dd=5, 
-                want_vertical_interp=want_vertical_interp,
-                extrap=False,
-                check_in_boundary=False,
-                need_xgcm_grid=need_xgcm_grid,
-                plot_map=False,
-                plot_count_title=False,
-                cache_dir=project_cache,
-                vocab_labels="vocab_labels",)
-    
-    fig = omsa.run(project_name=project_name, key_variable=key_variable,
-             interpolate_horizontal=interpolate_horizontal, no_Z=no_Z,
-             return_fig=True,
-             **kwargs)
+
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+    )
+
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
 
     check_output(cat, featuretype, key_variable, project_cache)
     return fig
@@ -443,40 +557,57 @@ def test_trajectoryProfile(dataset_filenames, project_cache):
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
 
     # test data time range
-    data_min_time, data_max_time = omsa.main._find_data_time_range(cat, source_name=featuretype)
-    assert data_min_time, data_max_time == (pd.Timestamp('2009-11-19T12:00'), pd.Timestamp('2009-11-19T16:00'))
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19T12:00"),
+        pd.Timestamp("2009-11-19T16:00"),
+    )
 
     # test depth selection
     cat_model = model_catalog()
-    dsm, model_source_name = omsa.main._initial_model_handling(model_name=cat_model, paths=paths, model_source_name=None)
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
     zkeym = dsm.cf.coordinates["vertical"][0]
-    
+
     dfd = cat[featuretype].read()
     # test depth selection for temp/salt. These are Datasets
-    dfdout, Z, vertical_interp = omsa.main._choose_depths(dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp)
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
     assert dfd.equals(dfdout)
     assert (Z == dfd.cf["Z"]).all()
     assert vertical_interp == want_vertical_interp
-        
-    kwargs = dict(catalogs=cat, model_name=cat_model,
-                preprocess=True,
-                vocabs=["general","standard_names"], 
-                mode="a",
-                alpha=5, dd=5, 
-                want_vertical_interp=want_vertical_interp,
-                extrap=False,
-                check_in_boundary=False,
-                need_xgcm_grid=need_xgcm_grid,
-                plot_map=False,
-                plot_count_title=False,
-                cache_dir=project_cache,
-                vocab_labels="vocab_labels",)
-    
-    fig = omsa.run(project_name=project_name, key_variable=key_variable,
-             interpolate_horizontal=interpolate_horizontal, no_Z=no_Z,
-             return_fig=True,
-             **kwargs)
-    
+
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+    )
+
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
+
     check_output(cat, featuretype, key_variable, project_cache)
 
     return fig

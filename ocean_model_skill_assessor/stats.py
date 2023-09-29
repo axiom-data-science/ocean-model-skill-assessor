@@ -14,16 +14,18 @@ from .paths import Paths
 
 def compute_bias(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> float:
     """Given obs and model signals return bias."""
-    
+
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
     return float((model - obs).mean())
 
 
-def compute_correlation_coefficient(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> float:
+def compute_correlation_coefficient(
+    obs: Union[pd.Series, xr.DataArray], model: xr.DataArray
+) -> float:
     """Given obs and model signals, return Pearson product-moment correlation coefficient"""
-    
+
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
@@ -34,9 +36,11 @@ def compute_correlation_coefficient(obs: Union[pd.Series, xr.DataArray], model: 
     return float(np.corrcoef(np.array(obs)[inds], np.array(model)[inds])[0, 1])
 
 
-def compute_index_of_agreement(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> float:
+def compute_index_of_agreement(
+    obs: Union[pd.Series, xr.DataArray], model: xr.DataArray
+) -> float:
     """Given obs and model signals, return Index of Agreement (Willmott 1981)"""
-    
+
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
@@ -55,7 +59,7 @@ def compute_mean_square_error(
     obs: Union[pd.Series, xr.DataArray], model: xr.DataArray, centered=False
 ) -> float:
     """Given obs and model signals, return mean squared error (MSE)"""
-    
+
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
@@ -69,7 +73,7 @@ def compute_murphy_skill_score(
     obs: Union[pd.Series, xr.DataArray], model: xr.DataArray, obs_model=None
 ) -> float:
     """Given obs and model signals, return Murphy Skill Score (Murphy 1988)"""
-    
+
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
@@ -100,7 +104,7 @@ def compute_root_mean_square_error(
     obs: Union[pd.Series, xr.DataArray], model: xr.DataArray, centered=False
 ) -> float:
     """Given obs and model signals, return Root Mean Square Error (RMSE)"""
-    
+
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
@@ -110,7 +114,7 @@ def compute_root_mean_square_error(
 
 def compute_descriptive_statistics(model: xr.DataArray, ddof=0) -> list:
     """Given obs and model signals, return the standard deviation"""
-    
+
     assert isinstance(model, xr.DataArray)
 
     return list(
@@ -125,7 +129,7 @@ def compute_descriptive_statistics(model: xr.DataArray, ddof=0) -> list:
 
 def compute_stats(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> dict:
     """Compute stats and return as DataFrame"""
-    
+
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 

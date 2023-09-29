@@ -13,6 +13,7 @@ import pandas as pd
 
 class Paths(object):
     """Object to manage paths"""
+
     def __init__(self, project_name, cache_dir=None):
         """Initialize Paths object to manage paths in project.
 
@@ -35,7 +36,7 @@ class Paths(object):
             )
         self.cache_dir = cache_dir
         self.project_name = project_name
-    
+
     @property
     def VOCAB_DIR(self):
         """Where to store and find vocabularies. Come from an initial set."""
@@ -45,9 +46,9 @@ class Paths(object):
 
         # copy vocab files to vocab cache location
         [shutil.copy(vocab_path, loc) for vocab_path in loc_initial.glob("*.json")]
-        
+
         return loc
-    
+
     @property
     def PROJ_DIR(self):
         """Return path to project directory."""
@@ -60,12 +61,10 @@ class Paths(object):
         path = (self.PROJ_DIR / cat_name).with_suffix(".yaml")
         return path
 
-
     def VOCAB_PATH(self, vocab_name):
         """Return path to vocab."""
         path = (self.VOCAB_DIR / vocab_name).with_suffix(".json")
         return path
-
 
     @property
     def LOG_PATH(self):
@@ -79,19 +78,16 @@ class Paths(object):
         # path = (path / f"omsa_{now}").with_suffix(".log")
         return path
 
-
     @property
     def ALPHA_PATH(self):
         """Return path to alphashape polygon."""
         path = (self.PROJ_DIR / "alphashape").with_suffix(".txt")
         return path
 
-
     def MASK_PATH(self, key_variable):
         """Return path to mask cache for key_variable."""
         path = (self.PROJ_DIR / f"mask_{key_variable}").with_suffix(".nc")
         return path
-
 
     @property
     def MODEL_CACHE_DIR(self):
@@ -100,14 +96,12 @@ class Paths(object):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-
     @property
     def PROCESSED_CACHE_DIR(self):
         """Return path to processed data-model directory."""
         path = self.PROJ_DIR / "processed"
         path.mkdir(parents=True, exist_ok=True)
         return path
-
 
     @property
     def OUT_DIR(self):

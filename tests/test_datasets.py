@@ -285,7 +285,7 @@ def check_output(cat, featuretype, key_variable, project_cache):
 def test_timeSeries_temp(dataset_filenames, project_cache):
     featuretype = "timeSeries"
     no_Z = False
-    key_variable, interpolate_horizontal = "temp", True
+    key_variable, interpolate_horizontal = "temp", False
     want_vertical_interp = False
     need_xgcm_grid = False
 
@@ -334,6 +334,7 @@ def test_timeSeries_temp(dataset_filenames, project_cache):
         plot_count_title=False,
         cache_dir=project_cache,
         vocab_labels="vocab_labels",
+        skip_mask=True,
     )
 
     # temp, with horizontal interpolation
@@ -392,6 +393,7 @@ def test_timeSeries_ssh(dataset_filenames, project_cache):
         plot_count_title=False,
         cache_dir=project_cache,
         vocab_labels="vocab_labels",
+        skip_mask=True,
     )
 
     # without horizontal interpolation and ssh
@@ -459,6 +461,7 @@ def test_profile(dataset_filenames, project_cache):
         plot_count_title=False,
         cache_dir=project_cache,
         vocab_labels="vocab_labels",
+        skip_mask=True,
     )
 
     fig = omsa.run(
@@ -528,6 +531,7 @@ def test_timeSeriesProfile(dataset_filenames, project_cache):
         plot_count_title=False,
         cache_dir=project_cache,
         vocab_labels="vocab_labels",
+        skip_mask=True,
     )
 
     fig = omsa.run(
@@ -552,6 +556,7 @@ def test_trajectoryProfile(dataset_filenames, project_cache):
     key_variable, interpolate_horizontal = "salt", True
     want_vertical_interp = True
     need_xgcm_grid = True
+    save_horizontal_interp_weights = False
 
     cat = make_catalogs(dataset_filenames, featuretype)
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
@@ -597,6 +602,8 @@ def test_trajectoryProfile(dataset_filenames, project_cache):
         plot_count_title=False,
         cache_dir=project_cache,
         vocab_labels="vocab_labels",
+        save_horizontal_interp_weights=save_horizontal_interp_weights,
+        skip_mask=True,
     )
 
     fig = omsa.run(

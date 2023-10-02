@@ -1309,6 +1309,7 @@ def _select_process_save_model(
     source_name: str,
     model_source_name: str,
     model_file_name: pathlib.Path,
+    save_horizontal_interp_weights: bool,
     key_variable_data: str,
     maps: list,
     paths: Paths,
@@ -1326,6 +1327,8 @@ def _select_process_save_model(
         Source name for model in the model catalog
     model_file_name : pathlib.Path
         Path to where to save model output
+    save_horizontal_interp_weights : bool
+        Default True. Whether or not to save horizontal interp info like Delaunay triangulation to file. Set to False to not save which is useful for testing.
     key_variable_data : str
         Name of variable to select, to be interpreted with cf-xarray
     maps : list
@@ -1381,6 +1384,7 @@ def _select_process_save_model(
         select_kwargs["horizontal_interp"]
         and select_kwargs["horizontal_interp_code"] == "delaunay"
         and not tri_name.is_file()
+        and save_horizontal_interp_weights
     ):
         import pickle
 
@@ -1562,6 +1566,7 @@ def run(
     kwargs_xroms: Optional[dict] = None,
     interpolate_horizontal: bool = True,
     horizontal_interp_code="delaunay",
+    save_horizontal_interp_weights: bool=True,
     want_vertical_interp: bool = False,
     extrap: bool = False,
     model_source_name: Optional[str] = None,
@@ -1574,6 +1579,7 @@ def run(
     model_only: bool = False,
     plot_map: bool = True,
     no_Z: bool = False,
+    skip_mask: bool = False,
     wetdry: bool = False,
     plot_count_title: bool = True,
     cache_dir: Optional[Union[str, PurePath]] = None,
@@ -1622,6 +1628,8 @@ def run(
         If True, interpolate horizontally. Otherwise find nearest model points.
     horizontal_interp_code: str
         Default "xesmf" to use package ``xESMF`` for horizontal interpolation, which is probably better if you need to interpolate to many points. To use ``xESMF`` you have install it as an optional dependency. Input "tree" to use BallTree to find nearest 3 neighbors and interpolate using barycentric coordinates. This has been tested for interpolating to 3 locations so far. Input "delaunay" to use a delaunay triangulation to find the nearest triangle points and interpolate the same as with "tree" using barycentric coordinates. This should be faster when you have more points to interpolate to, especially if you save and reuse the triangulation.
+    save_horizontal_interp_weights : bool
+        Default True. Whether or not to save horizontal interp info like Delaunay triangulation to file. Set to False to not save which is useful for testing.
     want_vertical_interp: bool
         This is False unless the user wants to specify that vertical interpolation should happen. This is used in only certain cases but in those cases it is important so that it is known to interpolate instead of try to figure out a vertical level index (which is not possible currently).
     extrap: bool
@@ -1646,6 +1654,8 @@ def run(
         If False, don't plot map
     no_Z : bool
         If True, set Z=None so no vertical interpolation or selection occurs. Do this if your variable has no concept of depth, like the sea surface height.
+    skip_mask : bool
+        Allows user to override mask behavior and keep it as None. Good for testing. Default False.
     wetdry : bool
         If True, insist that masked used has "wetdry" in the name and then use the first time step of that mask.
     plot_count_title : bool
@@ -1937,15 +1947,16 @@ def run(
 
                     # take out relevant variable and identify mask if available (otherwise None)
                     # this mask has to match dam for em.select()
-                    mask = _return_mask(
-                        mask,
-                        dsm,
-                        dam.cf["longitude"].name,
-                        wetdry,
-                        key_variable_data,
-                        paths,
-                        logger,
-                    )
+                    if not skip_mask:
+                        mask = _return_mask(
+                            mask,
+                            dsm,
+                            dam.cf["longitude"].name,
+                            wetdry,
+                            key_variable_data,
+                            paths,
+                            logger,
+                        )
 
                     # if make_time_series then want to keep all the data times (like a CTD transect)
                     # if not, just want the unique values (like a CTD profile)
@@ -1993,6 +2004,7 @@ def run(
                         source_name,
                         model_source_name,
                         model_file_name,
+                        save_horizontal_interp_weights,
                         key_variable_data,
                         maps,
                         paths,

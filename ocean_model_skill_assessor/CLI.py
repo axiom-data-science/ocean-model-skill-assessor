@@ -147,6 +147,13 @@ def main():
         help="Input keyword arguments to be passed onto map plot.",
     )
 
+    parser.add_argument(
+        "--more_kwargs",
+        nargs="*",
+        action=ParseKwargs,
+        help="Input keyword arguments to be passed onto main function.",
+    )
+
     args = parser.parse_args()
 
     # Make a catalog.
@@ -168,21 +175,38 @@ def main():
 
     # Print path for project name.
     elif args.action == "proj_path":
-        print(omsa.PROJ_DIR(args.project_name))
+        paths = omsa.paths.Paths(args.project_name)
+        print(paths.PROJ_DIR)
 
     # Print available vocabularies.
     elif args.action == "vocabs":
-        print([path.stem for path in omsa.VOCAB_DIR.glob("*")])
+        paths = omsa.paths.Paths()
+        print([path.stem for path in paths.VOCAB_DIR.glob("*")])
 
     # Print variable keys in a vocab.
     elif args.action == "vocab_info":
-        vpath = omsa.VOCAB_PATH(args.vocab_name)
+        paths = omsa.paths.Paths()
+        vpath = paths.VOCAB_PATH(args.vocab_name)
         vocab = cfp.Vocab(vpath)
         print(f"Vocab path: {vpath}.")
         print(f"Variable nicknames in vocab: {list(vocab.vocab.keys())}.")
 
     # Run model-data comparison.
     elif args.action == "run":
+        import ast
+
+        to_bool = {
+            key: ast.literal_eval(value)
+            for key, value in args.more_kwargs.items()
+            if value in ["True", "False"]
+        }
+        args.more_kwargs.update(to_bool)
+        to_bool = {
+            key: ast.literal_eval(value)
+            for key, value in args.kwargs_map.items()
+            if value in ["True", "False"]
+        }
+        args.kwargs_map.update(to_bool)
         omsa.main.run(
             project_name=args.project_name,
             catalogs=args.catalog_names,
@@ -193,4 +217,5 @@ def main():
             kwargs_map=args.kwargs_map,
             verbose=args.verbose,
             mode=args.mode,
+            **args.more_kwargs,
         )

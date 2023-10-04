@@ -9,7 +9,7 @@ import warnings
 
 from collections.abc import Sequence
 from pathlib import PurePath
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cf_xarray
 import extract_model as em
@@ -30,6 +30,7 @@ from intake.catalog import Catalog
 from intake.catalog.local import LocalCatalogEntry
 from pandas import DataFrame, to_datetime
 from shapely.geometry import Point
+from xgcm import Grid
 
 # from ocean_model_skill_assessor.plot import map
 import ocean_model_skill_assessor.plot as plot
@@ -38,6 +39,9 @@ from .featuretype import ftconfig
 from .paths import Paths
 from .stats import compute_stats, save_stats
 from .utils import (
+    check_catalog,
+    check_dataframe,
+    check_dataset,
     coords1Dto2D,
     find_bbox,
     get_mask,
@@ -63,6 +67,7 @@ def make_local_catalog(
     metadata_catalog: dict = None,
     skip_entry_metadata: bool = False,
     kwargs_open: Optional[Dict] = None,
+    logger=None,
 ) -> Catalog:
     """Make an intake catalog from specified data files, including model output locations.
 
@@ -199,11 +204,12 @@ def make_local_catalog(
                 dd.set_index(dd.cf["T"], inplace=True)
                 if dd.index.tz is not None:
                     # logger is already defined in other function
-                    logger.warning(  # type: ignore
-                        "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.",
-                        source,
-                        str(dd.index.tz),
-                    )
+                    if logger is not None:
+                        logger.warning(  # type: ignore
+                            "Dataset %s had a timezone %s which is being removed. Make sure the timezone matches the model output.",
+                            source,
+                            str(dd.index.tz),
+                        )
                     dd.index = dd.index.tz_convert(None)
                     dd.cf["T"] = dd.index
 
@@ -238,6 +244,10 @@ def make_local_catalog(
         description=description,
         metadata=metadata_catalog,
     )
+
+    # this allows for not checking a model catalog
+    if not skip_entry_metadata:
+        check_catalog(cat)
 
     return cat
 
@@ -351,6 +361,7 @@ def make_catalog(
             description=description,
             metadata=metadata,
             kwargs_open=kwargs_open,
+            logger=logger,
             **kwargs,
         )
 
@@ -396,6 +407,10 @@ def make_catalog(
                 **kwargs,
             )
 
+    # this allows for not checking a model catalog
+    if "skip_entry_metadata" in kwargs and not kwargs["skip_entry_metadata"]:
+        check_catalog(cat)
+
     if save_cat:
         # save cat to file
         cat.save(paths.CAT_PATH(catalog_name))
@@ -432,14 +447,15 @@ def _initial_model_handling(
     """
 
     # read in model output
-    model_cat = open_catalogs(model_name, paths)[0]
+    model_cat = open_catalogs(model_name, paths, skip_check=True)[0]
     model_source_name = model_source_name or list(model_cat)[0]
     dsm = model_cat[model_source_name].to_dask()
 
     # the main preprocessing happens later, but do a minimal job here
     # so that cf-xarray can be used hopefully
-    dsm = em.preprocess(dsm)
+    dsm = em.preprocess(dsm, kwargs=dict(find_depth_coords=False))
 
+    check_dataset(dsm)
     return dsm, model_source_name
 
 
@@ -626,8 +642,10 @@ def _choose_depths(
                 f"Will not perform vertical interpolation and there is no concept of depth for this variable."
             )
 
-    elif (dd.cf["Z"] == 0).all():
-        Z = 0  # do nearest depth to 0
+    elif (dd.cf["Z"] == dd.cf["Z"][0]).all():
+        Z = float(
+            dd.cf["Z"][0]
+        )  # do nearest depth to the one depth represented in dataset
         vertical_interp = False
         if logger is not None:
             logger.info(
@@ -678,12 +696,15 @@ def _dam_from_dsm(
     key_variable: Union[str, dict],
     key_variable_data: str,
     source_metadata: dict,
+    no_Z: bool,
     logger=None,
 ) -> xr.DataArray:
     """Select or calculate variable from Dataset.
 
     cf-xarray needs to work for Z, T, longitude, latitude after this
 
+    Parameters
+    ----------
     dsm2 : Dataset
         Dataset containing model output. If this is being run from `main`, the model output has already been narrowed to the relevant time range.
     key_variable : str, dict
@@ -692,6 +713,8 @@ def _dam_from_dsm(
         A string containing the key variable name that can be interpreted with cf-xarray to access the variable of interest from the Dataset.
     source_metadata : dict
         Metadata for dataset source. Accessed by `cat[source_name].metadata`.
+    no_Z : bool
+        If True, set Z=None so no vertical interpolation or selection occurs. Do this if your variable has no concept of depth, like the sea surface height.
     logger : logger, optional
         Logger for messages.
 
@@ -735,6 +758,8 @@ def _dam_from_dsm(
         #         if hasattr(dam, "encoding") and "coordinates" in dam.encoding:
         #             dam.encoding["coordinates"] = dam.encoding["coordinates"].replace(zkey,zkey0)
 
+    check_dataset(dam, no_Z=no_Z)
+
     # if dask-backed, read into memory
     if dam.cf["longitude"].chunks is not None:
         dam[dam.cf["longitude"].name] = dam.cf["longitude"].load()
@@ -742,7 +767,7 @@ def _dam_from_dsm(
         dam[dam.cf["latitude"].name] = dam.cf["latitude"].load()
 
     # if vertical isn't present either the variable doesn't have the concept, like ssh, or it is missing
-    if "vertical" not in dam.cf.coordinates:
+    if "Z" not in dam.cf.coordinates:
         if logger is not None:
             logger.warning(
                 "the 'vertical' key cannot be identified in dam by cf-xarray. Maybe you need to include the xgcm grid and vertical metrics for xgcm grid, but maybe your variable does not have a vertical axis."
@@ -760,7 +785,7 @@ def _processed_file_names(
     paths: Paths,
     ts_mods: list,
     logger=None,
-) -> tuple:
+) -> Tuple[pathlib.Path, pathlib.Path, pathlib.Path, pathlib.Path]:
     """Determine file names for base of stats and figure names and processed data and model names
 
     fname_processed_orig: no info about time modifications
@@ -788,10 +813,10 @@ def _processed_file_names(
     Returns
     -------
     tuple of Paths
-        fname_processed: base to be used for stats and figure
-        fname_processed_data: file name for processed data
-        fname_processed_model: file name for processed model
-        model_file_name: (unprocessed) model output
+        * fname_processed: base to be used for stats and figure
+        * fname_processed_data: file name for processed data
+        * fname_processed_model: file name for processed model
+        * model_file_name: (unprocessed) model output
     """
 
     if pd.notnull(user_min_time) and pd.notnull(user_max_time):
@@ -824,9 +849,9 @@ def _processed_file_names(
 
     # use same file name as for processed but with different path base and
     # make sure .nc
-    model_file_name = (paths.MODEL_CACHE_DIR / fname_processed_orig.stem).with_suffix(
-        ".nc"
-    )
+    model_file_name: pathlib.Path = (
+        paths.MODEL_CACHE_DIR / fname_processed_orig.stem
+    ).with_suffix(".nc")
 
     if logger is not None:
         logger.info(f"Processed data file name is {fname_processed_data}.")
@@ -847,7 +872,7 @@ def _check_prep_narrow_data(
     data_min_time: pd.Timestamp,
     data_max_time: pd.Timestamp,
     logger=None,
-) -> tuple:
+) -> Tuple[Union[pd.DataFrame, xr.Dataset], list]:
     """Check, prep, and narrow the data in time range.
 
     Parameters
@@ -876,8 +901,8 @@ def _check_prep_narrow_data(
     Returns
     -------
     tuple
-        dd: data container that has been checked and processed. Will be None if a problem has been detected.
-        maps: list of data information. If there was a problem with this dataset, the final entry in `maps` representing the dataset will have been deleted.
+        * dd: data container that has been checked and processed. Will be None if a problem has been detected.
+        * maps: list of data information. If there was a problem with this dataset, the final entry in `maps` representing the dataset will have been deleted.
     """
 
     if isinstance(dd, DataFrame) and key_variable_data not in dd.cf:
@@ -979,7 +1004,7 @@ def _check_time_ranges(
     user_max_time: pd.Timestamp,
     maps,
     logger=None,
-) -> tuple:
+) -> Tuple[bool, list]:
     """Compare time ranges in case should skip dataset source_name.
 
     Parameters
@@ -1006,8 +1031,8 @@ def _check_time_ranges(
     Returns
     -------
     tuple
-        skip_dataset: bool that is True if this dataset should be skipped
-        maps: list of dataset information with the final entry (representing the present dataset) removed if skip_dataset is True.
+        * skip_dataset: bool that is True if this dataset should be skipped
+        * maps: list of dataset information with the final entry (representing the present dataset) removed if skip_dataset is True.
     """
 
     if logger is not None:
@@ -1058,7 +1083,12 @@ def _check_time_ranges(
 
 
 def _return_p1(
-    paths: Paths, dsm: xr.Dataset, alpha: int, dd: int, logger=None
+    paths: Paths,
+    dsm: xr.Dataset,
+    mask: Union[xr.DataArray, None],
+    alpha: int,
+    dd: int,
+    logger=None,
 ) -> shapely.Polygon:
     """Find and return the model domain boundary.
 
@@ -1068,10 +1098,14 @@ def _return_p1(
         _description_
     dsm : xr.Dataset
         _description_
+    mask : xr.DataArray or None
+        Values are 1 for active cells and 0 for inactive grid cells in the model dsm.
     alpha: int, optional
         Number for alphashape to determine what counts as the convex hull. Larger number is more detailed, 1 is a good starting point.
     dd: int, optional
         Number to decimate model output lon/lat, as a stride.
+    skip_mask : bool
+        Allows user to override mask behavior and keep it as None. Good for testing. Default False.
     logger : _type_, optional
         _description_, by default None
 
@@ -1086,6 +1120,7 @@ def _return_p1(
         _, _, _, p1 = find_bbox(
             dsm,
             paths=paths,
+            mask=mask,
             alpha=alpha,
             dd=dd,
             save=True,
@@ -1104,7 +1139,7 @@ def _return_p1(
 
 def _return_data_locations(
     maps: list, dd: Union[pd.DataFrame, xr.Dataset], logger=None
-) -> tuple:
+) -> Tuple[Union[float, np.array], Union[float, np.array]]:
     """Return lon, lat locations from dataset.
 
     Parameters
@@ -1119,8 +1154,8 @@ def _return_data_locations(
     Returns
     -------
     tuple
-        lons: float or array or floats
-        lats: float or array or floats
+        * lons: float or array of floats
+        * lats: float or array of floats
     """
 
     min_lon, max_lon, min_lat, max_lat, source_name = maps[-1][:5]
@@ -1184,7 +1219,7 @@ def _process_model(
     need_xgcm_grid: bool,
     kwargs_xroms: dict,
     logger=None,
-) -> tuple:
+) -> Tuple[xr.Dataset, Grid, bool]:
     """Process model output a second time, possibly.
 
     Parameters
@@ -1203,9 +1238,9 @@ def _process_model(
     Returns
     -------
     tuple
-        dsm2: Model output, possibly modified
-        grid: xgcm grid object or None
-        preprocessed: bool that is True if model output was processed in this function
+        * dsm2: Model output, possibly modified
+        * grid: xgcm grid object or None
+        * preprocessed: bool that is True if model output was processed in this function
     """
     preprocessed = False
 
@@ -1234,6 +1269,7 @@ def _process_model(
                     )
                 dsm2, grid = xroms.roms_dataset(dsm2, **kwargs_xroms)
                 dsm2.xroms.set_grid(grid)
+                check_dataset(dsm2)
 
         # now has been preprocessed
         preprocessed = True
@@ -1314,7 +1350,7 @@ def _select_process_save_model(
     maps: list,
     paths: Paths,
     logger=None,
-) -> tuple:
+) -> Tuple[xr.Dataset, bool, list]:
     """Select model output, process, and save to file
 
     Parameters
@@ -1341,9 +1377,9 @@ def _select_process_save_model(
     Returns
     -------
     tuple
-        model_var: xr.Dataset with selected model output
-        skip_dataset: True if we should skip this dataset due to checks in this function
-        maps: Same as input except might be missing final entry if skipping this dataset
+        * model_var: xr.Dataset with selected model output
+        * skip_dataset: True if we should skip this dataset due to checks in this function
+        * maps: Same as input except might be missing final entry if skipping this dataset
     """
 
     dam = select_kwargs.pop("dam")
@@ -1437,6 +1473,8 @@ def _select_process_save_model(
         skip_dataset = True
 
     # this is trying to drop z_rho type coordinates to not save an extra time series
+    # do need to use "vertical" here instead of "Z" since "Z" will be s_rho and we want
+    # to keep that
     if (
         select_kwargs["Z"] is not None
         and not select_kwargs["vertical_interp"]
@@ -1444,7 +1482,8 @@ def _select_process_save_model(
     ):
         if logger is not None:
             logger.info("Trying to drop vertical coordinates time series")
-        model_var = model_var.drop_vars(model_var.cf["vertical"].name)
+        if model_var.cf["vertical"].ndim > 2:
+            model_var = model_var.drop_vars(model_var.cf["vertical"].name)
 
     # try rechunking to avoid killing kernel
     if model_var.dims == (model_var.cf["T"].name,):
@@ -1452,7 +1491,7 @@ def _select_process_save_model(
         if model_var.chunks == ((model_var.size,),):
             if logger is not None:
                 logger.info(f"Rechunking model output...")
-            model_var = model_var.chunk({"ocean_time": 1})
+            model_var = model_var.chunk({model_var.cf["T"].name: 1})
 
     if logger is not None:
         logger.info(f"Loading model output...")
@@ -1540,6 +1579,13 @@ def _select_process_save_model(
         )
     model_var.attrs.update(attrs)
 
+    if select_kwargs["Z"] is None:
+        no_Z = True
+    else:
+        no_Z = False
+
+    check_dataset(model_var, no_Z=no_Z)
+
     if logger is not None:
         logger.info(f"Saving model output to file...")
     model_var.to_netcdf(model_file_name)
@@ -1566,7 +1612,7 @@ def run(
     kwargs_xroms: Optional[dict] = None,
     interpolate_horizontal: bool = True,
     horizontal_interp_code="delaunay",
-    save_horizontal_interp_weights: bool=True,
+    save_horizontal_interp_weights: bool = True,
     want_vertical_interp: bool = False,
     extrap: bool = False,
     model_source_name: Optional[str] = None,
@@ -1589,6 +1635,8 @@ def run(
     """Run the model-data comparison.
 
     Note that timezones are assumed to match between the model output and data.
+
+    To avoid calculating a mask you need to input `skip_mask=True`, `check_in_boundary=False`, and `plot_map=False`.
 
     Parameters
     ----------
@@ -1655,7 +1703,7 @@ def run(
     no_Z : bool
         If True, set Z=None so no vertical interpolation or selection occurs. Do this if your variable has no concept of depth, like the sea surface height.
     skip_mask : bool
-        Allows user to override mask behavior and keep it as None. Good for testing. Default False.
+        Allows user to override mask behavior and keep it as None. Good for testing. Default False. Also skips mask in p1 calculation and map plotting if set to False and those are set to True.
     wetdry : bool
         If True, insist that masked used has "wetdry" in the name and then use the first time step of that mask.
     plot_count_title : bool
@@ -1690,7 +1738,7 @@ def run(
     if vocab_labels is not None:
         vocab_labels = open_vocab_labels(vocab_labels, paths)
 
-    # Open catalogs.
+    # Open and check catalogs.
     cats = open_catalogs(catalogs, paths)
 
     # Warning about number of datasets
@@ -1788,6 +1836,8 @@ def run(
 
             try:
                 dfd = cat[source_name].read()
+                if isinstance(dfd, pd.DataFrame):
+                    dfd = check_dataframe(dfd, no_Z)
 
             except requests.exceptions.HTTPError as e:
                 logger.warning(str(e))
@@ -1799,10 +1849,40 @@ def run(
             # Need to have this here because if model file has previously been read in but
             # aligned file doesn't exist yet, this needs to run to update the sign of the
             # data depths in certain cases.
-            zkeym = dsm.cf.coordinates["vertical"][0]
+            zkeym = dsm.cf.axes["Z"][0]
             dfd, Z, vertical_interp = _choose_depths(
                 dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp, logger
             )
+
+            # take out relevant variable and identify mask if available (otherwise None)
+            # this mask has to match dam for em.select()
+            if not skip_mask:
+                mask = _return_mask(
+                    mask,
+                    dsm,
+                    dsm.cf.coordinates["longitude"][
+                        0
+                    ],  # using the first longitude key is adequate
+                    wetdry,
+                    key_variable_data,
+                    paths,
+                    logger,
+                )
+
+            # I think these should always be true together
+            if skip_mask:
+                assert mask is None
+
+            # Calculate boundary of model domain to compare with data locations and for map
+            # don't need p1 if check_in_boundary False and plot_map False
+            if (check_in_boundary or plot_map) and p1 is None:
+                p1 = _return_p1(paths, dsm, mask, alpha, dd, logger)
+
+            # see if data location is inside alphashape-calculated polygon of model domain
+            if check_in_boundary:
+                if _is_outside_boundary(p1, min_lon, min_lat, source_name, logger):
+                    maps.pop(-1)
+                    continue
 
             # check for already-aligned model-data file
             fname_processed_orig = f"{cat.name}_{source_name}_{key_variable_data}"
@@ -1833,20 +1913,16 @@ def run(
                     source_name,
                 )
                 if isinstance(dfd, pd.DataFrame):
-                    obs = pd.read_csv(fname_processed_data)  # , parse_dates=True)
-
-                    if "T" in obs.cf:
-                        obs[obs.cf["T"].name] = pd.to_datetime(obs.cf["T"])
-
-                    # # assume all columns except last two are index columns
-                    # # last two should be obs and model
-                    # obs = obs.set_index(list(obs.columns[:-2]))
+                    obs = pd.read_csv(fname_processed_data)
+                    obs = check_dataframe(obs, no_Z)
                 elif isinstance(dfd, xr.Dataset):
                     obs = xr.open_dataset(fname_processed_data)
+                    check_dataset(obs, is_model=False, no_Z=no_Z)
                 else:
                     raise TypeError("object is neither DataFrame nor Dataset.")
 
                 model = xr.open_dataset(fname_processed_model)
+                check_dataset(model, no_Z=no_Z)
             else:
 
                 logger.info(
@@ -1884,6 +1960,7 @@ def run(
                     model_var = model_var.cf.guess_coord_axis()
                     model_var = model_var.cf[key_variable_data]
                     # distance = model_var.attrs["distance_from_location_km"]
+                    check_dataset(model_var, no_Z=no_Z)
 
                     if model_only:
                         logger.info("Running model only so moving on to next source...")
@@ -1894,17 +1971,6 @@ def run(
 
                     # lons, lats might be one location or many
                     lons, lats = _return_data_locations(maps, dfd, logger)
-
-                    # Calculate boundary of model domain to compare with data locations and for map
-                    # don't need p1 if check_in_boundary False and plot_map False
-                    if (check_in_boundary or plot_map) and p1 is None:
-                        p1 = _return_p1(paths, dsm, alpha, dd, logger)
-
-                    # see if data location is inside alphashape-calculated polygon of model domain
-                    if check_in_boundary and _is_outside_boundary(
-                        p1, min_lon, min_lat, source_name, logger
-                    ):
-                        continue
 
                     # narrow time range to limit how much model output to deal with
                     dsm2 = _narrow_model_time_range(
@@ -1935,6 +2001,7 @@ def run(
                         key_variable,
                         key_variable_data,
                         cat[source_name].metadata,
+                        no_Z,
                         logger,
                     )
 
@@ -1944,19 +2011,6 @@ def run(
                     # expand 1D coordinates to 2D, so all models dealt with in OMSA are treated with 2D coords.
                     # if your model is too large to be treated with this way, subset the model first.
                     dam = coords1Dto2D(dam)  # this is fast if not needed
-
-                    # take out relevant variable and identify mask if available (otherwise None)
-                    # this mask has to match dam for em.select()
-                    if not skip_mask:
-                        mask = _return_mask(
-                            mask,
-                            dsm,
-                            dam.cf["longitude"].name,
-                            wetdry,
-                            key_variable_data,
-                            paths,
-                            logger,
-                        )
 
                     # if make_time_series then want to keep all the data times (like a CTD transect)
                     # if not, just want the unique values (like a CTD profile)
@@ -2032,23 +2086,23 @@ def run(
                 # read in from newly made file to make sure output is loaded
                 if isinstance(dfd, pd.DataFrame):
                     dfd.to_csv(fname_processed_data, index=False)
-                    # obs = pd.read_csv(fname_processed_data, index_col=0, parse_dates=True)
-                    obs = pd.read_csv(fname_processed_data)  # , parse_dates=True)
-
-                    if "T" in obs.cf:
-                        obs[obs.cf["T"].name] = pd.to_datetime(obs.cf["T"])
+                    obs = pd.read_csv(fname_processed_data)
+                    obs = check_dataframe(obs, no_Z)
                 elif isinstance(dfd, xr.Dataset):
                     dfd.to_netcdf(fname_processed_data)
                     obs = xr.open_dataset(fname_processed_data)
+                    check_dataset(obs, is_model=False, no_Z=no_Z)
                 else:
                     raise TypeError("object is neither DataFrame nor Dataset.")
                 model_var.to_netcdf(fname_processed_model)
                 model = xr.open_dataset(fname_processed_model)
+                check_dataset(model, no_Z=no_Z)
 
             logger.info(f"model file name is {model_file_name}.")
             if model_file_name.is_file():
                 logger.info("Reading model output from file.")
                 model_var = xr.open_dataset(model_file_name)
+                check_dataset(model_var, no_Z=no_Z)
                 if not interpolate_horizontal:
                     distance = model_var["distance"]
                 # distance = model_var.attrs["distance_from_location_km"]

@@ -1,6 +1,6 @@
 # What's New
 
-## v1.0.0 (unreleased)
+## v1.0.0 (October 4, 2023)
 * more modularized code structure with much more testing
 * requires datasets to include catalog metadata of NCEI feature type and maptype (for plotting):
   * feature types currently included:
@@ -12,6 +12,9 @@
 * added option for user to input labels for vocab keys to be used in plots
 * configuration for handling featuretypes is in `featuretype.py` and `plot.__init__`.
 * Added images-based tests for each featuretype, which can be run to compare against expected images with `pytest --mpl`. There is a developer section in the documentation with instructions.
+* Added checks for what DataFrame datasets need to include and what catalog source metadata needs to include
+* expanded documentation on requirements and information for datasets and catalogs, including using and understanding NCEI feature types
+* Full update of docs
 
 ## v0.9.0 (September 15, 2023)
 * improved index handling

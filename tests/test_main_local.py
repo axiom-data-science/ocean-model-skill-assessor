@@ -91,6 +91,7 @@ def test_make_catalog_local_read(read):
         kwargs=kwargs,
         return_cat=True,
         save_cat=False,
+        metadata={"featuretype": "timeSeries", "maptype": "point"},
     )
     assert cat["filename"].metadata["minLongitude"] == 0.0
     assert cat["filename"].metadata["maxLatitude"] == 8.0

@@ -19,6 +19,9 @@ dependencies:
    - numpy
    - pandas
    - xarray
+   - xcmocean
+   - xgcm
+   - xroms
    # These are needed for the docs themselves
    - jupytext
    - numpydoc

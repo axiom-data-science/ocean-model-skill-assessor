@@ -83,6 +83,7 @@ exclude_patterns = [
     "_old_docs",
     ".ipynb",
     "notebooks",
+    "_save_notebooks",
 ]
 
 html_extra_path = ["vocab_widget.html"]
@@ -100,7 +101,7 @@ html_title = "ocean-model-skill-assessor documentation"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+# html_static_path = ["_static"]
 
 
 # -- myst nb specific options ------
@@ -113,7 +114,8 @@ nb_execution_timeout = 600  # seconds.
 nb_execution_allow_errors = False
 
 # https://myst-nb.readthedocs.io/en/v0.9.0/use/execute.html
-jupyter_execute_notebooks = "off"
+# jupyter_execute_notebooks = "auto"  # deprecated
+nb_execution_mode = "force"
 
 # -- nbsphinx specific options ----------------------------------------------
 # this allows notebooks to be run even if they produce errors.

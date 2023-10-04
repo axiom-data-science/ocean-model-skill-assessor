@@ -16,7 +16,10 @@ from .stats import compute_stats
 @register_dataframe_accessor("omsa")
 @xr.register_dataset_accessor("omsa")
 class SkillAssessorAccessor:
-    """Class to facilitate some functions directly on DataFrames."""
+    """Class to facilitate some functions directly on DataFrames.
+
+    THIS IS DEPRECATED.
+    """
 
     def __init__(self, dd):
         """

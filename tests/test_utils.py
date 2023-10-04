@@ -142,7 +142,7 @@ def test_kwargs_search_from_model(mock_open_cat, mock_to_dask, project_cache):
 
 def test_find_bbox():
     paths = omsa.paths.Paths(project_name="projectA", cache_dir=project_cache)
-    lonkey, latkey, bbox, p1 = omsa.utils.find_bbox(ds, paths)
+    lonkey, latkey, bbox, p1 = omsa.utils.find_bbox(ds, paths, mask=None)
 
     assert lonkey == "lon"
     assert latkey == "lat"

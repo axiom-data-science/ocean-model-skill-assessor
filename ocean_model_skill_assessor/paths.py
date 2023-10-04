@@ -4,6 +4,7 @@ Create paths, and handle file locations and vocabulary files.
 
 
 import shutil
+import warnings
 
 from pathlib import Path
 
@@ -14,7 +15,7 @@ import pandas as pd
 class Paths(object):
     """Object to manage paths"""
 
-    def __init__(self, project_name, cache_dir=None):
+    def __init__(self, project_name=None, cache_dir=None):
         """Initialize Paths object to manage paths in project.
 
         Parameters
@@ -24,6 +25,9 @@ class Paths(object):
         cache_dir : _type_, optional
             Input an alternative cache_dir if you prefer, esp for testing, by default None
         """
+        # if project_name is None:
+        #     warnings.warn("only `VOCAB_DIR` and `VOCAB_PATH` are available without supplying 'project_name'.")
+
         if cache_dir is None:
             # set up cache directories for package to use
             # user application cache directory, appropriate to each OS
@@ -52,12 +56,14 @@ class Paths(object):
     @property
     def PROJ_DIR(self):
         """Return path to project directory."""
+        assert self.project_name is not None
         path = self.cache_dir / f"{self.project_name}"
         path.mkdir(parents=True, exist_ok=True)
         return path
 
     def CAT_PATH(self, cat_name):
         """Return path to catalog."""
+        assert self.project_name is not None
         path = (self.PROJ_DIR / cat_name).with_suffix(".yaml")
         return path
 
@@ -69,6 +75,7 @@ class Paths(object):
     @property
     def LOG_PATH(self):
         """Return path to vocab."""
+        assert self.project_name is not None
         path = (self.PROJ_DIR / f"omsa").with_suffix(".log")
 
         # # if I can figure out how to make distinct logs per run
@@ -81,17 +88,20 @@ class Paths(object):
     @property
     def ALPHA_PATH(self):
         """Return path to alphashape polygon."""
+        assert self.project_name is not None
         path = (self.PROJ_DIR / "alphashape").with_suffix(".txt")
         return path
 
     def MASK_PATH(self, key_variable):
         """Return path to mask cache for key_variable."""
+        assert self.project_name is not None
         path = (self.PROJ_DIR / f"mask_{key_variable}").with_suffix(".nc")
         return path
 
     @property
     def MODEL_CACHE_DIR(self):
         """Return path to model cache directory."""
+        assert self.project_name is not None
         path = self.PROJ_DIR / "model_output"
         path.mkdir(parents=True, exist_ok=True)
         return path
@@ -99,6 +109,7 @@ class Paths(object):
     @property
     def PROCESSED_CACHE_DIR(self):
         """Return path to processed data-model directory."""
+        assert self.project_name is not None
         path = self.PROJ_DIR / "processed"
         path.mkdir(parents=True, exist_ok=True)
         return path
@@ -106,6 +117,7 @@ class Paths(object):
     @property
     def OUT_DIR(self):
         """Return path to output directory."""
+        assert self.project_name is not None
         path = self.PROJ_DIR / "out"
         path.mkdir(parents=True, exist_ok=True)
         return path

@@ -26,9 +26,8 @@ dependencies:
     - cf_pandas
     - intake-axds
     - intake-erddap
-    - intake
+    - intake>=0.7.0
     - nested_lookup
-    - tqdm
     - xroms  # github actions won't find on conda-forge
     - codecov
     - pytest-cov

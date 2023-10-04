@@ -28,7 +28,6 @@ dependencies:
     - intake-erddap
     - intake
     - nested_lookup
-    - tqdm
     - xroms  # github actions won't find on conda-forge
     - codecov
     - pytest-cov

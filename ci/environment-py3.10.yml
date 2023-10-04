@@ -19,7 +19,6 @@ dependencies:
   - scipy
   - xarray
   - xcmocean
-  - xroms
   ##############
   - pytest
   - pip:
@@ -30,6 +29,7 @@ dependencies:
     - intake
     - nested_lookup
     - tqdm
+    - xroms  # github actions won't find on conda-forge
     - codecov
     - pytest-cov
     - pytest-mpl

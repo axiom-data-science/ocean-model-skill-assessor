@@ -20,15 +20,15 @@ dependencies:
   - xarray
   - xcmocean
   ##############
+  - alphashape
+  - cf_pandas
+  - intake-axds
+  - intake-erddap
+  - intake>=0.7.0
+  - nested_lookup
+  - xroms  # github actions won't find on conda-forge
   - pytest
   - pip:
-    - alphashape
-    - cf_pandas
-    - intake-axds
-    - intake-erddap
-    - intake>=0.7.0
-    - nested_lookup
-    - xroms  # github actions won't find on conda-forge
     - codecov
     - pytest-cov
     - pytest-mpl

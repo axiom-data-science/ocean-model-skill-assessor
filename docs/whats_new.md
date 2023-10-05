@@ -1,6 +1,6 @@
 # What's New
 
-## v1.0.0 (October 4, 2023)
+## v1.0.0 (October 5, 2023)
 * more modularized code structure with much more testing
 * requires datasets to include catalog metadata of NCEI feature type and maptype (for plotting):
   * feature types currently included:

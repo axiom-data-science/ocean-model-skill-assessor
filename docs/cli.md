@@ -31,7 +31,7 @@ Make a catalog with known local or remote file(s). Also use a local catalog to r
 
 ##### Basic catalog for single dataset
 
-    omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://erddap.sensors.axds.co/erddap/tabledap/aoos_204.csvp?time%2Clatitude%2Clongitude%2Cz%2Csea_water_temperature&time%3E=2022-01-01T00%3A00%3A00Z&time%3C=2022-01-06T00%3A00%3A00Z]"  --kwargs_open blocksize=None
+    omsa make_catalog --project_name test1 --catalog_type local --catalog_name example_local_catalog --description "Example local catalog description" --kwargs filenames="[https://erddap.sensors.axds.co/erddap/tabledap/aoos_204.csvp?time%2Clatitude%2Clongitude%2Cz%2Csea_water_temperature&time%3E=2022-01-01T00%3A00%3A00Z&time%3C=2022-01-06T00%3A00%3A00Z]"
 
 ##### Dataset with no lon/lat
 
@@ -175,7 +175,7 @@ The datasets need to all cover the same time periods.
 
 ### Available options
 
-    omsa run --project_name test1 --catalogs CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS --verbose --mode MODE
+    omsa run --project_name test1 --catalogs CATALOG_NAME1 CATALOG_NAME2 --vocab_names VOCAB1 VOCAB2 --key KEY --model_path PATH_TO_MODEL_OUTPUT --ndatasets NDATASETS --verbose --mode MODE --kwargs_map key_fig=value_fig --more_kwargs key=value key2=value2
 
 * `project_name`: Subdirectory in cache dir to store files associated together.
 * `catalog_names`: Catalog name(s). Datasets will be accessed from catalog entries.
@@ -185,6 +185,8 @@ The datasets need to all cover the same time periods.
 * `ndatasets`: Max number of datasets from each input catalog to use.
 * `verbose` Print useful runtime commands to stdout if True as well as save in log, otherwise silently save in log. Log is located in the project directory, which can be checked on the command line with `omsa proj_path --project_name PROJECT_NAME`. Default is True, to turn off use `--no-verbose`.
 * `mode` mode for logging file. Default is to overwrite an existing logfile, but can be changed to other modes, e.g. "a" to instead append to an existing log file.
+* `kwargs_map` are sent to `omsa.plot.map`
+* `more_kwargs` are sent to `omsa.run`
 
 ### Example
 

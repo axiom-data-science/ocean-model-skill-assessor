@@ -11,7 +11,7 @@ API
    main
    utils
    paths
-   accessor
    stats
    plot.map
-   plot.time_series
+   plot.line
+   plot.surface

@@ -15,6 +15,7 @@ from numpy import allclose, array, asarray
 from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
 
+from ..paths import Paths
 from ..utils import astype, find_bbox, open_catalogs, shift_longitudes
 
 
@@ -384,7 +385,7 @@ def plot_map(
 
 def plot_cat_on_map(
     catalog: Union[Catalog, str],
-    project_name: str,
+    paths: Paths,
     figname: Optional[str] = None,
     remove_duplicates=None,
     **kwargs_map,
@@ -395,8 +396,8 @@ def plot_cat_on_map(
     ----------
     catalog : Union[Catalog,str]
         Which catalog of datasets to plot on map.
-    project_name : str
-        name of project in case we need to find the project files.
+    paths : Paths
+        Paths object for finding paths to use.
     remove_duplicates : bool
         If True, take the set of the source in catalog based on the spatial locations so they are not repeated in the map.
     remove_duplicates : function, optional
@@ -410,7 +411,7 @@ def plot_cat_on_map(
     >>> omsa.plot.map.plot_cat_on_map(catalog=catalog_name, project_name=project_name)
     """
 
-    cat = open_catalogs(catalog, project_name)[0]
+    cat = open_catalogs(catalog, paths)[0]
 
     figname = figname or f"map_of_{cat.name}"
 

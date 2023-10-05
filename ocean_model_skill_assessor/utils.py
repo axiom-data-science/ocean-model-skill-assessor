@@ -2,7 +2,9 @@
 Utility functions.
 """
 
+import json
 import logging
+import pathlib
 import sys
 
 from pathlib import PurePath
@@ -21,11 +23,142 @@ from intake.catalog import Catalog
 from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
 
-from .paths import ALPHA_PATH, CAT_PATH, LOG_PATH, VOCAB_PATH
+from .paths import Paths
+
+
+def check_dataset(
+    ds: Union[xr.DataArray, xr.Dataset], is_model: bool = True, no_Z: bool = False
+):
+    """Check xarray datasets (usually model output) for necessary cf-xarray dims/coords.
+
+    If Dataset is model output (`is_model=True`), must have T, Z, vertical, latitude, longitude, and "positive" attribute must be associated with Z or vertical. But, if `no_Z=True`, neither Z, vertical, nor positive attribute need to be present.
+
+    If Dataset is not model output (is_model=False), must have T, Z, latitude, longitude. But, if `no_Z=True`, Z does not need to be present.
+
+    """
+
+    if "T" not in ds.cf:
+        raise KeyError(
+            "a variable of datetimes needs to be identifiable by `cf-xarray` in dataset. Ways to address this include: variable name has the word 'time' in it; variable contains datetime objects; variable has an attribute of `'axis': 'T'`. See `cf-xarray` docs for more information."
+        )
+    if not no_Z:
+        if is_model:
+            if "Z" not in ds.cf or "vertical" not in ds.cf:
+                raise KeyError(
+                    "a variable of depths needs to be identifiable by `cf-xarray` in dataset for both axis 'Z' and coordinate 'vertical'. Ways to address this include: variable name has the word 'depth' in it; for axis 'Z' variable has an attribute of `'axis': 'Z'`. See `cf-xarray` docs for more information."
+                )
+            if (
+                "positive" not in ds[ds.cf.axes["Z"][0]].attrs
+                and "positive" not in ds[ds.cf.coordinates["vertical"][0]].attrs
+            ):
+                raise KeyError(
+                    "ds.cf['Z'] or ds.cf['vertical'] needs to have an attribute stating `'positive': 'up'` or `'positive': 'down'`."
+                )
+        else:
+            if "Z" not in ds.cf:
+                raise KeyError(
+                    "a variable of depths needs to be identifiable by `cf-xarray` in dataset for axis 'Z'. Ways to address this include: variable name has the word 'depth' in it; variable has an attribute of `'axis': 'Z'`. See `cf-xarray` docs for more information."
+                )
+
+    if "longitude" not in ds.cf or "latitude" not in ds.cf:
+        raise KeyError(
+            "A variable containing longitudes and a variable containing latitudes must each be identifiable. One way to address this is to make sure the variable names start with 'lon' and 'lat' respectively. See `cf-xarray` docs for more information."
+        )
+
+
+def check_dataframe(dfd: pd.DataFrame, no_Z: bool) -> pd.DataFrame:
+    """Check dataframe for T, Z, lon, lat; reset indices; parse dates."""
+
+    # drop index if it is just the default range index, otherwise return to columns
+    if (
+        isinstance(dfd.index, pd.core.indexes.range.RangeIndex)
+        and dfd.index.start == 0
+        and dfd.index.stop == len(dfd.index)
+    ):
+        drop = True
+    else:
+        drop = False
+
+    dfd = dfd.reset_index(drop=drop)
+
+    # check for presence of required axis/coord information
+    # in the future relax these requirements depending on featuretype is instead is in
+    # catalog metadata
+    if "T" not in dfd.cf:
+        raise KeyError(
+            "a column of datetimes needs to be identifiable by `cf-pandas` in dataset. One way to address this is to make sure the name of the column has the word 'time' in it."
+        )
+    if "Z" not in dfd.cf and not no_Z:
+        raise KeyError(
+            "a column of depths (even if the same value) needs to be identifiable by `cf-pandas` in dataset. If there is no concept of depth for this dataset, you can instead set `no_Z=True`. If a depth-column is present, make sure it has 'depth' in the column name."
+        )
+    if "longitude" not in dfd.cf or "latitude" not in dfd.cf:
+        raise KeyError(
+            "A column containing longitudes and a column containing latitudes must each be identifiable by `cf-pandas`. If they are present make sure the column name includes 'lon' and 'lat', respectively."
+        )
+
+    dfd[dfd.cf["T"].name] = pd.to_datetime(dfd.cf["T"])
+
+    return dfd
+
+
+def check_catalog(cat: Catalog):
+    """Check a catalog for required keys.
+
+    Parameters
+    ----------
+    catalogs : Catalog
+        Catalog object
+
+    """
+
+    required_keys = {
+        "minLongitude",
+        "maxLongitude",
+        "minLatitude",
+        "maxLatitude",
+        "minTime",
+        "maxTime",
+        "featuretype",
+        "maptype",
+    }
+
+    for source_name in list(cat):
+        missing_keys = set(required_keys) - set(cat[source_name].metadata.keys())
+
+        if len(missing_keys) > 0:
+            raise KeyError(
+                f"In catalog {cat.name} and dataset {source_name}, missing required keys {missing_keys}."
+            )
+
+    allowed_featuretypes = [
+        "timeSeries",
+        "profile",
+        "trajectoryProfile",
+        "timeSeriesProfile",
+    ]
+    future_featuretypes = ["trajectory", "grid"]
+
+    if cat[source_name].metadata["featuretype"] in future_featuretypes:
+        raise KeyError(
+            f"featuretype {cat[source_name].metadata['featuretype']} is not available yet."
+        )
+    elif cat[source_name].metadata["featuretype"] not in allowed_featuretypes:
+        raise KeyError(
+            f"featuretype in metadata must be one of {allowed_featuretypes} but instead is {cat[source_name].metadata['featuretype']}."
+        )
+
+    allowed_maptypes = ["point", "line", "box"]
+    if cat[source_name].metadata["maptype"] not in allowed_maptypes:
+        raise KeyError(
+            f"maptype in metadata must be one of {allowed_maptypes} but instead is {cat[source_name].metadata['maptype']}."
+        )
 
 
 def open_catalogs(
-    catalogs: Union[str, Catalog, Sequence], project_name: str
+    catalogs: Union[str, Catalog, Sequence],
+    paths: Optional[Paths] = None,
+    skip_check: bool = False,
 ) -> List[Catalog]:
     """Initialize catalog objects from inputs.
 
@@ -33,8 +166,10 @@ def open_catalogs(
     ----------
     catalogs : Union[str, Catalog, Sequence]
         Catalog name(s) or list of names, or catalog object or list of catalog objects.
-    project_name : str
-        Subdirectory in cache dir to store files associated together.
+    paths : Paths, optional
+        Paths object for finding paths to use. Required if any catalog is a string referencing paths.
+    skip_check : bool
+        If True, do not check catalogs. Use this for testing as needed. Default is False.
 
     Returns
     -------
@@ -43,28 +178,37 @@ def open_catalogs(
     """
 
     catalogs = always_iterable(catalogs)
-    if isinstance(catalogs[0], str):
-        cats = [
-            intake.open_catalog(CAT_PATH(catalog_name, project_name))
-            for catalog_name in astype(catalogs, list)
-        ]
-    elif isinstance(catalogs[0], Catalog):
-        cats = catalogs
-    else:
-        raise ValueError(
-            "Catalog(s) should be input as string paths or Catalog objects or Sequence thereof."
-        )
+    cats = []
+    for catalog in catalogs:
+        if isinstance(catalog, str):
+            if paths is None:
+                raise KeyError("if any catalog is a string, need to input `paths`.")
+            cat = intake.open_catalog(paths.CAT_PATH(catalog))
+        elif isinstance(catalog, Catalog):
+            cat = catalog
+        else:
+            raise ValueError(
+                "Catalog(s) should be input as string paths or Catalog objects or Sequence thereof."
+            )
+
+        if not skip_check:
+            check_catalog(cat)
+        cats.append(cat)
 
     return cats
 
 
-def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
+def open_vocabs(
+    vocabs: Union[str, Vocab, Sequence, PurePath], paths: Optional[Paths] = None
+) -> Vocab:
     """Open vocabularies, can input mix of forms.
 
     Parameters
     ----------
     vocabs : Union[str, Vocab, Sequence, PurePath]
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
+    paths : Paths, optional
+        Paths object for finding paths to use. Required if any input vocab is a str referencing paths.
 
     Returns
     -------
@@ -76,7 +220,9 @@ def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
     for vocab in vocabs:
         # convert to Vocab object
         if isinstance(vocab, str):
-            vocab = Vocab(VOCAB_PATH(vocab))
+            if paths is None:
+                raise KeyError("if any vocab is a string, need to input `paths`.")
+            vocab = Vocab(paths.VOCAB_PATH(vocab))
         elif isinstance(vocab, PurePath):
             vocab = Vocab(vocab)
         elif isinstance(vocab, Vocab):
@@ -89,6 +235,45 @@ def open_vocabs(vocabs: Union[str, Vocab, Sequence, PurePath]) -> Vocab:
     vocab = merge(vocab_objects)
 
     return vocab
+
+
+def open_vocab_labels(
+    vocab_labels: Union[str, dict, PurePath],
+    paths: Optional[Paths] = None,
+) -> dict:
+    """Open dict of vocab_labels if needed
+
+    Parameters
+    ----------
+    vocab_labels : Union[str, Vocab, Sequence, PurePath], optional
+        Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
+    paths : Paths, optional
+        Paths object for finding paths to use.
+
+    Returns
+    -------
+    dict
+        dict of vocab_labels for plotting
+    """
+
+    if isinstance(vocab_labels, str):
+        assert (
+            paths is not None
+        ), "need to input `paths` to `open_vocab_labels()` if inputting string."
+        vocab_labels = json.loads(
+            open(
+                pathlib.PurePath(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"),
+                "r",
+            ).read()
+        )
+    elif isinstance(vocab_labels, PurePath):
+        vocab_labels = json.loads(open(vocab_labels.with_suffix(".json"), "r").read())
+    elif isinstance(vocab_labels, dict):
+        vocab_labels = vocab_labels
+    else:
+        raise ValueError("vocab_labels should be input as string, Path, or dict.")
+    assert isinstance(vocab_labels, dict)
+    return vocab_labels
 
 
 def coords1Dto2D(dam: DataArray) -> DataArray:
@@ -155,13 +340,13 @@ def coords1Dto2D(dam: DataArray) -> DataArray:
     return dam
 
 
-def set_up_logging(project_name, verbose, mode: str = "w", testing: bool = False):
+def set_up_logging(verbose, paths: Paths, mode: str = "w", testing: bool = False):
     """set up logging"""
 
     if not testing:
         logging.captureWarnings(True)
 
-    file_handler = logging.FileHandler(filename=LOG_PATH(project_name), mode=mode)
+    file_handler = logging.FileHandler(filename=paths.LOG_PATH, mode=mode)
     handlers: List[Union[logging.StreamHandler, logging.FileHandler]] = [file_handler]
     if verbose:
         stdout_handler = logging.StreamHandler(stream=sys.stdout)
@@ -272,28 +457,30 @@ def get_mask(
 
 def find_bbox(
     ds: xr.DataArray,
+    paths: Optional[Paths] = None,
     mask: Optional[DataArray] = None,
     dd: int = 1,
     alpha: int = 5,
     save: bool = False,
-    project_name: Optional[str] = None,
 ) -> tuple:
     """Determine bounds and boundary of model.
+
+    This does not know how to handle a rectilinear 1D lon/lat model with a mask
 
     Parameters
     ----------
     ds: DataArray
         xarray Dataset containing model output.
+    paths : Paths
+        Paths object for finding paths to use.
     mask : DataArray, optional
         Mask with 1's for active locations and 0's for masked.
     dd: int, optional
         Number to decimate model output lon/lat, as a stride.
-    alpha: float, optional
+    alpha: int, optional
         Number for alphashape to determine what counts as the convex hull. Larger number is more detailed, 1 is a good starting point.
     save : bool, optional
-        Input True to save. If True, also need project_name.
-    project_name : str, optional
-        Input for saving.
+        Input True to save.
 
     Returns
     -------
@@ -304,11 +491,6 @@ def find_bbox(
     -----
     This was originally from the package ``model_catalogs``.
     """
-
-    if mask is not None:
-        hasmask = True
-    else:
-        hasmask = False
 
     try:
         lon = ds.cf["longitude"].values
@@ -329,29 +511,9 @@ def find_bbox(
         lon = ds[lonkey].values
         lat = ds[latkey].values
 
-    # try finding mask
-    if not hasmask:
-        # try finding mask
-        mask = get_mask(ds, lonkey)
-        hasmask = True
-
-    if hasmask:
-
-        if mask.ndim == 2 and lon.ndim == 1:
-            # # need to meshgrid lon/lat
-            # lon, lat = np.meshgrid(lon, lat)
-            # This shouldn't happen anymore, so make note if it does
-            msg = "1D coordinates were found for this model but that should not be possible anymore."
-            raise ValueError(msg)
-
-        lon = lon[np.where(mask == 1)]
-        lon = lon[~np.isnan(lon)].flatten()
-        lat = lat[np.where(mask == 1)]
-        lat = lat[~np.isnan(lat)].flatten()
-
     # This is structured, rectilinear
     # GFS, RTOFS, HYCOM
-    if (lon.ndim == 1) and ("nele" not in ds.dims):  # and not hasmask:
+    if (lon.ndim == 1) and ("nele" not in ds.dims):
         nlon, nlat = ds[lonkey].size, ds[latkey].size
         lonb = np.concatenate(([lon[0]] * nlat, lon[:], [lon[-1]] * nlat, lon[::-1]))
         latb = np.concatenate((lat[:], [lat[-1]] * nlon, lat[::-1], [lat[0]] * nlon))
@@ -361,8 +523,28 @@ def find_bbox(
         # Now using the more simplified version because all of these models are boxes
         p1 = p0
 
-    elif "nele" in ds.dims:  # unstructured
-        # elif hasmask or ("nele" in ds.dims):  # unstructured
+        if mask is not None:
+            raise NotImplemented
+
+    else:
+
+        if mask is not None:
+
+            if mask.ndim == 2 and lon.ndim == 1:
+                # # need to meshgrid lon/lat
+                # lon, lat = np.meshgrid(lon, lat)
+                # This shouldn't happen anymore, so make note if it does
+                msg = "1D coordinates were found for this model but that should not be possible anymore."
+                raise ValueError(msg)
+
+            lon = lon[np.where(mask == 1)]
+            lon = lon[~np.isnan(lon)].flatten()
+            lat = lat[np.where(mask == 1)]
+            lat = lat[~np.isnan(lat)].flatten()
+
+        else:
+            lon = lon.flatten()
+            lat = lat.flatten()
 
         assertion = (
             "dd and alpha need to be defined in the catalog metadata for this model."
@@ -384,10 +566,10 @@ def find_bbox(
         p1 = alphashape.alphashape(pts, alpha)
 
     if save:
-        if project_name is None:
-            words = "To save the model boundary, you need to input `project_name`."
+        if paths is None:
+            words = "To save the model boundary, you need to input `paths`."
             raise ValueError(words)
-        with open(ALPHA_PATH(project_name), "w") as text_file:
+        with open(paths.ALPHA_PATH, "w") as text_file:
             text_file.write(p1.wkt)
 
     # useful things to look at: p.wkt  #shapely.geometry.mapping(p)
@@ -412,18 +594,18 @@ def shift_longitudes(dam: Union[DataArray, Dataset]) -> Union[DataArray, Dataset
         lkey, xkey = dam.cf["longitude"].name, dam.cf["X"].name
         nlon = int((dam[lkey] >= 180).sum())  # number of longitudes to roll by
         dam = dam.assign_coords({lkey: (((dam[lkey] + 180) % 360) - 180)})
-        # dam = dam.assign_coords(lon=(((dam[lkey] + 180) % 360) - 180))
         # rotate arrays so that the locations and values are -180 to 180
         # instead of 0 to 180 to -180 to 0
         dam = dam.roll({xkey: nlon}, roll_coords=True)
-        # dam = dam.roll(lon=nlon, roll_coords=True)
         logging.warning(
             "Longitudes are being shifted because they look like they are not -180 to 180."
         )
     return dam
 
 
-def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dict:
+def kwargs_search_from_model(
+    kwargs_search: Dict[str, Union[str, float]], paths: Paths
+) -> dict:
     """Adds spatial and/or temporal range from model output to dict.
 
     Examines model output and uses the bounding box of the model as the search spatial range if needed, and the time range of the model as the search time search if needed. They are added into `kwargs_search` and the dict is returned.
@@ -432,6 +614,8 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
     ----------
     kwargs_search : dict
         Keyword arguments to input to search on the server before making the catalog.
+    paths : Paths
+        Paths object for finding paths to use.
 
     Returns
     -------
@@ -460,9 +644,7 @@ def kwargs_search_from_model(kwargs_search: Dict[str, Union[str, float]]) -> dic
 
         # read in model output
         if isinstance(kwargs_search["model_name"], str):
-            model_cat = intake.open_catalog(
-                CAT_PATH(kwargs_search["model_name"], kwargs_search["project_name"])
-            )
+            model_cat = intake.open_catalog(paths.CAT_PATH(kwargs_search["model_name"]))
         elif isinstance(kwargs_search["model_name"], Catalog):
             model_cat = kwargs_search["model_name"]
         else:

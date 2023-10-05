@@ -4,14 +4,14 @@ jupytext:
     extension: .md
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.14.4
+    jupytext_version: 1.15.2
 kernelspec:
-  display_name: Python 3.10.8 ('omsa')
+  display_name: Python 3 (ipykernel)
   language: python
   name: python3
 ---
 
-# How to make and work with vocabularies
+# How to make and work with vocabularies and vocab labels
 
 This page demonstrates the workflow of making a new vocabulary, saving it to the user application cache, and reading it back in to use it. The vocabulary created is the exact same as the "general" vocabulary that is saved with the OMSA package, though here it is given another name to demonstrate that you could be making any new vocabulary you want.
 
@@ -30,6 +30,8 @@ Here is the list of variables of interest (with "nickname"), aimed at a physical
 * sea ice velocity u "sea_ice_u"
 * sea ice velocity v "sea_ice_v"
 * sea ice area fraction "sea_ice_area_fraction"
+
+Vocab labels are used in model-data comparison plots to support nice labeling. They are a dictionary with the same keys as the vocabularies being used and the value is the string you want to use for that variable key's label in a plot.
 
 ```{code-cell} ipython3
 import cf_pandas as cfp
@@ -100,11 +102,12 @@ vocab
 This exact vocabulary was previously saved as "general" and is available under that name, but this page demonstrates saving a new vocabulary and so we use the name "general2" to differentiate.
 
 ```{code-cell} ipython3
-vocab.save(omsa.VOCAB_PATH("general2"))
+paths = omsa.paths.Paths()
+vocab.save(paths.VOCAB_PATH("general2"))
 ```
 
 ```{code-cell} ipython3
-omsa.VOCAB_PATH("general2")
+paths.VOCAB_PATH("general2")
 ```
 
 ### Use it later
@@ -112,7 +115,7 @@ omsa.VOCAB_PATH("general2")
 Read the saved vocabulary back in to use it:
 
 ```{code-cell} ipython3
-vocab = cfp.Vocab(omsa.VOCAB_PATH("general2"))
+vocab = cfp.Vocab(paths.VOCAB_PATH("general2"))
 
 df = pd.DataFrame(columns=["sst", "time", "lon", "lat"], data={"sst": [1,2,3]})
 with cfp.set_options(custom_criteria=vocab.vocab):
@@ -124,8 +127,8 @@ with cfp.set_options(custom_criteria=vocab.vocab):
 A user can add together vocabularies. For example, here we combine the built-in "standard_names" and "general" vocabularies.
 
 ```{code-cell} ipython3
-v1 = cfp.Vocab(omsa.VOCAB_PATH("standard_names"))
-v2 = cfp.Vocab(omsa.VOCAB_PATH("general"))
+v1 = cfp.Vocab(paths.VOCAB_PATH("standard_names"))
+v2 = cfp.Vocab(paths.VOCAB_PATH("general"))
 
 v = v1 + v2
 v
@@ -137,3 +140,20 @@ v
 
 .. raw:: html
    <iframe src="vocab_widget.html" height="500px" width="100%"></iframe>
+
++++
+
+## Vocab labels
+
+There is a default set of labels in the repository available alongside the default vocabs, called "vocab_labels.json".
+
+You can use `cf-pandas` to open up and look at `vocal_labels` like a vocabulary since they are both just dictionaries stored as json.
+
+```{code-cell} ipython3
+vocab_labels = cfp.Vocab(paths.VOCAB_PATH("vocab_labels"))
+vocab_labels
+```
+
+```{code-cell} ipython3
+
+```

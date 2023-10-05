@@ -12,15 +12,19 @@ dependencies:
    - cmocean
    - datetimerange
    - extract_model
-   - intake
+   - intake>=0.7.0
   #  - intake-axds
    - intake-erddap
    - intake-xarray
    - numpy
    - pandas
    - xarray
+   - xcmocean
+   - xgcm
+   - xroms
    # These are needed for the docs themselves
    - jupytext
+   - nested-lookup
    - numpydoc
    - pyproj
    - requests
@@ -42,7 +46,6 @@ dependencies:
      - docrep<=0.2.7
      - furo
      - nbsphinx
-     - nested_lookup
      - jupyter_client
      - myst-nb
      - sphinx_pangeo_theme

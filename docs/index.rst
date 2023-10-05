@@ -23,9 +23,9 @@ To install from PyPI:
    :hidden:
    :caption: User Guide
 
-   demo.ipynb
+   demo.md
+   datasets.md
    add_vocab.md
-   examples/index.rst
    api
 
 .. toctree::
@@ -33,9 +33,8 @@ To install from PyPI:
    :hidden:
    :caption: User Guide: CLI
 
-   demo_cli.ipynb
+   demo_cli.md
    cli.md
-   cli_tutorial.md
 
 .. toctree::
    :maxdepth: 3

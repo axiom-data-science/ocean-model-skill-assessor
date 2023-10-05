@@ -1,0 +1,16 @@
+{"temp": "Sea water temperature [C]",
+"salt": "Sea water salinity [psu]",
+"ssh": "Sea surface height [m]",
+"u": "x-axis velocity [m/s]",
+"v": "y-axis velocity [m/s]",
+"w": "z velocity [m/s]",
+"east": "Eastward velocity [m/s]",
+"north": "Northward velicity [m/s]",
+"water_dir": "Sea water direction [degrees]",
+"water_speed": "Sea water speed [m/s]",
+"wind_dir": "Wind direction [degrees]",
+"wind_speed": "Wind speed [m/s]",
+"sea_ice_u": "Sea ice x-axis velocity [m/s]",
+"sea_ice_v": "Sea ice y-axis velocity [m/s]",
+"sea_ice_area_fraction": "Sea ice area fraction []"
+}

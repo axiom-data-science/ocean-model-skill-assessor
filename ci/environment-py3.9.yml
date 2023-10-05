@@ -18,16 +18,18 @@ dependencies:
   - pyproj
   - scipy
   - xarray
+  - xcmocean
   ##############
+  - alphashape
+  - cf_pandas
+  - intake-axds
+  - intake-erddap
+  - intake
+  - nested-lookup
+  - xroms  # github actions won't find on conda-forge
   - pytest
   - pip:
-    - alphashape
-    - cf_pandas
-    - intake-axds
-    - intake-erddap
-    - intake
-    - nested_lookup
-    - tqdm
     - codecov
     - pytest-cov
+    - pytest-mpl
     - coverage[toml]

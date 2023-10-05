@@ -24,7 +24,7 @@ dependencies:
   - intake-axds
   - intake-erddap
   - intake>=0.7.0
-  - nested_lookup
+  - nested-lookup
   - xroms  # github actions won't find on conda-forge
   ##############
   - pytest

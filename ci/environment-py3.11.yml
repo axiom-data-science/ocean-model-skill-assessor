@@ -2,7 +2,7 @@ name: test_env_model_assessor
 channels:
   - conda-forge
 dependencies:
-  - python=3.8
+  - python=3.11
   ############## These will have to be adjusted to your specific project
   # - cf_pandas
   - cf_xarray
@@ -25,7 +25,7 @@ dependencies:
   - intake-axds
   - intake-erddap
   - intake>=0.7.0
-  - nested_lookup
+  - nested-lookup
   - xroms  # github actions won't find on conda-forge
   - pytest
   - pip:

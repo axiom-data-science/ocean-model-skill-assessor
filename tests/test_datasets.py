@@ -257,8 +257,10 @@ def check_output(cat, featuretype, key_variable, project_cache, no_Z):
         statsactual = yaml.safe_load(fp)
     for key in statsexpected.keys():
         try:
-            TestCase().assertAlmostEqual(statsexpected[key]["value"], statsactual[key]["value"], places=5)
-            
+            TestCase().assertAlmostEqual(
+                statsexpected[key]["value"], statsactual[key]["value"], places=5
+            )
+
         except AssertionError as msg:
             print(msg)
     # assert statsexpected == statsactual

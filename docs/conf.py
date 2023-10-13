@@ -115,7 +115,7 @@ nb_execution_allow_errors = False
 
 # https://myst-nb.readthedocs.io/en/v0.9.0/use/execute.html
 # jupyter_execute_notebooks = "auto"  # deprecated
-nb_execution_mode = "force"
+nb_execution_mode = "cache"
 
 # -- nbsphinx specific options ----------------------------------------------
 # this allows notebooks to be run even if they produce errors.

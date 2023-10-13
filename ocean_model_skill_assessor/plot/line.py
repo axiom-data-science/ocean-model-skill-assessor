@@ -70,8 +70,8 @@ def plot(
     fig, ax = plt.subplots(1, 1, figsize=figsize, layout="constrained")
     ax.plot(obs.cf[xname], obs.cf[yname], label="data", lw=lw, color=col_obs)
     ax.plot(
-        np.array(model.cf[xname]),
-        np.array(model.cf[yname]),
+        np.array(model.cf[xname].squeeze()),
+        np.array(model.cf[yname].squeeze()),
         label="model",
         lw=lw,
         color=col_model,

@@ -1,5 +1,9 @@
 # What's New
 
+## v1.1.0 (October 13, 2023)
+* Continuing to improve functionality of flags to be able to control how model output is extracted
+* making code more robust to different use cases
+
 ## v1.0.0 (October 5, 2023)
 * more modularized code structure with much more testing
 * requires datasets to include catalog metadata of NCEI feature type and maptype (for plotting):

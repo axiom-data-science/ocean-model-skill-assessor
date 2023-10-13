@@ -87,7 +87,7 @@ def plot(
         if isinstance(obs, xr.Dataset):
             obs = obs.to_dataframe()
         if isinstance(model, xr.Dataset):
-            model = model.to_dataframe()
+            model = model.to_dataframe().reset_index()
         # using .values on obs prevents name clashes for time and depth
         model["diff"] = obs.cf[zname].values - model.cf[zname]
     # want obs and data as Datasets
@@ -101,6 +101,7 @@ def plot(
             model = model.to_xarray()
         # using .values on obs prevents name clashes for time and depth
         model["diff"] = obs.cf[zname].values - model.cf[zname]
+        # model["diff"] = obs.cf[zname].values - model.cf[zname]
         model["diff"].attrs = {}
     else:
         raise ValueError("`kind` should be scatter or pcolormesh.")
@@ -190,6 +191,7 @@ def plot(
     axes[1].set_title("Model", fontsize=fs_title)
     axes[1].set_xlabel(xlabel, fontsize=fs)
     axes[1].set_ylabel("")
+    axes[1].set_xlim(axes[0].get_xlim())
     axes[1].set_ylim(axes[0].get_ylim())
     # save space by not relabeling y axis
     axes[1].set_yticklabels("")
@@ -215,6 +217,7 @@ def plot(
     axes[2].set_title("Obs - Model", fontsize=fs_title)
     axes[2].set_xlabel(xlabel, fontsize=fs)
     axes[2].set_ylabel("")
+    axes[2].set_xlim(axes[0].get_xlim())
     axes[2].set_ylim(axes[0].get_ylim())
     axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())
     axes[2].set_yticklabels("")

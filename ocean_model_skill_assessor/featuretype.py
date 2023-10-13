@@ -3,17 +3,26 @@
 
 ftconfig = {}
 ftconfig["timeSeries"] = {
-    "make_time_series": False,
+    "locstreamT": False,
+    "locstreamZ": False,
 }
 ftconfig["profile"] = {
-    "make_time_series": False,
-}
-ftconfig["trajectoryProfile"] = {
-    "make_time_series": True,
+    "locstreamT": False,
+    "locstreamZ": False,
 }
 ftconfig["timeSeriesProfile"] = {
-    "make_time_series": True,
+    "locstreamT": False,
+    "locstreamZ": False,
+}
+ftconfig["trajectory"] = {
+    "locstreamT": True,
+    "locstreamZ": False,
+}
+ftconfig["trajectoryProfile"] = {
+    "locstreamT": True,
+    "locstreamZ": True,
 }
 ftconfig["grid"] = {
-    "make_time_series": False,
+    "locstreamT": False,
+    "locstreamZ": False,
 }

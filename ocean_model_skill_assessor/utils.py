@@ -26,6 +26,55 @@ from xarray import DataArray, Dataset
 from .paths import Paths
 
 
+def fix_dataset(
+    model_var: Union[xr.DataArray, xr.Dataset], ds: Union[xr.DataArray, xr.Dataset]
+) -> Union[xr.DataArray, xr.Dataset]:
+    """Fill in info necessary to pass `check_dataset()` if possible.
+
+    Right now it is only for converting horizontal indices to lon/lat but conceivably could do more in the future. Looks for lon/lat being 2D coords.
+
+    Parameters
+    ----------
+    model_var : Union[xr.DataArray,xr.Dataset]
+        xarray object that needs some more info filled in
+    ds : Union[xr.DataArray,xr.Dataset]
+        xarray object that has info that can be used to fill in model_var
+
+    Returns
+    -------
+    Union[xr.DataArray,xr.Dataset]
+        model_var with more information included, hopefully
+    """
+    lonkey, latkey = ds.cf["longitude"].name, ds.cf["latitude"].name
+    X, Y = model_var.cf["X"], model_var.cf["Y"]
+
+    if (
+        "longitude" not in model_var.cf
+        and "X" in model_var.cf
+        and "longitude" in ds.cf
+        and ds.cf["longitude"].ndim == 2
+    ):
+        # model_var[lonkey] = ds.cf["longitude"].isel({Y.name: Y, X.name: X})
+        # model_var[lonkey].attrs = ds[lonkey].attrs
+        model_var = model_var.assign_coords(
+            {lonkey: ds.cf["longitude"].isel({Y.name: Y, X.name: X})}
+        )
+
+    if (
+        "latitude" not in model_var.cf
+        and "Y" in model_var.cf
+        and "latitude" in ds.cf
+        and ds.cf["latitude"].ndim == 2
+    ):
+        # model_var[latkey] = ds.cf["latitude"].isel({Y.name: Y, X.name: X})
+        # model_var[latkey].attrs = ds[latkey].attrs
+        model_var = model_var.assign_coords(
+            {latkey: ds.cf["latitude"].isel({Y.name: Y, X.name: X})}
+        )
+
+    return model_var
+
+
 def check_dataset(
     ds: Union[xr.DataArray, xr.Dataset], is_model: bool = True, no_Z: bool = False
 ):
@@ -102,13 +151,21 @@ def check_dataframe(dfd: pd.DataFrame, no_Z: bool) -> pd.DataFrame:
     return dfd
 
 
-def check_catalog(cat: Catalog):
+def check_catalog(
+    cat: Catalog,
+    source_names: Optional[list] = None,
+    skip_strings: Optional[list] = None,
+):
     """Check a catalog for required keys.
 
     Parameters
     ----------
     catalogs : Catalog
         Catalog object
+    source_names : list
+        Use these source_names instead of list(cat) if entered, for checking.
+    skip_strings : list of strings, optional
+        If provided, source_names in catalog will only be checked for goodness if they do not contain one of skip_strings. For example, if `skip_strings=["_base"]` then any source in the catalog whose name contains that string will be skipped.
 
     """
 
@@ -123,7 +180,19 @@ def check_catalog(cat: Catalog):
         "maptype",
     }
 
-    for source_name in list(cat):
+    skip_strings = skip_strings or []
+
+    if source_names is None:
+        source_names = list(cat)
+
+    for skip_string in skip_strings:
+        source_names = [
+            source_name
+            for source_name in source_names
+            if skip_string not in source_name
+        ]
+
+    for source_name in source_names:
         missing_keys = set(required_keys) - set(cat[source_name].metadata.keys())
 
         if len(missing_keys) > 0:
@@ -136,8 +205,9 @@ def check_catalog(cat: Catalog):
         "profile",
         "trajectoryProfile",
         "timeSeriesProfile",
+        "grid",
     ]
-    future_featuretypes = ["trajectory", "grid"]
+    future_featuretypes = ["trajectory"]
 
     if cat[source_name].metadata["featuretype"] in future_featuretypes:
         raise KeyError(
@@ -159,6 +229,7 @@ def open_catalogs(
     catalogs: Union[str, Catalog, Sequence],
     paths: Optional[Paths] = None,
     skip_check: bool = False,
+    skip_strings: Optional[list] = None,
 ) -> List[Catalog]:
     """Initialize catalog objects from inputs.
 
@@ -170,6 +241,8 @@ def open_catalogs(
         Paths object for finding paths to use. Required if any catalog is a string referencing paths.
     skip_check : bool
         If True, do not check catalogs. Use this for testing as needed. Default is False.
+    skip_strings : list of strings, optional
+        If provided, source_names in catalog will only be checked for goodness if they do not contain one of skip_strings. For example, if `skip_strings=["_base"]` then any source in the catalog whose name contains that string will be skipped.
 
     Returns
     -------
@@ -192,7 +265,7 @@ def open_catalogs(
             )
 
         if not skip_check:
-            check_catalog(cat)
+            check_catalog(cat, skip_strings=skip_strings)
         cats.append(cat)
 
     return cats
@@ -705,30 +778,38 @@ def kwargs_search_from_model(
     return kwargs_search
 
 
-def calculate_anomaly(dd: Union[pd.Series, xr.DataArray], monthly_mean) -> pd.Series:
+def calculate_anomaly(
+    dd_in: Union[pd.Series, pd.DataFrame, xr.DataArray], monthly_mean
+) -> pd.Series:
     """Given monthly mean that is indexed by month of year, subtract it from time series to get anomaly.
 
-    Should work with both pd.Series and xr. DataArray.
+    Should work with both pd.Series/pd.DataFrame and xr. DataArray.
     Assume that variable in monthly_mean is the same as in the input time series.
     The way it works for DataArrays is by changing it to a DataFrame. Assumes this is a time series.
 
-    Returns either as a pd.Series. Is that a problem?
+    Returns dd as the type as DataFrame it is came in as Series and Dataset if it came in DataArray. It is pd.Series in the middle so this probably won't work well for datasets that are more complex than time series.
     """
 
-    varname = dd.name
+    varname = dd_in.name
     varname_mean = f"{varname}_mean"
     varname_anomaly = f"{varname}_anomaly"
 
     # if monthly_mean is None:
     #     monthly_mean = dd[varname].groupby(dd.cf["T"].dt.month).mean()
 
-    if isinstance(dd, xr.DataArray):
-        dd = dd.squeeze().to_dataframe()
+    # in_type = type(dd)
 
-    elif isinstance(dd, pd.Series):
-        dd = dd.to_frame()  # this changes dd into a DataFrame
+    # if isinstance(dd, xr.DataArray):
+    #     dd = dd.squeeze().to_dataframe()
 
-    dd["time"] = dd.index.values  # save times
+    if isinstance(dd_in, pd.Series):
+        dd_in = dd_in.to_frame()  # this changes dd into a DataFrame
+
+    # import pdb; pdb.set_trace()
+
+    dd = pd.DataFrame()
+    dd["time"] = dd_in.cf["T"].values
+    # dd["time"] = dd_in.index.values  # save times
     dd = dd.set_index(dd["time"].dt.month)
     dd[varname_mean] = monthly_mean
     dd = dd.set_index(dd["time"].name)
@@ -743,9 +824,25 @@ def calculate_anomaly(dd: Union[pd.Series, xr.DataArray], monthly_mean) -> pd.Se
     dd.loc[inan, varname_mean] = pd.NA
 
     dd[varname_mean] = dd[varname_mean].interpolate()
-    dd[varname_anomaly] = dd[varname] - dd[varname_mean]
+    dd[varname_anomaly] = dd_in.squeeze() - dd[varname_mean]
 
-    return dd[varname_anomaly]
+    # return in original container
+    if isinstance(dd_in, xr.DataArray):
+        dd_out = xr.DataArray(
+            coords={dd_in.cf["T"].name: dd.index.values},
+            data=dd[varname_anomaly].values,
+        ).broadcast_like(dd_in)
+        if len(dd_in.coords) > len(dd_out.coords):
+            coordstoadd = list(set(dd_in.coords) - set(dd_out.coords))
+            for coord in coordstoadd:
+                dd_out[coord] = dd_in[coord]
+        dd_out.attrs = dd_in.attrs
+        dd_out.name = dd_in.name
+
+    elif isinstance(dd_in, (pd.Series, pd.DataFrame)):
+        dd_out = dd[varname_anomaly]
+
+    return dd_out
 
 
 def calculate_distance(lons, lats):

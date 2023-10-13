@@ -9,8 +9,12 @@ The NCEI netCDF feature types are useful because they describe what does and doe
 |                 | timeSeries     | profile        | timeSeriesProfile | trajectory (TODO)                     | trajectoryProfile     | grid (TODO)         |
 |---              |---             |---             |---                |---                                    | ---                   | ---                 |
 | Definition      | only t changes | only z changes | t and z change    | t, y, and x change                    | t, z, y, and x change | t changes, y/x grid |
-| Data types      | mooring, buoy  | CTD profile    | moored ADCP       | flow through, surface/drogued drifter | glider, transect of CTD profiles, towed ADCP   | satellite, HF Radar |
+| Data types      | mooring, buoy  | CTD profile    | moored ADCP       | flow through, 2D drifter | glider, transect of CTD profiles, towed ADCP, 3D drifter   | satellite, HF Radar |
 | maptypes        | point  | point  | point  | point(s), line, box | point(s), line, box | box |
+| X/Y are pairs (locstream) or grid | either locstream or grid | either locstream or grid | either locstream or grid | locstream | locstream | grid |
+| Which dimensions are independent from X/Y choice? |
+| T | Independent | Independent | Independent | match X/Y | match X/Y | Independent |
+| Z | Independent | Independent | Independent | Independent | match X/Y | Independent |
 
 
 

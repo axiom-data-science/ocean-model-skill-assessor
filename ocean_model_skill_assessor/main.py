@@ -743,10 +743,15 @@ def _dam_from_dsm(
             key_variable["inputs"].update({new_input_key: new_input_val})
 
         # e.g. ds.xroms.east_rotated(angle=-90, reference="compass", isradians=False, name="along_channel")
-        dam = getattr(
+        function_or_property = getattr(
             getattr(dsm2, key_variable["accessor"]),
             key_variable["function"],
-        )(**key_variable["inputs"])
+        )
+        # if it is a property can't call it like a function
+        if isinstance(getattr(type(dsm2.xroms), "east"), property):
+            dam = function_or_property
+        else:
+            dam = function_or_property(**key_variable["inputs"])
     else:
         dam = dsm2.cf[key_variable_data]
 
@@ -1524,6 +1529,11 @@ def _select_process_save_model(
             zkey = dam.cf["Z"].name
             iz = list(dam.cf["Z"].values).index(model_var[zkey].values)
             model_var[f"i_{zkey}"] = iz
+            # if we chose an index maybe there is no vertical? experimental
+            if "vertical" not in model_var.cf:
+                model_var[f"i_{zkey}"].attrs["positive"] = dam.cf["vertical"].attrs[
+                    "positive"
+                ]
         else:
             raise KeyError("Z missing from dam axes")
     if not select_kwargs["horizontal_interp"]:
@@ -1538,7 +1548,8 @@ def _select_process_save_model(
         # model_var.attrs["distance_from_location_km"] = float(distance)
     else:
         # when lons/lats are function of time, add them back in
-        if dam.cf["longitude"].name not in model_var.coords:
+        if "longitude" not in model_var.cf:
+            # if dam.cf["longitude"].name not in model_var.coords:
             # if model_var.ndim == 1 and len(model_var[model_var.dims[0]]) == lons.size:
             if isinstance(select_kwargs["longitude"], (float, int)):
                 attrs = dict(
@@ -1562,7 +1573,8 @@ def _select_process_save_model(
                     select_kwargs["longitude"],
                     attrs,
                 )
-        if dam.cf["latitude"].name not in model_var.dims:
+        if "latitude" not in model_var.cf:
+            # if dam.cf["latitude"].name not in model_var.dims:
             if isinstance(select_kwargs["latitude"], (float, int)):
                 model_var[dam.cf["latitude"].name] = select_kwargs["latitude"]
                 attrs = dict(
@@ -1824,9 +1836,11 @@ def run(
                 msg = f"\nsource name: {source_name} ({i+1} of {ndatasets} for catalog {cat}."
             logger.info(msg)
 
+            # this check doesn't work if key_data is a dict since too hard to figure out what to check then
             if (
                 "key_variables" in cat[source_name].metadata
                 and key_variable not in cat[source_name].metadata["key_variables"]
+                and not isinstance(key_variable, dict)
             ):
                 logger.info(
                     f"no `key_variables` key found in source metadata or at least not {key_variable}"
@@ -2031,9 +2045,9 @@ def run(
                         model_var = fix_dataset(model_var, dsm)
                         check_dataset(model_var, no_Z=no_Z)
 
-                    if model_only:
-                        logger.info("Running model only so moving on to next source...")
-                        continue
+                    # if model_only:
+                    #     logger.info("Running model only so moving on to next source...")
+                    #     continue
 
                 # have to read in the model output
                 else:
@@ -2247,6 +2261,10 @@ def run(
                 raise ValueError(
                     "If the processed files are available need this one too."
                 )
+
+            if model_only:
+                logger.info("Running model only so moving on to next source...")
+                continue
 
             stats_fname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(
                 ".yaml"

@@ -50,6 +50,9 @@ from .utils import (
     open_catalogs,
     open_vocab_labels,
     open_vocabs,
+    read_model_file,
+    read_processed_data_file,
+    save_processed_files,
     set_up_logging,
     shift_longitudes,
 )
@@ -650,10 +653,13 @@ def _choose_depths(
                 f"Will not perform vertical interpolation and there is no concept of depth for this variable."
             )
 
-    elif (dd.cf["Z"] == dd.cf["Z"][0]).all():
-        Z = float(
-            dd.cf["Z"][0]
-        )  # do nearest depth to the one depth represented in dataset
+    elif (dd.cf["Z"].size == 1) or (dd.cf["Z"] == dd.cf["Z"][0]).all():
+        if dd.cf["Z"].size == 1:
+            Z = float(dd.cf["Z"])
+        else:
+            Z = float(
+                dd.cf["Z"][0]
+            )  # do nearest depth to the one depth represented in dataset
         vertical_interp = False
         if logger is not None:
             logger.info(
@@ -1983,23 +1989,8 @@ def run(
                     "Reading previously-processed model output and data for %s.",
                     source_name,
                 )
-                if isinstance(dfd, pd.DataFrame):
-                    obs = pd.read_csv(fname_processed_data)
-                    obs = check_dataframe(obs, no_Z)
-                elif isinstance(dfd, xr.Dataset):
-                    obs = xr.open_dataset(fname_processed_data).cf.guess_coord_axis()
-                    check_dataset(obs, is_model=False, no_Z=no_Z)
-                else:
-                    raise TypeError("object is neither DataFrame nor Dataset.")
-
-                model = xr.open_dataset(fname_processed_model).cf.guess_coord_axis()
-                # check_dataset(model, no_Z=no_Z)
-                try:
-                    check_dataset(model, no_Z=no_Z)
-                except KeyError:
-                    # see if I can fix it
-                    model = fix_dataset(model, dsm)
-                    check_dataset(model, no_Z=no_Z)
+                obs = read_processed_data_file(fname_processed_data, no_Z)
+                model = read_model_file(fname_processed_model, no_Z, dsm)
             else:
 
                 logger.info(
@@ -2028,22 +2019,10 @@ def run(
                 # Read in model output from cache if possible.
                 if not override_model and model_file_name.is_file():
                     logger.info("Reading model output from file.")
-                    model_var = xr.open_dataset(model_file_name)
-                    # model_var = xr.open_dataarray(model_file_name)
+                    model = read_model_file(model_file_name, no_Z, dsm)
                     if not interpolate_horizontal:
                         distance = model_var["distance"]
-                    # maybe need to process again?
-                    # try to help with missing attributes
-                    model_var = model_var.cf.guess_coord_axis()
                     model_var = model_var.cf[key_variable_data]
-                    # distance = model_var.attrs["distance_from_location_km"]
-                    # check_dataset(model_var, no_Z=no_Z)
-                    try:
-                        check_dataset(model_var, no_Z=no_Z)
-                    except KeyError:
-                        # see if I can fix it
-                        model_var = fix_dataset(model_var, dsm)
-                        check_dataset(model_var, no_Z=no_Z)
 
                     # if model_only:
                     #     logger.info("Running model only so moving on to next source...")
@@ -2222,41 +2201,16 @@ def run(
                         # dfd = dfd.cf.sel({"T": slice(stime, etime)})
 
                 # Save processed data and model files
-                # read in from newly made file to make sure output is loaded
-                if isinstance(dfd, pd.DataFrame):
-                    dfd.to_csv(fname_processed_data, index=False)
-                    obs = pd.read_csv(fname_processed_data)
-                    obs = check_dataframe(obs, no_Z)
-                elif isinstance(dfd, xr.Dataset):
-                    dfd.to_netcdf(fname_processed_data)
-                    obs = xr.open_dataset(fname_processed_data).cf.guess_coord_axis()
-                    check_dataset(obs, is_model=False, no_Z=no_Z)
-                else:
-                    raise TypeError("object is neither DataFrame nor Dataset.")
-                model_var.to_netcdf(fname_processed_model)
-                model = xr.open_dataset(fname_processed_model).cf.guess_coord_axis()
-                # check_dataset(model, no_Z=no_Z)
-                try:
-                    check_dataset(model, no_Z=no_Z)
-                except KeyError:
-                    # see if I can fix it
-                    model = fix_dataset(model, dsm)
-                    check_dataset(model, no_Z=no_Z)
+                save_processed_files(dfd, fname_processed_data, model_var, fname_processed_model)
+                obs = read_processed_data_file(fname_processed_data, no_Z)
+                model = read_model_file(fname_processed_model, no_Z, dsm)
 
             logger.info(f"model file name is {model_file_name}.")
             if not override_model and model_file_name.is_file():
                 logger.info("Reading model output from file.")
-                model_var = xr.open_dataset(model_file_name).cf.guess_coord_axis()
-                # check_dataset(model_var, no_Z=no_Z)
-                try:
-                    check_dataset(model_var, no_Z=no_Z)
-                except KeyError:
-                    # see if I can fix it
-                    model_var = fix_dataset(model_var, dsm)
-                    check_dataset(model_var, no_Z=no_Z)
+                model = read_model_file(fname_processed_model, no_Z, dsm)
                 if not interpolate_horizontal:
                     distance = model_var["distance"]
-                # distance = model_var.attrs["distance_from_location_km"]
             else:
                 raise ValueError(
                     "If the processed files are available need this one too."
@@ -2295,7 +2249,6 @@ def run(
                 )
                 logger.info("Saved stats file.")
 
-            # Write stats on plot
             figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(".png")
 
             # # currently title is being set in plot.selection
@@ -2316,7 +2269,7 @@ def run(
                 xcmocean_options=xcmocean_options,
                 **kwargs,
             )
-            msg = f"Plotted time series for {source_name}\n."
+            msg = f"Made plot for {source_name}\n."
             logger.info(msg)
 
             count += 1

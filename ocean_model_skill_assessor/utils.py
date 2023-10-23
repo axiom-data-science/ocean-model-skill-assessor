@@ -7,8 +7,8 @@ import logging
 import pathlib
 import sys
 
-from pathlib import PurePath
-from typing import Dict, List, Optional, Sequence, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import cf_pandas as cfp
 import extract_model as em
@@ -24,6 +24,86 @@ from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
 
 from .paths import Paths
+
+
+def read_model_file(fname_processed_model: Path, no_Z: bool, dsm: xr.Dataset) -> xr.Dataset:
+    """_summary_
+
+    Parameters
+    ----------
+    fname_processed_model : Path
+        Model file path
+    no_Z : bool
+        _description_
+    dsm : Dataset
+        
+    Returns
+    -------
+    Processed model output (Dataset)
+    """
+
+    model = xr.open_dataset(fname_processed_model).cf.guess_coord_axis()
+    try:
+        check_dataset(model, no_Z=no_Z)
+    except KeyError:
+        # see if I can fix it
+        model = fix_dataset(model, dsm)
+        check_dataset(model, no_Z=no_Z)
+    
+    return model
+
+
+def read_processed_data_file(fname_processed_data: Path, no_Z: bool) -> Union[xr.Dataset, pd.DataFrame]:
+    """_summary_
+
+    Parameters
+    ----------
+    fname_processed_data : Path
+        Data file path
+    no_Z : bool
+        _description_
+        
+    Returns
+    -------
+    Processed data (DataFrame or Dataset)
+    """
+
+    # read in from newly made file to make sure output is loaded
+    if ".csv" in str(fname_processed_data):
+        obs = pd.read_csv(fname_processed_data)
+        obs = check_dataframe(obs, no_Z)
+    elif ".nc" in str(fname_processed_data):
+        obs = xr.open_dataset(fname_processed_data).cf.guess_coord_axis()
+        check_dataset(obs, is_model=False, no_Z=no_Z)
+    else:
+        raise TypeError("object is neither DataFrame nor Dataset.")
+    
+    return obs
+
+
+def save_processed_files(dfd: Union[xr.Dataset, pd.DataFrame], fname_processed_data: Path, 
+                        model_var: xr.Dataset, fname_processed_model: Path):
+    """Save processed data and model output into files.
+
+    Parameters
+    ----------
+    dfd : Union[xr.Dataset, pd.DataFrame]
+        Processed data
+    fname_processed_data : Path
+        Data file path
+    model_var : xr.Dataset
+        Processed model output
+    fname_processed_model : Path
+        Model file path
+    """
+    
+    if isinstance(dfd, pd.DataFrame):
+        dfd.to_csv(fname_processed_data, index=False)
+    elif isinstance(dfd, xr.Dataset):
+        dfd.to_netcdf(fname_processed_data)
+    else:
+        raise TypeError("object is neither DataFrame nor Dataset.")
+    model_var.to_netcdf(fname_processed_model)
 
 
 def fix_dataset(
@@ -272,13 +352,13 @@ def open_catalogs(
 
 
 def open_vocabs(
-    vocabs: Union[str, Vocab, Sequence, PurePath], paths: Optional[Paths] = None
+    vocabs: Union[str, Vocab, Sequence, Path], paths: Optional[Paths] = None
 ) -> Vocab:
     """Open vocabularies, can input mix of forms.
 
     Parameters
     ----------
-    vocabs : Union[str, Vocab, Sequence, PurePath]
+    vocabs : Union[str, Vocab, Sequence, Path]
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     paths : Paths, optional
         Paths object for finding paths to use. Required if any input vocab is a str referencing paths.
@@ -296,7 +376,7 @@ def open_vocabs(
             if paths is None:
                 raise KeyError("if any vocab is a string, need to input `paths`.")
             vocab = Vocab(paths.VOCAB_PATH(vocab))
-        elif isinstance(vocab, PurePath):
+        elif isinstance(vocab, Path):
             vocab = Vocab(vocab)
         elif isinstance(vocab, Vocab):
             vocab = vocab
@@ -311,14 +391,14 @@ def open_vocabs(
 
 
 def open_vocab_labels(
-    vocab_labels: Union[str, dict, PurePath],
+    vocab_labels: Union[str, dict, Path],
     paths: Optional[Paths] = None,
 ) -> dict:
     """Open dict of vocab_labels if needed
 
     Parameters
     ----------
-    vocab_labels : Union[str, Vocab, Sequence, PurePath], optional
+    vocab_labels : Union[str, Vocab, Sequence, Path], optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     paths : Paths, optional
         Paths object for finding paths to use.
@@ -335,11 +415,11 @@ def open_vocab_labels(
         ), "need to input `paths` to `open_vocab_labels()` if inputting string."
         vocab_labels = json.loads(
             open(
-                pathlib.PurePath(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"),
+                pathlib.Path(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"),
                 "r",
             ).read()
         )
-    elif isinstance(vocab_labels, PurePath):
+    elif isinstance(vocab_labels, Path):
         vocab_labels = json.loads(open(vocab_labels.with_suffix(".json"), "r").read())
     elif isinstance(vocab_labels, dict):
         vocab_labels = vocab_labels

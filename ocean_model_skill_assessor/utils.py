@@ -125,32 +125,37 @@ def fix_dataset(
     Union[xr.DataArray,xr.Dataset]
         model_var with more information included, hopefully
     """
-    lonkey, latkey = ds.cf["longitude"].name, ds.cf["latitude"].name
-    X, Y = model_var.cf["X"], model_var.cf["Y"]
 
-    if (
-        "longitude" not in model_var.cf
+    # see if lon/lat are in model_var as data_vars instead of as coordinates
+    if "longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf and "longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf:
+        lonkey, latkey = model_var.cf["longitude"].name, model_var.cf["latitude"].name
+        model_var = model_var.assign_coords({lonkey: model_var[lonkey], latkey: model_var[latkey]})
+
+    # if we have X/Y indices in model_var but not their equivalent lon/lat, get them from ds
+    elif (
+        "longitude" not in model_var.cf.coordinates
         and "X" in model_var.cf
-        and "longitude" in ds.cf
+        and "longitude" in ds.cf.coordinates
         and ds.cf["longitude"].ndim == 2
-    ):
-        # model_var[lonkey] = ds.cf["longitude"].isel({Y.name: Y, X.name: X})
-        # model_var[lonkey].attrs = ds[lonkey].attrs
-        model_var = model_var.assign_coords(
-            {lonkey: ds.cf["longitude"].isel({Y.name: Y, X.name: X})}
-        )
-
-    if (
-        "latitude" not in model_var.cf
+        and "latitude" not in model_var.cf.coordinates
         and "Y" in model_var.cf
         and "latitude" in ds.cf
         and ds.cf["latitude"].ndim == 2
     ):
-        # model_var[latkey] = ds.cf["latitude"].isel({Y.name: Y, X.name: X})
-        # model_var[latkey].attrs = ds[latkey].attrs
+        lonkey, latkey = ds.cf["longitude"].name, ds.cf["latitude"].name
+        X, Y = model_var.cf["X"], model_var.cf["Y"]
+        # model_var[lonkey] = ds.cf["longitude"].isel({Y.name: Y, X.name: X})
+        # model_var[lonkey].attrs = ds[lonkey].attrs
         model_var = model_var.assign_coords(
-            {latkey: ds.cf["latitude"].isel({Y.name: Y, X.name: X})}
+            {lonkey: ds.cf["longitude"].isel({Y.name: Y, X.name: X}),
+             latkey: ds.cf["latitude"].isel({Y.name: Y, X.name: X})}
         )
+
+    # see if Z is in variables but not in coords
+    # can't figure out how to catch this case but generalize yet
+    if "Z" not in model_var.cf.coordinates and "s_rho" in model_var.variables:
+        model_var = model_var.assign_coords({"s_rho": model_var["s_rho"]})
+    
 
     return model_var
 

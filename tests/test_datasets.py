@@ -19,10 +19,10 @@ from make_test_datasets import make_test_datasets
 import ocean_model_skill_assessor as omsa
 
 
-# RTD doesn't activate the env, and esmpy depends on a env var set there
-# We assume the `os` package is in {ENV}/lib/pythonX.X/os.py
-# See conda-forge/esmf-feedstock#91 and readthedocs/readthedocs.org#4067
-os.environ["ESMFMKFILE"] = str(pathlib.Path(os.__file__).parent.parent / "esmf.mk")
+# # RTD doesn't activate the env, and esmpy depends on a env var set there
+# # We assume the `os` package is in {ENV}/lib/pythonX.X/os.py
+# # See conda-forge/esmf-feedstock#91 and readthedocs/readthedocs.org#4067
+# os.environ["ESMFMKFILE"] = str(pathlib.Path(os.__file__).parent.parent / "esmf.mk")
 
 project_name = "tests"
 base_dir = pathlib.Path("tests/test_results")

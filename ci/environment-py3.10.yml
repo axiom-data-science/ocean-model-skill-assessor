@@ -25,6 +25,7 @@ dependencies:
   - intake-erddap
   - intake>=0.7.0
   - nested-lookup
+  - xesmf
   - xroms  # github actions won't find on conda-forge
   ##############
   - pytest

@@ -268,8 +268,8 @@ def selection(
 
         elif featuretype == "grid":
             # for a vector input, do quiver plot
-            assert isinstance(key_variable, list)
             if len(key_variable) == 2:
+                assert isinstance(key_variable, list)
                 xname, yname, uname, vname = (
                     "longitude",
                     "latitude",

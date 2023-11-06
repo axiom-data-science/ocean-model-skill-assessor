@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import cf_pandas as cfp
+import cf_xarray
 import extract_model as em
 import intake
 import numpy as np
@@ -101,9 +102,13 @@ def save_processed_files(dfd: Union[xr.Dataset, pd.DataFrame], fname_processed_d
         dfd.to_csv(fname_processed_data, index=False)
     elif isinstance(dfd, xr.Dataset):
         dfd.to_netcdf(fname_processed_data)
+        dfd.close()
     else:
         raise TypeError("object is neither DataFrame nor Dataset.")
-    model_var.to_netcdf(fname_processed_model)
+    if fname_processed_model.is_file():
+        pathlib.Path.unlink(fname_processed_model)
+    model_var.to_netcdf(fname_processed_model, mode="w")
+    model_var.close()
 
 
 def fix_dataset(
@@ -127,7 +132,7 @@ def fix_dataset(
     """
 
     # see if lon/lat are in model_var as data_vars instead of as coordinates
-    if "longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf and "longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf:
+    if ("longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf) or ("latitude" not in model_var.cf.coordinates and "latitude" in model_var.cf):
         lonkey, latkey = model_var.cf["longitude"].name, model_var.cf["latitude"].name
         model_var = model_var.assign_coords({lonkey: model_var[lonkey], latkey: model_var[latkey]})
 
@@ -136,11 +141,13 @@ def fix_dataset(
         "longitude" not in model_var.cf.coordinates
         and "X" in model_var.cf
         and "longitude" in ds.cf.coordinates
-        and ds.cf["longitude"].ndim == 2
+        # and ds.cf["longitude"].ndim == 2
+        and ds[cf_xarray.accessor._get_all(ds, "longitude")[0]].ndim == 2
         and "latitude" not in model_var.cf.coordinates
         and "Y" in model_var.cf
         and "latitude" in ds.cf
-        and ds.cf["latitude"].ndim == 2
+        # and ds.cf["latitude"].ndim == 2
+        and ds[cf_xarray.accessor._get_all(ds, "latitude")[0]].ndim == 2
     ):
         lonkey, latkey = ds.cf["longitude"].name, ds.cf["latitude"].name
         X, Y = model_var.cf["X"], model_var.cf["Y"]
@@ -194,7 +201,7 @@ def check_dataset(
                     "a variable of depths needs to be identifiable by `cf-xarray` in dataset for axis 'Z'. Ways to address this include: variable name has the word 'depth' in it; variable has an attribute of `'axis': 'Z'`. See `cf-xarray` docs for more information."
                 )
 
-    if "longitude" not in ds.cf or "latitude" not in ds.cf:
+    if "longitude" not in ds.cf.coordinates or "latitude" not in ds.cf.coordinates:
         raise KeyError(
             "A variable containing longitudes and a variable containing latitudes must each be identifiable. One way to address this is to make sure the variable names start with 'lon' and 'lat' respectively. See `cf-xarray` docs for more information."
         )
@@ -864,7 +871,7 @@ def kwargs_search_from_model(
 
 
 def calculate_anomaly(
-    dd_in: Union[pd.Series, pd.DataFrame, xr.DataArray], monthly_mean
+    dd_in: Union[pd.Series, pd.DataFrame, xr.DataArray], monthly_mean, varname=None,
 ) -> pd.Series:
     """Given monthly mean that is indexed by month of year, subtract it from time series to get anomaly.
 
@@ -875,7 +882,10 @@ def calculate_anomaly(
     Returns dd as the type as DataFrame it is came in as Series and Dataset if it came in DataArray. It is pd.Series in the middle so this probably won't work well for datasets that are more complex than time series.
     """
 
-    varname = dd_in.name
+    if varname is None:
+        varname = dd_in.name
+    else:
+        varname = dd_in.cf[varname].name  # translate from key_variable alias to actual variable name
     varname_mean = f"{varname}_mean"
     varname_anomaly = f"{varname}_anomaly"
 
@@ -909,23 +919,27 @@ def calculate_anomaly(
     dd.loc[inan, varname_mean] = pd.NA
 
     dd[varname_mean] = dd[varname_mean].interpolate()
-    dd[varname_anomaly] = dd_in.squeeze() - dd[varname_mean]
+    dd[varname_anomaly] = dd_in[varname].squeeze() - dd[varname_mean]
 
     # return in original container
-    if isinstance(dd_in, xr.DataArray):
+    if isinstance(dd_in, (xr.DataArray, xr.Dataset)):
         dd_out = xr.DataArray(
             coords={dd_in.cf["T"].name: dd.index.values},
             data=dd[varname_anomaly].values,
-        ).broadcast_like(dd_in)
-        if len(dd_in.coords) > len(dd_out.coords):
-            coordstoadd = list(set(dd_in.coords) - set(dd_out.coords))
+        ).broadcast_like(dd_in[varname])
+        if len(dd_in[varname].coords) > len(dd_out.coords):
+            coordstoadd = list(set(dd_in[varname].coords) - set(dd_out.coords))
             for coord in coordstoadd:
-                dd_out[coord] = dd_in[coord]
-        dd_out.attrs = dd_in.attrs
-        dd_out.name = dd_in.name
+                dd_out[coord] = dd_in[varname][coord]
+        dd_out.attrs = dd_in[varname].attrs
+        dd_out.name = dd_in[varname].name
 
     elif isinstance(dd_in, (pd.Series, pd.DataFrame)):
-        dd_out = dd[varname_anomaly]
+        
+        dd_out = pd.DataFrame()
+        for key in ["T", "Z", "latitude", "longitude"]:
+            dd_out[dd_in.cf[key].name] = dd_in.cf[key]
+        dd_out[varname_anomaly] = dd[varname_anomaly]
 
     return dd_out
 

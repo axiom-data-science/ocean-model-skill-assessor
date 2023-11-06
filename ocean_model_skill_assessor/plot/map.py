@@ -53,7 +53,7 @@ def setup_ax(ax, left_labels=True, right_labels=False, bottom_labels=False, top_
     #     gl.left_labels = False
     #     gl.right_labels = True
     ax.coastlines(resolution=res)
-    ax.add_feature(land_10m, facecolor="0.8", transform=pc)
+    ax.add_feature(land_10m, facecolor="0.8")
 
 
 def plot_map(

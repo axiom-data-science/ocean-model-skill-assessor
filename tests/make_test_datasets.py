@@ -181,21 +181,29 @@ def make_test_datasets():
         eta_rho=[20, 20.5, 21, 21.5, 22, 22.5, 23, 23.5, 24.5, 25],
         xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
     )
+    # lon/lat need to be 1D for xesmf
+    lon = temp.lon_rho[0,:].values
+    lat = temp.lat_rho[:,0].values
+    temp["lon_rho"] = ("xi_rho", lon, example_area.lon_rho.attrs)
+    temp["lat_rho"] = ("eta_rho", lat, example_area.lat_rho.attrs)
     salt = example_area["salt"].interp(
         eta_rho=[20, 20.5, 21, 21.5, 22, 22.5, 23, 23.5, 24.5, 25],
         xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
     )
-    lons = example_area["lon_rho"].interp(
-        eta_rho=[20, 20.5, 21, 21.5, 22, 22.5, 23, 23.5, 24.5, 25],
-        xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
-    )
-    lats = example_area["lat_rho"].interp(
-        eta_rho=[20, 20.5, 21, 21.5, 22, 22.5, 23, 23.5, 24.5, 25],
-        xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
-    )
+    salt["lon_rho"] = ("xi_rho", lon, example_area.lon_rho.attrs)
+    salt["lat_rho"] = ("eta_rho", lat, example_area.lat_rho.attrs)
+    # import pdb; pdb.set_trace()
+    # lons = example_area["lon_rho"].interp(
+    #     eta_rho=[20, 20.5, 21, 21.5, 22, 22.5, 23, 23.5, 24.5, 25],
+    #     xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
+    # )
+    # lats = example_area["lat_rho"].interp(
+    #     eta_rho=[20, 20.5, 21, 21.5, 22, 22.5, 23, 23.5, 24.5, 25],
+    #     xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
+    # )
     dsd = xr.Dataset()
-    dsd["temp"] = temp
-    dsd["salt"] = salt
+    dsd["temp"] = temp.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(["eta_rho","xi_rho","z_rho"])
+    dsd["salt"] = salt.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(["eta_rho","xi_rho","z_rho"])
     dsd["z_rho"] = 0
     dds["grid"] = dsd
 

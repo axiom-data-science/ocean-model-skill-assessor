@@ -228,6 +228,7 @@ def make_local_catalog(
             )
 
             cat[source].metadata.update(metadata)
+
             cat[source]._entry._metadata.update(metadata)
 
     # create dictionary of catalog entries
@@ -945,7 +946,8 @@ def _check_prep_narrow_data(
 
     # see if more than one column of data is being identified as key_variable_data
     # if more than one, log warning and then choose first
-    if isinstance(dd.cf[key_variable_data], DataFrame):
+    # variable might be calculated later
+    if key_variable_data in dd.cf and isinstance(dd.cf[key_variable_data], DataFrame):
         msg = f"More than one variable ({dd.cf[key_variable_data].columns}) have been matched to input variable {key_variable_data}. The first {dd.cf[key_variable_data].columns[0]} is being selected. To change this, modify the vocabulary so that the two variables are not both matched, or change the input data catalog."
         logger.warning(msg)
         # remove other data columns
@@ -1010,7 +1012,8 @@ def _check_prep_narrow_data(
         dd = dd
 
     # check if all of variable is nan
-    if dd.cf[key_variable_data].isnull().all():
+    # variable might be calculated later
+    if key_variable_data in dd.cf and dd.cf[key_variable_data].isnull().all():
         msg = f"All values of key variable {key_variable_data} are nan in dataset {source_name}. Skipping dataset.\n"
         logger.warning(msg)
         maps.pop(-1)
@@ -1681,7 +1684,10 @@ def run(
     override_model: bool = False,
     override_processed: bool = False,
     override_stats: bool = False,
+    override_plot: bool = False,
+    plot_description: Optional[str] = None,
     kwargs_plot: Optional[Dict] = None,
+    skip_key_variable_check: bool = False,
     **kwargs,
 ):
     """Run the model-data comparison.
@@ -1777,8 +1783,12 @@ def run(
         Flag to force-redo model and data processing. Default False.
     override_stats : bool
         Flag to force-redo stats calculation. Default False.
+    override_plot : bool
+        Flag to force-redo plot. If True, only redos plot itself if other files are already available. If False, only redos the plot not the other files. Default False.
     kwargs_plot : dict
-        to pass to plot selection and then to plot itself for source. If you need more fine options, run the run function per source.
+        to pass to omsa plot selection and then through the omsa plot selection to the subsequent plot itself for source. If you need more fine options, run the run function per source.
+    skip_key_variable_check : bool
+        If True, don't check for key_variable name being in catalog source metadata.
     """
 
     paths = Paths(project_name, cache_dir=cache_dir)
@@ -1791,6 +1801,9 @@ def run(
     kwargs_plot = kwargs_plot or {}
     kwargs_xroms = kwargs_xroms or {}
     ts_mods = ts_mods or []
+    
+    # add override_plot to kwargs_plot in case the fignames are changed later and should be checked there instead
+    kwargs_plot.update({"override_plot": override_plot})
 
     mask = None
 
@@ -1858,6 +1871,7 @@ def run(
                 # and key_variable_list not in cat[source_name].metadata["key_variables"]
                 # and not isinstance(key_variable_list, dict)
                 and all([not isinstance(key, dict) for key in key_variable_list])
+                and not skip_key_variable_check
             ):
                 logger.info(
                     f"no `key_variables` key found in source metadata or at least not {key_variable}"
@@ -1890,6 +1904,21 @@ def run(
             model_min_time = pd.Timestamp(str(dsm.cf["T"][0].values))
             model_max_time = pd.Timestamp(str(dsm.cf["T"][-1].values))
             data_min_time, data_max_time = _find_data_time_range(cat, source_name)
+
+            # skip this dataset if times between data and model don't align
+            skip_dataset, maps = _check_time_ranges(
+                source_name,
+                data_min_time,
+                data_max_time,
+                model_min_time,
+                model_max_time,
+                user_min_time,
+                user_max_time,
+                maps,
+                logger,
+            )
+            if skip_dataset:
+                continue
             
             # key_variable could be a list of strings or dicts and here we loop over them if so
             obss, models, statss, key_variable_datas = [], [], [], []
@@ -1900,26 +1929,11 @@ def run(
                     key_variable_data = key_variable["data"]
                 else:
                     key_variable_data = key_variable
-                    
+
                 logger.info(f"running {source_name} for key_variable(s) {key_variable_data} from key_variable_list {key_variable_list}\n")
 
                 # # Combine and align the two time series of variable
                 # with cfp_set_options(custom_criteria=vocab.vocab):
-
-                # skip this dataset if times between data and model don't align
-                skip_dataset, maps = _check_time_ranges(
-                    source_name,
-                    data_min_time,
-                    data_max_time,
-                    model_min_time,
-                    model_max_time,
-                    user_min_time,
-                    user_max_time,
-                    maps,
-                    logger,
-                )
-                if skip_dataset:
-                    continue
 
                 try:
                     dfd = cat[source_name].read()
@@ -1994,6 +2008,18 @@ def run(
                     ts_mods,
                     logger,
                 )
+                figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(".png")
+                # in case there are multiple key_variables in key_variable_list which will be joined
+                # for the figure, renamed including both names
+                if len(key_variable_list) > 1:
+                    figname = pathlib.Path(str(figname).replace(key_variable_data,"_".join(key_variable_list)))
+                
+                logger.info(f"Figure name is {figname}.")
+                
+                if figname.is_file() and not override_plot:
+                    logger.info(f"plot already exists so skipping dataset.")
+                    continue
+
 
                 # read in previously-saved processed model output and obs.
                 if (
@@ -2161,7 +2187,11 @@ def run(
 
                     # opportunity to modify time series data
                     # fnamemods = ""
-                    for mod in ts_mods:
+                    from copy import deepcopy
+                    ts_mods_copy = deepcopy(ts_mods)
+                    # ts_mods_copy = ts_mods.copy()  # otherwise you modify ts_mods when adding data
+                    for mod in ts_mods_copy:
+                        # import pdb; pdb.set_trace()
                         logger.info(
                             f"Apply a time series modification called {mod['function']}."
                         )
@@ -2180,16 +2210,20 @@ def run(
                         # dfd[dfd.cf[key_variable_data].name] = mod["function"](
                         #     dfd.cf[key_variable_data], **mod["inputs"]
                         # )
-
                         if isinstance(dfd, pd.DataFrame):
-                            dfd = dfd.reset_index(drop=True)
+                            if dfd.cf["T"].name in dfd.columns:
+                                drop = True
+                            else:
+                                drop = False
+                            
+                            dfd = dfd.reset_index(drop=drop)
 
                         model_var = mod["function"](model_var, **mod["inputs"])
 
                     # there could be a small mismatch in the length of time if times were pulled
                     # out separately
                     if np.unique(model_var.cf["T"]).size != np.unique(dfd.cf["T"]).size:
-                        logging.info("Changing the timing of the model or data.")
+                        logger.info("Changing the timing of the model or data.")
                         # if model_var.cf["T"].size != np.unique(dfd.cf["T"]).size:
                         # if (isinstance(dfd, pd.DataFrame) and model_var.cf["T"].size != dfd.cf["T"].unique().size) or (isinstance(dfd, xr.Dataset) and model_var.cf["T"].size != dfd.cf["T"].drop_duplicates(dim=dfd.cf["T"].name).size):
                         # if len(model_var.cf["T"]) != len(dfd.cf["T"]):  # timeSeries
@@ -2236,7 +2270,7 @@ def run(
                     # not necessary if dfd is DataFrame (i think)
                     if isinstance(dfd, (xr.Dataset, xr.DataArray)):
                         rename = {}
-                        for model_dim in model_var.dims:
+                        for model_dim in model_var.squeeze().dims:
                             matching_dim = [data_dim for data_dim in dfd.dims if dfd[data_dim].size == model_var[model_dim].size][0]
                             rename.update({model_dim: matching_dim})
                         # rename = {model_var.cf[key].name: dfd.cf[key].name for key in ["T","Z","latitude","longitude"]}
@@ -2253,7 +2287,7 @@ def run(
                     logger.info("Reading model output from file.")
                     model = read_model_file(fname_processed_model, no_Z, dsm)
                     if not interpolate_horizontal:
-                        distance = model_var["distance"]
+                        distance = model["distance"]
                 else:
                     raise ValueError(
                         "If the processed files are available need this one too."
@@ -2323,29 +2357,27 @@ def run(
             else:
                 pass
 
-
-            figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(".png")
-
             # # currently title is being set in plot.selection
             # if plot_count_title:
             #     title = f"{count}: {source_name}"
             # else:
             #     title = f"{source_name}"
-
-            fig = plot.selection(
-                obs,
-                model,
-                cat[source_name].metadata["featuretype"],
-                key_variable_datas,
-                source_name,
-                stats,
-                figname,
-                vocab_labels,
-                xcmocean_options=xcmocean_options,
-                **kwargs_plot,
-            )
-            msg = f"Made plot for {source_name}\n."
-            logger.info(msg)
+            if not figname.is_file() or override_plot:
+                fig = plot.selection(
+                    obs,
+                    model,
+                    cat[source_name].metadata["featuretype"],
+                    key_variable_datas,
+                    source_name,
+                    stats,
+                    figname,
+                    plot_description,
+                    vocab_labels,
+                    xcmocean_options=xcmocean_options,
+                    **kwargs_plot,
+                )
+                msg = f"Made plot for {source_name}\n."
+                logger.info(msg)
 
             count += 1
 

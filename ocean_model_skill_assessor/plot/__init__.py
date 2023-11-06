@@ -16,6 +16,82 @@ from matplotlib.pyplot import figure
 from . import line, map, quiver, surface
 
 
+# title
+def stats_string(stats):
+    types = ["bias", "corr", "ioa", "mse", "ss", "rmse"]
+    if "dist" in stats:
+        types += ["dist"]
+    if isinstance(stats["bias"], dict):
+        stat_sum_sub = "".join([f"{type}: {stats[type]['value']:.1f}  " for type in types])
+    else:
+        stat_sum_sub = "".join([f"{type}: {stats[type]:.1f}  " for type in types])
+    # for type in types:
+    #     # stat_sum += f"{type}: {stats[type]:.1f}  "
+    #     stat_sum = f"{type}: {stats[type]['value']:.1f}  "
+    return stat_sum_sub
+
+
+def create_title(stats, key_variable, obs, source_name, featuretype, plot_description):
+    
+    if isinstance(stats, list):
+        stat_sum = ""
+        for stat, key in zip(stats, key_variable):
+            stat_sum += f"{key}: "
+            stat_sum += stats_string(stat)
+        
+    elif isinstance(stats, dict):
+        stat_sum = stats_string(stats)
+        
+    # add location info
+    # always show first/only location
+    if obs.cf["longitude"].size == 1:
+        loc = f"lon: {float(obs.cf['longitude']):.2f} lat: {float(obs.cf['latitude']):.2f}"
+    elif isinstance(obs, pd.DataFrame) and obs.cf["longitude"].size > 1:
+        loc = f"lon: {obs.cf['longitude'][0]:.2f} lat: {obs.cf['latitude'][0]:.2f}"
+    elif isinstance(obs, xr.Dataset) and obs.cf["longitude"].ndim == 1:  # untested
+        loc = f"lon: {obs.cf['longitude'][0]:.2f} lat: {obs.cf['latitude'][0]:.2f}"
+    elif isinstance(obs, xr.Dataset) and obs.cf["longitude"].ndim == 2:
+        # locations will be plotted in this case
+        loc = ""
+        # loc = f"lon: {obs.cf['longitude'][0][0]:.2f} lat: {obs.cf['latitude'][0][0]:.2f}"
+    # time = f"{str(obs.cf['T'][0].date())}"  # worked for DF
+    if obs.cf["T"].shape != ():
+        time = str(pd.Timestamp(obs.cf["T"].values[0]).date())  # works for DF and DS
+    else:
+        time = ""
+
+    # build title
+    title = f"{source_name}: {stat_sum}\n"
+    
+    # don't show time in title if grid because will be putting it in each time there
+    if featuretype != "grid":
+        title += f"{time} "
+    
+    # only shows depths if 1 depth since otherwise will be on plot
+    if obs.cf["Z"].size == 1:
+        depth = f"depth: {obs.cf['Z'].values}"
+        # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"        
+    elif np.unique(obs.cf["Z"][~np.isnan(obs.cf["Z"])]).size == 1:
+        # if (np.unique(obs.cf["Z"]) * ~np.isnan(obs.cf["Z"])).size == 1:
+        # if np.unique(obs[obs.cf["Z"].notnull()].cf["Z"]).size == 1:  # did not work for timeSeriesProfile
+        depth = f"depth: {obs.cf['Z'][0]}"
+        # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"
+    else:
+        depth = None
+        # title = f"{source_name}: {stat_sum}\n{time} {loc}"
+
+    if depth is not None:
+        title += f"{depth} "
+
+    title += f"{loc}"
+
+    # add description to title
+    if plot_description is not None:
+        title = f"{title}\n{plot_description}"
+    
+    return title
+
+
 def selection(
     obs: Union[pd.DataFrame, xr.Dataset],
     model: xr.Dataset,
@@ -24,6 +100,7 @@ def selection(
     source_name: str,
     stats: dict,
     figname: Union[str, pathlib.Path],
+    plot_description: Optional[str] = None,
     vocab_labels: Optional[dict] = None,
     xcmocean_options: Optional[dict] = None,
     **kwargs,
@@ -67,66 +144,7 @@ def selection(
         key_variable_label = key_variable_label[0]
         key_variable = key_variable[0]
 
-    # title
-    def stats_string(stats):
-        types = ["bias", "corr", "ioa", "mse", "ss", "rmse"]
-        if "dist" in stats:
-            types += ["dist"]
-        stat_sum_sub = "".join([f"{type}: {stats[type]['value']:.1f}  " for type in types])
-        # for type in types:
-        #     # stat_sum += f"{type}: {stats[type]:.1f}  "
-        #     stat_sum = f"{type}: {stats[type]['value']:.1f}  "
-        return stat_sum_sub
-   
-    
-    if isinstance(stats, list):
-        stat_sum = ""
-        for stat, key in zip(stats, key_variable):
-            stat_sum += f"{key}: "
-            stat_sum += stats_string(stat)
-        
-    elif isinstance(stats, dict):
-        stat_sum = stats_string(stats)
-        
-    # add location info
-    # always show first/only location
-    if obs.cf["longitude"].size == 1:
-        loc = f"lon: {float(obs.cf['longitude']):.2f} lat: {float(obs.cf['latitude']):.2f}"
-    elif isinstance(obs, pd.DataFrame) and obs.cf["longitude"].size > 1:
-        loc = f"lon: {obs.cf['longitude'][0]:.2f} lat: {obs.cf['latitude'][0]:.2f}"
-    elif isinstance(obs, xr.Dataset) and obs.cf["longitude"].ndim == 1:  # untested
-        loc = f"lon: {obs.cf['longitude'][0]:.2f} lat: {obs.cf['latitude'][0]:.2f}"
-    elif isinstance(obs, xr.Dataset) and obs.cf["longitude"].ndim == 2:
-        # locations will be plotted in this case
-        loc = ""
-        # loc = f"lon: {obs.cf['longitude'][0][0]:.2f} lat: {obs.cf['latitude'][0][0]:.2f}"
-    # time = f"{str(obs.cf['T'][0].date())}"  # worked for DF
-    time = str(pd.Timestamp(obs.cf["T"].values[0]).date())  # works for DF and DS
-    
-    # build title
-    title = f"{source_name}: {stat_sum}\n"
-    
-    # don't show time in title if grid because will be putting it in each time there
-    if featuretype != "grid":
-        title += f"{time} "
-    
-    # only shows depths if 1 depth since otherwise will be on plot
-    if obs.cf["Z"].size == 1:
-        depth = f"depth: {obs.cf['Z'].values}"
-        # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"        
-    elif np.unique(obs.cf["Z"][~np.isnan(obs.cf["Z"])]).size == 1:
-        # if (np.unique(obs.cf["Z"]) * ~np.isnan(obs.cf["Z"])).size == 1:
-        # if np.unique(obs[obs.cf["Z"].notnull()].cf["Z"]).size == 1:  # did not work for timeSeriesProfile
-        depth = f"depth: {obs.cf['Z'][0]}"
-        # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"
-    else:
-        depth = None
-        # title = f"{source_name}: {stat_sum}\n{time} {loc}"
-
-    if depth is not None:
-        title += f"{depth} "
-
-    title += f"{loc}"
+    title = create_title(stats, key_variable, obs, source_name, featuretype, plot_description)
 
     # use featuretype to determine plot type
     with xr.set_options(**context):
@@ -232,16 +250,6 @@ def selection(
             )
 
         elif featuretype == "grid":
-            # if "figsize" in kwargs:
-            #     figsize = kwargs["figsize"]
-            #     kwargs.pop("figsize")
-            # else:
-            #     figsize = (16,6)
-            # if "legend_arrow_length" in kwargs:
-            #     legend_arrow_length = kwargs["legend_arrow_length"]
-            #     kwargs.pop("legend_arrow_length")
-            # else:
-            #     legend_arrow_length = 5
             # for a vector input, do quiver plot
             if len(key_variable) == 2:
                 xname, yname, uname, vname = "longitude", "latitude", key_variable[0], key_variable[1]
@@ -254,7 +262,6 @@ def selection(
                     yname,
                     uname,
                     vname,
-                    # legend_arrow_length,
                     title,
                     xlabel=xlabel,
                     ylabel=ylabel,
@@ -262,14 +269,13 @@ def selection(
                     vlabel=vlabel,
                     figname=figname,
                     return_plot=True,
-                    # kwargs_for_plot,
                     **kwargs,
                 )
                 
             # scalar surface plot
             else:
-                xname, yname, zname = "T", "Z", key_variable
-                xlabel, ylabel, zlabel = "", "Depth [m]", key_variable_label
+                xname, yname, zname = "longitude", "latitude", key_variable
+                xlabel, ylabel, zlabel = "", "", key_variable_label
                 fig = surface.plot(
                     obs.squeeze(),
                     model.squeeze(),
@@ -281,7 +287,6 @@ def selection(
                     ylabel=ylabel,
                     zlabel=zlabel,
                     kind="pcolormesh",
-                    figsize=(15, 6),
                     figname=figname,
                     return_plot=True,
                     **kwargs,

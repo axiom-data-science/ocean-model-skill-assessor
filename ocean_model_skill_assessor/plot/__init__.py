@@ -18,11 +18,14 @@ from . import line, map, quiver, surface
 
 # title
 def stats_string(stats):
+    """Create string of stats for title"""
     types = ["bias", "corr", "ioa", "mse", "ss", "rmse"]
     if "dist" in stats:
         types += ["dist"]
     if isinstance(stats["bias"], dict):
-        stat_sum_sub = "".join([f"{type}: {stats[type]['value']:.1f}  " for type in types])
+        stat_sum_sub = "".join(
+            [f"{type}: {stats[type]['value']:.1f}  " for type in types]
+        )
     else:
         stat_sum_sub = "".join([f"{type}: {stats[type]:.1f}  " for type in types])
     # for type in types:
@@ -32,16 +35,17 @@ def stats_string(stats):
 
 
 def create_title(stats, key_variable, obs, source_name, featuretype, plot_description):
-    
+    """Put a bunch of info together for title, this is pretty brittle"""
+
     if isinstance(stats, list):
         stat_sum = ""
         for stat, key in zip(stats, key_variable):
             stat_sum += f"{key}: "
             stat_sum += stats_string(stat)
-        
+
     elif isinstance(stats, dict):
         stat_sum = stats_string(stats)
-        
+
     # add location info
     # always show first/only location
     if obs.cf["longitude"].size == 1:
@@ -62,15 +66,15 @@ def create_title(stats, key_variable, obs, source_name, featuretype, plot_descri
 
     # build title
     title = f"{source_name}: {stat_sum}\n"
-    
+
     # don't show time in title if grid because will be putting it in each time there
     if featuretype != "grid":
         title += f"{time} "
-    
+
     # only shows depths if 1 depth since otherwise will be on plot
     if obs.cf["Z"].size == 1:
         depth = f"depth: {obs.cf['Z'].values}"
-        # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"        
+        # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"
     elif np.unique(obs.cf["Z"][~np.isnan(obs.cf["Z"])]).size == 1:
         # if (np.unique(obs.cf["Z"]) * ~np.isnan(obs.cf["Z"])).size == 1:
         # if np.unique(obs[obs.cf["Z"].notnull()].cf["Z"]).size == 1:  # did not work for timeSeriesProfile
@@ -88,7 +92,7 @@ def create_title(stats, key_variable, obs, source_name, featuretype, plot_descri
     # add description to title
     if plot_description is not None:
         title = f"{title}\n{plot_description}"
-    
+
     return title
 
 
@@ -96,7 +100,7 @@ def selection(
     obs: Union[pd.DataFrame, xr.Dataset],
     model: xr.Dataset,
     featuretype: str,
-    key_variable: str,
+    key_variable: Union[str, list],
     source_name: str,
     stats: dict,
     figname: Union[str, pathlib.Path],
@@ -133,24 +137,29 @@ def selection(
         except AssertionError:
             context = {}
 
+    key_variable_label: Union[str, list]
     if vocab_labels is not None:
         key_variable_label = [vocab_labels[key] for key in key_variable]
         # key_variable_label = vocab_labels[key_variable]
     else:
         key_variable_label = key_variable
-    
+
     # back to single strings from list if only one entry
     if len(key_variable_label) == 1:
         key_variable_label = key_variable_label[0]
         key_variable = key_variable[0]
 
-    title = create_title(stats, key_variable, obs, source_name, featuretype, plot_description)
+    title = create_title(
+        stats, key_variable, obs, source_name, featuretype, plot_description
+    )
 
     # use featuretype to determine plot type
     with xr.set_options(**context):
-    # with xr.set_options(cmap_sequential=da.cmo.seq, cmap_divergent=da.cmo.div):
+        # with xr.set_options(cmap_sequential=da.cmo.seq, cmap_divergent=da.cmo.div):
         if featuretype == "timeSeries":
+            assert isinstance(key_variable, str)
             xname, yname = "T", key_variable
+            assert isinstance(key_variable_label, str)
             xlabel, ylabel = "", key_variable_label
             fig = line.plot(
                 obs,
@@ -167,7 +176,9 @@ def selection(
             )
 
         elif featuretype == "profile":
+            assert isinstance(key_variable, str)
             xname, yname = key_variable, "Z"
+            assert isinstance(key_variable_label, str)
             xlabel, ylabel = key_variable_label, "Depth [m]"
             fig = line.plot(
                 obs,
@@ -190,7 +201,9 @@ def selection(
                 np.unique(obs.cf["longitude"]).size >= np.unique(obs.cf["T"]).size
                 or np.unique(obs.cf["latitude"]).size >= np.unique(obs.cf["T"]).size
             ):
+                assert isinstance(key_variable, str)
                 xname, yname, zname = "distance", "Z", key_variable
+                assert isinstance(key_variable_label, str)
                 xlabel, ylabel, zlabel = (
                     "along-transect distance [km]",
                     "Depth [m]",
@@ -202,7 +215,9 @@ def selection(
                     along_transect_distance = False
             # otherwise use time for x axis
             else:
+                assert isinstance(key_variable, str)
                 xname, yname, zname = "T", "Z", key_variable
+                assert isinstance(key_variable_label, str)
                 xlabel, ylabel, zlabel = (
                     "",
                     "Depth [m]",
@@ -230,7 +245,9 @@ def selection(
             )
 
         elif featuretype == "timeSeriesProfile":
+            assert isinstance(key_variable, str)
             xname, yname, zname = "T", "Z", key_variable
+            assert isinstance(key_variable_label, str)
             xlabel, ylabel, zlabel = "", "Depth [m]", key_variable_label
             fig = surface.plot(
                 obs.squeeze(),
@@ -251,9 +268,20 @@ def selection(
 
         elif featuretype == "grid":
             # for a vector input, do quiver plot
+            assert isinstance(key_variable, list)
             if len(key_variable) == 2:
-                xname, yname, uname, vname = "longitude", "latitude", key_variable[0], key_variable[1]
-                xlabel, ylabel, ulabel, vlabel = "", "", key_variable_label[0], key_variable_label[1]
+                xname, yname, uname, vname = (
+                    "longitude",
+                    "latitude",
+                    key_variable[0],
+                    key_variable[1],
+                )
+                xlabel, ylabel, ulabel, vlabel = (
+                    "",
+                    "",
+                    key_variable_label[0],
+                    key_variable_label[1],
+                )
                 # import pdb; pdb.set_trace()
                 fig = quiver.plot(
                     obs.squeeze(),
@@ -271,10 +299,12 @@ def selection(
                     return_plot=True,
                     **kwargs,
                 )
-                
+
             # scalar surface plot
             else:
+                assert isinstance(key_variable, str)
                 xname, yname, zname = "longitude", "latitude", key_variable
+                assert isinstance(key_variable_label, str)
                 xlabel, ylabel, zlabel = "", "", key_variable_label
                 fig = surface.plot(
                     obs.squeeze(),

@@ -182,8 +182,8 @@ def make_test_datasets():
         xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
     )
     # lon/lat need to be 1D for xesmf
-    lon = temp.lon_rho[0,:].values
-    lat = temp.lat_rho[:,0].values
+    lon = temp.lon_rho[0, :].values
+    lat = temp.lat_rho[:, 0].values
     temp["lon_rho"] = ("xi_rho", lon, example_area.lon_rho.attrs)
     temp["lat_rho"] = ("eta_rho", lat, example_area.lat_rho.attrs)
     salt = example_area["salt"].interp(
@@ -202,8 +202,12 @@ def make_test_datasets():
     #     xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
     # )
     dsd = xr.Dataset()
-    dsd["temp"] = temp.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(["eta_rho","xi_rho","z_rho"])
-    dsd["salt"] = salt.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(["eta_rho","xi_rho","z_rho"])
+    dsd["temp"] = temp.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(
+        ["eta_rho", "xi_rho", "z_rho"]
+    )
+    dsd["salt"] = salt.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(
+        ["eta_rho", "xi_rho", "z_rho"]
+    )
     dsd["z_rho"] = 0
     dds["grid"] = dsd
 

@@ -8,7 +8,7 @@ import pathlib
 import warnings
 
 from collections.abc import Sequence
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cf_xarray
@@ -1648,7 +1648,7 @@ def run(
     key_variable: Union[str, dict],
     model_name: Union[str, Catalog],
     vocabs: Optional[Union[str, Vocab, Sequence, PurePath]] = None,
-    vocab_labels: Optional[Union[str, PurePath, dict]] = None,
+    vocab_labels: Optional[Union[str, Path, dict]] = None,
     ndatasets: Optional[int] = None,
     kwargs_map: Optional[Dict] = None,
     verbose: bool = True,
@@ -1801,7 +1801,7 @@ def run(
     kwargs_plot = kwargs_plot or {}
     kwargs_xroms = kwargs_xroms or {}
     ts_mods = ts_mods or []
-    
+
     # add override_plot to kwargs_plot in case the fignames are changed later and should be checked there instead
     kwargs_plot.update({"override_plot": override_plot})
 
@@ -1839,7 +1839,7 @@ def run(
     dsm = None
     preprocessed = False
     p1 = None
-    
+
     # have to save this because of my poor variable naming at the moment as I make a list possible
     key_variable_orig = key_variable
 
@@ -1867,7 +1867,12 @@ def run(
             key_variable_list = cf_xarray.utils.always_iterable(key_variable_orig)
             if (
                 "key_variables" in cat[source_name].metadata
-                and all([key not in cat[source_name].metadata["key_variables"] for key in key_variable_list])
+                and all(
+                    [
+                        key not in cat[source_name].metadata["key_variables"]
+                        for key in key_variable_list
+                    ]
+                )
                 # and key_variable_list not in cat[source_name].metadata["key_variables"]
                 # and not isinstance(key_variable_list, dict)
                 and all([not isinstance(key, dict) for key in key_variable_list])
@@ -1919,7 +1924,7 @@ def run(
             )
             if skip_dataset:
                 continue
-            
+
             # key_variable could be a list of strings or dicts and here we loop over them if so
             obss, models, statss, key_variable_datas = [], [], [], []
             for key_variable in key_variable_list:
@@ -1930,7 +1935,9 @@ def run(
                 else:
                     key_variable_data = key_variable
 
-                logger.info(f"running {source_name} for key_variable(s) {key_variable_data} from key_variable_list {key_variable_list}\n")
+                logger.info(
+                    f"running {source_name} for key_variable(s) {key_variable_data} from key_variable_list {key_variable_list}\n"
+                )
 
                 # # Combine and align the two time series of variable
                 # with cfp_set_options(custom_criteria=vocab.vocab):
@@ -1959,7 +1966,11 @@ def run(
                 # data depths in certain cases.
                 zkeym = dsm.cf.axes["Z"][0]
                 dfd, Z, vertical_interp = _choose_depths(
-                    dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp, logger
+                    dfd,
+                    dsm[zkeym].attrs["positive"],
+                    no_Z,
+                    want_vertical_interp,
+                    logger,
                 )
 
                 # take out relevant variable and identify mask if available (otherwise None)
@@ -2008,18 +2019,23 @@ def run(
                     ts_mods,
                     logger,
                 )
-                figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(".png")
+                figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(
+                    ".png"
+                )
                 # in case there are multiple key_variables in key_variable_list which will be joined
                 # for the figure, renamed including both names
                 if len(key_variable_list) > 1:
-                    figname = pathlib.Path(str(figname).replace(key_variable_data,"_".join(key_variable_list)))
-                
+                    figname = pathlib.Path(
+                        str(figname).replace(
+                            key_variable_data, "_".join(key_variable_list)
+                        )
+                    )
+
                 logger.info(f"Figure name is {figname}.")
-                
+
                 if figname.is_file() and not override_plot:
                     logger.info(f"plot already exists so skipping dataset.")
                     continue
-
 
                 # read in previously-saved processed model output and obs.
                 if (
@@ -2065,7 +2081,7 @@ def run(
                         model_var = read_model_file(model_file_name, no_Z, dsm)
                         if not interpolate_horizontal:
                             distance = model_var["distance"]
-                            
+
                         # Is this necessary? It removes `s_rho_index` when present which causes an issue
                         # since it is "vertical" for cf
                         # model_var = model_var.cf[key_variable_data]
@@ -2134,7 +2150,8 @@ def run(
                             T = [pd.Timestamp(date) for date in dfd.cf["T"].values]
                         else:
                             T = [
-                                pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)
+                                pd.Timestamp(date)
+                                for date in np.unique(dfd.cf["T"].values)
                             ]
 
                         select_kwargs = dict(
@@ -2188,6 +2205,7 @@ def run(
                     # opportunity to modify time series data
                     # fnamemods = ""
                     from copy import deepcopy
+
                     ts_mods_copy = deepcopy(ts_mods)
                     # ts_mods_copy = ts_mods.copy()  # otherwise you modify ts_mods when adding data
                     for mod in ts_mods_copy:
@@ -2199,11 +2217,14 @@ def run(
                             dfd.set_index(dfd.cf["T"], inplace=True)
 
                         # this is how you include the dataset in the inputs
-                        if "include_data" in mod["inputs"] and mod["inputs"]["include_data"]:
+                        if (
+                            "include_data" in mod["inputs"]
+                            and mod["inputs"]["include_data"]
+                        ):
                             mod["inputs"].update({"dd": dfd})
                             mod["inputs"].pop("include_data")
 
-                        # apply ts_mod to full dataset instead of just one variable since might want 
+                        # apply ts_mod to full dataset instead of just one variable since might want
                         # to use more than one of the variables
                         # also need to overwrite Dataset since the shape of the variables might change here
                         dfd = mod["function"](dfd, **mod["inputs"])
@@ -2215,7 +2236,7 @@ def run(
                                 drop = True
                             else:
                                 drop = False
-                            
+
                             dfd = dfd.reset_index(drop=drop)
 
                         model_var = mod["function"](model_var, **mod["inputs"])
@@ -2263,7 +2284,9 @@ def run(
                             # interpolate data to model times
                             # model_index = model_var.cf["T"].to_pandas().index
                             # ind = model_index.union(dfd.cf["T"].to_pandas().index)
-                            dfd = dfd.interp({dfd.cf["T"].name: model_var.cf["T"].values})
+                            dfd = dfd.interp(
+                                {dfd.cf["T"].name: model_var.cf["T"].values}
+                            )
                             # dfd = dfd.cf.sel({"T": slice(stime, etime)})
 
                     # change names of model to match data so that stats will calculate without adding variables
@@ -2271,14 +2294,19 @@ def run(
                     if isinstance(dfd, (xr.Dataset, xr.DataArray)):
                         rename = {}
                         for model_dim in model_var.squeeze().dims:
-                            matching_dim = [data_dim for data_dim in dfd.dims if dfd[data_dim].size == model_var[model_dim].size][0]
+                            matching_dim = [
+                                data_dim
+                                for data_dim in dfd.dims
+                                if dfd[data_dim].size == model_var[model_dim].size
+                            ][0]
                             rename.update({model_dim: matching_dim})
                         # rename = {model_var.cf[key].name: dfd.cf[key].name for key in ["T","Z","latitude","longitude"]}
                         model_var = model_var.rename(rename)
-                            
 
                     # Save processed data and model files
-                    save_processed_files(dfd, fname_processed_data, model_var, fname_processed_model)
+                    save_processed_files(
+                        dfd, fname_processed_data, model_var, fname_processed_model
+                    )
                     obs = read_processed_data_file(fname_processed_data, no_Z)
                     model = read_model_file(fname_processed_model, no_Z, dsm)
 
@@ -2326,7 +2354,7 @@ def run(
                         filename=stats_fname,
                     )
                     logger.info("Saved stats file.")
-                    
+
                 # Combine across key_variable in case there was a list of inputs
                 obss.append(obs)
                 models.append(model)
@@ -2343,16 +2371,21 @@ def run(
                     raise NotImplementedError
 
                 # assume one key variable in each model output
-                if all([len(cf_xarray.accessor._get_all(model, key)) > 0 for model, key in zip(models,key_variable_list)]):
-                # if len(cf_xarray.accessor._get_all(models[0], key_variable_list[0])) > 0 and :
+                if all(
+                    [
+                        len(cf_xarray.accessor._get_all(model, key)) > 0
+                        for model, key in zip(models, key_variable_list)
+                    ]
+                ):
+                    # if len(cf_xarray.accessor._get_all(models[0], key_variable_list[0])) > 0 and :
                     model = xr.merge(models)
                 else:
                     raise NotImplementedError
-                    
+
                 # leave stats as a list
                 stats = statss
 
-            # if there was always just one key variable for this run, do nothing since the variables are 
+            # if there was always just one key variable for this run, do nothing since the variables are
             # already available correctly named
             else:
                 pass

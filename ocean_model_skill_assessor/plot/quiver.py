@@ -22,10 +22,30 @@ import ocean_model_skill_assessor as omsa
 fs = 14
 fs_title = 16
 
-def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
-           xname, yname, uname, vname, model_title, scale, legend_arrow_length, extent, xlabel, ylabel, 
-           figname, dpi, **kwargs):
-    
+
+def plot_1(
+    obs,
+    model,
+    suptitle,
+    nsubplots,
+    figsize,
+    proj,
+    indexer,
+    xname,
+    yname,
+    uname,
+    vname,
+    model_title,
+    scale,
+    legend_arrow_length,
+    extent,
+    xlabel,
+    ylabel,
+    figname,
+    dpi,
+    **kwargs,
+):
+    """Plot 1 time/only time."""
 
     # sharex and sharey removed the y ticklabels so don't use.
     # maybe don't work with layout="constrained"
@@ -37,7 +57,9 @@ def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
         subplot_kw=dict(projection=proj, frameon=False),
     )
     #  sharex=True, sharey=True)
-    omsa.plot.map.setup_ax(axes[0], left_labels=True, bottom_labels=True, top_labels=False, fontsize=12)
+    omsa.plot.map.setup_ax(
+        axes[0], left_labels=True, bottom_labels=True, top_labels=False, fontsize=12
+    )
     obs_plot = obs.cf.isel(indexer).plot.quiver(
         x=obs.cf[xname].name,
         y=obs.cf[yname].name,
@@ -45,17 +67,26 @@ def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
         v=obs.cf[vname].name,
         ax=axes[0],
         add_guide=False,
-        angles='xy', scale_units='xy', scale=scale,
+        angles="xy",
+        scale_units="xy",
+        scale=scale,
         transform=omsa.plot.map.pc,
         **kwargs,
     )
-    qv_key = axes[0].quiverkey(obs_plot, 0.94,1.03, legend_arrow_length, f'{legend_arrow_length} m/s',
-                                labelpos='N', labelsep =0.05, color='k', fontproperties=dict(size=12),
-                            #    transform=omsa.plot.map.pc,
-                                )
+    qv_key = axes[0].quiverkey(
+        obs_plot,
+        0.94,
+        1.03,
+        legend_arrow_length,
+        f"{legend_arrow_length} m/s",
+        labelpos="N",
+        labelsep=0.05,
+        color="k",
+        fontproperties=dict(size=12),
+        #    transform=omsa.plot.map.pc,
+    )
     if extent is not None:
         axes[0].set_extent(extent)
-    
 
     axes[0].set_title("Observation", fontsize=fs_title)
     axes[0].set_ylabel(ylabel, fontsize=fs)
@@ -63,7 +94,9 @@ def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
     axes[0].tick_params(axis="both", labelsize=fs)
 
     # plot model
-    omsa.plot.map.setup_ax(axes[1], left_labels=False, bottom_labels=True, top_labels=False, fontsize=12)
+    omsa.plot.map.setup_ax(
+        axes[1], left_labels=False, bottom_labels=True, top_labels=False, fontsize=12
+    )
     # import pdb; pdb.set_trace()_loop
     model.cf.isel(indexer).plot.quiver(
         x=model.cf[xname].name,
@@ -72,7 +105,9 @@ def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
         v=model.cf[vname].name,
         ax=axes[1],
         add_guide=False,
-        angles='xy', scale_units='xy', scale=scale,
+        angles="xy",
+        scale_units="xy",
+        scale=scale,
         transform=omsa.plot.map.pc,
         **kwargs,
     )
@@ -89,14 +124,16 @@ def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
     axes[1].tick_params(axis="x", labelsize=fs)
 
     # plot difference (assume Dataset)
-    # model = model.rename({model.cf[uname].name: obs.cf[uname].name, 
+    # model = model.rename({model.cf[uname].name: obs.cf[uname].name,
     #                       model.cf[vname].name: obs.cf[vname].name,})
     # diff = obs - model
     # subtract the variable as arrays to avoid variable name issues
     diff = obs.copy(deep=True)
     diff[diff.cf[uname].name] -= model.cf[uname].values
     diff[diff.cf[vname].name] -= model.cf[vname].values
-    omsa.plot.map.setup_ax(axes[2], left_labels=False, bottom_labels=True, top_labels=False, fontsize=12)
+    omsa.plot.map.setup_ax(
+        axes[2], left_labels=False, bottom_labels=True, top_labels=False, fontsize=12
+    )
     diff.cf.isel(indexer).plot.quiver(
         x=obs.cf[xname].name,
         y=obs.cf[yname].name,
@@ -104,7 +141,9 @@ def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
         v=obs.cf[vname].name,
         ax=axes[2],
         add_guide=False,
-        angles='xy', scale_units='xy', scale=scale,
+        angles="xy",
+        scale_units="xy",
+        scale=scale,
         transform=omsa.plot.map.pc,
         **kwargs,
     )
@@ -122,7 +161,7 @@ def plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
 
     fig.suptitle(suptitle, wrap=True, fontsize=fs_title)  # , loc="left")
     fig.savefig(str(figname), dpi=dpi)  # , bbox_inches="tight")
-    
+
     return fig
 
 
@@ -134,32 +173,32 @@ def plot(
     uname: str,
     vname: str,
     suptitle: str,
-    figsize = (16,6),
+    figsize=(16, 6),
     legend_arrow_length: int = 5,
-    scale = 1,
+    scale=1,
     xlabel: Optional[str] = None,
     ylabel: Optional[str] = None,
     ulabel: Optional[str] = None,
     vlabel: Optional[str] = None,
-    model_title: str="Model",
+    model_title: str = "Model",
     indexer=None,
     subplot_description: str = "",
     nsubplots: int = 3,
     figname: Union[str, pathlib.Path] = "figure.png",
     dpi: int = 100,
     return_plot: bool = False,
-    proj = None,
-    extent = None,
+    proj=None,
+    extent=None,
     override_plot: bool = False,
     make_movie: bool = False,
     **kwargs,
 ):
     """Plot quiver of vectors in time.
-    
+
     Times must already match between obs and model.
-    
+
     If you want to change the scale, input "scale=int" as a kwarg
-    UPDATE
+    UPDATE ALL OF THIS
 
     For featuretype of trajectoryProfile or timeSeriesProfile.
 
@@ -202,44 +241,89 @@ def plot(
     """
 
     assert isinstance(obs, xr.Dataset)
-    
+
     if proj is None:
         import cartopy
+
         proj = cartopy.crs.Mercator()
         # proj = cartopy.crs.Mercator(central_longitude=float(central_longitude))
-        
+
     if obs.cf["T"].shape == ():
-        fig = plot_1(obs, model, suptitle, nsubplots, figsize, proj, indexer,
-           xname, yname, uname, vname, model_title, scale, legend_arrow_length, extent, xlabel, ylabel, 
-           figname, dpi, **kwargs)
+        fig = plot_1(
+            obs,
+            model,
+            suptitle,
+            nsubplots,
+            figsize,
+            proj,
+            indexer,
+            xname,
+            yname,
+            uname,
+            vname,
+            model_title,
+            scale,
+            legend_arrow_length,
+            extent,
+            xlabel,
+            ylabel,
+            figname,
+            dpi,
+            **kwargs,
+        )
     else:
         for ind, t in enumerate(obs.cf["T"]):
             t = str(pd.Timestamp(t.values).isoformat()[:13])
             # t = str(pd.Timestamp(t.values).date())
-            
+
             # add time to title
             suptitle_use = f"{suptitle}\n{t}: {subplot_description}"
 
-            figname_loop = figname.parent / f"{figname.stem}_{t}{figname.suffix}"
-            
+            if isinstance(figname, pathlib.Path):
+                figname_loop = figname.parent / f"{figname.stem}_{t}{figname.suffix}"
+            else:
+                raise NotImplementedError("Need to implement for string figname")
+
             if figname_loop.is_file() and not override_plot:
                 continue
-            
-            fig = plot_1(obs.cf.sel(T=t), model.cf.sel(T=t), suptitle_use, nsubplots, figsize, proj, indexer,
-            xname, yname, uname, vname, model_title, scale, legend_arrow_length, extent, xlabel, ylabel, 
-            figname_loop, dpi, **kwargs)
-                
+
+            fig = plot_1(
+                obs.cf.sel(T=t),
+                model.cf.sel(T=t),
+                suptitle_use,
+                nsubplots,
+                figsize,
+                proj,
+                indexer,
+                xname,
+                yname,
+                uname,
+                vname,
+                model_title,
+                scale,
+                legend_arrow_length,
+                extent,
+                xlabel,
+                ylabel,
+                figname_loop,
+                dpi,
+                **kwargs,
+            )
+
             # don't close if it is the last plot of the loop so we have something to return
             if ind != (obs.cf["T"].size - 1):
                 plt.close(fig)
 
         if make_movie:
-            import subprocess
             import shlex
-            comm = f"ffmpeg -r 4 -pattern_type glob -i '{figname.parent / figname.stem}_????-*.png' -c:v libx264 -pix_fmt yuv420p  -crf 25 {figname.parent / figname.stem}.mp4"
-            # comm = f"ffmpeg -r 4 -pattern_type glob -i '/Users/kthyng/Library/Caches/ocean-model-skill-assessor/hfradar_ciofs/out/hfradar_lower-ci_system-B_2006-2007_all_east_north_remove-under-50-percent-data_units-to-meters_*.png' -c:v libx264 -pix_fmt yuv420p  -crf 15 out.mp4"
-            subprocess.run(shlex.split(comm))
-            
+            import subprocess
+
+            if isinstance(figname, pathlib.Path):
+                comm = f"ffmpeg -r 4 -pattern_type glob -i '{figname.parent / figname.stem}_????-*.png' -c:v libx264 -pix_fmt yuv420p  -crf 25 {figname.parent / figname.stem}.mp4"
+                # comm = f"ffmpeg -r 4 -pattern_type glob -i '/Users/kthyng/Library/Caches/ocean-model-skill-assessor/hfradar_ciofs/out/hfradar_lower-ci_system-B_2006-2007_all_east_north_remove-under-50-percent-data_units-to-meters_*.png' -c:v libx264 -pix_fmt yuv420p  -crf 15 out.mp4"
+                subprocess.run(shlex.split(comm))
+            else:
+                raise NotImplementedError
 
     if return_plot and override_plot:
         return fig

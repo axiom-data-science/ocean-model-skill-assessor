@@ -5,6 +5,7 @@ Plot map.
 from pathlib import PurePath
 from typing import Dict, Optional, Sequence, Tuple, Union
 
+import cartopy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -14,8 +15,6 @@ from matplotlib.pyplot import figure
 from numpy import allclose, array, asarray
 from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
-
-import cartopy
 
 from ..paths import Paths
 from ..utils import astype, find_bbox, open_catalogs, shift_longitudes
@@ -38,7 +37,14 @@ land_10m = cartopy.feature.NaturalEarthFeature(
 pc = cartopy.crs.PlateCarree()
 
 
-def setup_ax(ax, left_labels=True, right_labels=False, bottom_labels=False, top_labels=True, fontsize=12):
+def setup_ax(
+    ax,
+    left_labels=True,
+    right_labels=False,
+    bottom_labels=False,
+    top_labels=True,
+    fontsize=12,
+):
     """Basic plot setup for map."""
     gl = ax.gridlines(
         linewidth=0.2, color="gray", alpha=0.5, linestyle="-", draw_labels=True

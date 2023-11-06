@@ -27,7 +27,9 @@ from xarray import DataArray, Dataset
 from .paths import Paths
 
 
-def read_model_file(fname_processed_model: Path, no_Z: bool, dsm: xr.Dataset) -> xr.Dataset:
+def read_model_file(
+    fname_processed_model: Path, no_Z: bool, dsm: xr.Dataset
+) -> xr.Dataset:
     """_summary_
 
     Parameters
@@ -37,7 +39,7 @@ def read_model_file(fname_processed_model: Path, no_Z: bool, dsm: xr.Dataset) ->
     no_Z : bool
         _description_
     dsm : Dataset
-        
+
     Returns
     -------
     Processed model output (Dataset)
@@ -50,11 +52,13 @@ def read_model_file(fname_processed_model: Path, no_Z: bool, dsm: xr.Dataset) ->
         # see if I can fix it
         model = fix_dataset(model, dsm)
         check_dataset(model, no_Z=no_Z)
-    
+
     return model
 
 
-def read_processed_data_file(fname_processed_data: Path, no_Z: bool) -> Union[xr.Dataset, pd.DataFrame]:
+def read_processed_data_file(
+    fname_processed_data: Path, no_Z: bool
+) -> Union[xr.Dataset, pd.DataFrame]:
     """_summary_
 
     Parameters
@@ -63,7 +67,7 @@ def read_processed_data_file(fname_processed_data: Path, no_Z: bool) -> Union[xr
         Data file path
     no_Z : bool
         _description_
-        
+
     Returns
     -------
     Processed data (DataFrame or Dataset)
@@ -78,12 +82,16 @@ def read_processed_data_file(fname_processed_data: Path, no_Z: bool) -> Union[xr
         check_dataset(obs, is_model=False, no_Z=no_Z)
     else:
         raise TypeError("object is neither DataFrame nor Dataset.")
-    
+
     return obs
 
 
-def save_processed_files(dfd: Union[xr.Dataset, pd.DataFrame], fname_processed_data: Path, 
-                        model_var: xr.Dataset, fname_processed_model: Path):
+def save_processed_files(
+    dfd: Union[xr.Dataset, pd.DataFrame],
+    fname_processed_data: Path,
+    model_var: xr.Dataset,
+    fname_processed_model: Path,
+):
     """Save processed data and model output into files.
 
     Parameters
@@ -97,7 +105,7 @@ def save_processed_files(dfd: Union[xr.Dataset, pd.DataFrame], fname_processed_d
     fname_processed_model : Path
         Model file path
     """
-    
+
     if isinstance(dfd, pd.DataFrame):
         dfd.to_csv(fname_processed_data, index=False)
     elif isinstance(dfd, xr.Dataset):
@@ -132,9 +140,13 @@ def fix_dataset(
     """
 
     # see if lon/lat are in model_var as data_vars instead of as coordinates
-    if ("longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf) or ("latitude" not in model_var.cf.coordinates and "latitude" in model_var.cf):
+    if (
+        "longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf
+    ) or ("latitude" not in model_var.cf.coordinates and "latitude" in model_var.cf):
         lonkey, latkey = model_var.cf["longitude"].name, model_var.cf["latitude"].name
-        model_var = model_var.assign_coords({lonkey: model_var[lonkey], latkey: model_var[latkey]})
+        model_var = model_var.assign_coords(
+            {lonkey: model_var[lonkey], latkey: model_var[latkey]}
+        )
 
     # if we have X/Y indices in model_var but not their equivalent lon/lat, get them from ds
     elif (
@@ -154,15 +166,16 @@ def fix_dataset(
         # model_var[lonkey] = ds.cf["longitude"].isel({Y.name: Y, X.name: X})
         # model_var[lonkey].attrs = ds[lonkey].attrs
         model_var = model_var.assign_coords(
-            {lonkey: ds.cf["longitude"].isel({Y.name: Y, X.name: X}),
-             latkey: ds.cf["latitude"].isel({Y.name: Y, X.name: X})}
+            {
+                lonkey: ds.cf["longitude"].isel({Y.name: Y, X.name: X}),
+                latkey: ds.cf["latitude"].isel({Y.name: Y, X.name: X}),
+            }
         )
 
     # see if Z is in variables but not in coords
     # can't figure out how to catch this case but generalize yet
     if "Z" not in model_var.cf.coordinates and "s_rho" in model_var.variables:
         model_var = model_var.assign_coords({"s_rho": model_var["s_rho"]})
-    
 
     return model_var
 
@@ -871,7 +884,9 @@ def kwargs_search_from_model(
 
 
 def calculate_anomaly(
-    dd_in: Union[pd.Series, pd.DataFrame, xr.DataArray], monthly_mean, varname=None,
+    dd_in: Union[pd.Series, pd.DataFrame, xr.DataArray],
+    monthly_mean,
+    varname=None,
 ) -> pd.Series:
     """Given monthly mean that is indexed by month of year, subtract it from time series to get anomaly.
 
@@ -885,7 +900,9 @@ def calculate_anomaly(
     if varname is None:
         varname = dd_in.name
     else:
-        varname = dd_in.cf[varname].name  # translate from key_variable alias to actual variable name
+        varname = dd_in.cf[
+            varname
+        ].name  # translate from key_variable alias to actual variable name
     varname_mean = f"{varname}_mean"
     varname_anomaly = f"{varname}_anomaly"
 
@@ -935,7 +952,7 @@ def calculate_anomaly(
         dd_out.name = dd_in[varname].name
 
     elif isinstance(dd_in, (pd.Series, pd.DataFrame)):
-        
+
         dd_out = pd.DataFrame()
         for key in ["T", "Z", "latitude", "longitude"]:
             dd_out[dd_in.cf[key].name] = dd_in.cf[key]

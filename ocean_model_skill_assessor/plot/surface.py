@@ -33,11 +33,11 @@ def plot(
     xlabel: Optional[str] = None,
     ylabel: Optional[str] = None,
     zlabel: Optional[str] = None,
-    model_title: str="Model",
+    model_title: str = "Model",
     along_transect_distance: bool = False,
     plot_on_map: bool = False,
-    proj= None,
-    extent = None,
+    proj=None,
+    extent=None,
     kind="pcolormesh",
     nsubplots: int = 3,
     figname: Union[str, pathlib.Path] = "figure.png",
@@ -144,11 +144,12 @@ def plot(
     if plot_on_map:
         if proj is None:
             import cartopy
+
             proj = cartopy.crs.Mercator()
-        subplot_kw=dict(projection=proj, frameon=False)
+        subplot_kw = dict(projection=proj, frameon=False)
     else:
         subplot_kw = {}
-    
+
     fig, axes = plt.subplots(
         1,
         nsubplots,
@@ -168,7 +169,9 @@ def plot(
     kwargs = {key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]}
 
     if plot_on_map:
-        omsa.plot.map.setup_ax(axes[0], left_labels=True, bottom_labels=True, top_labels=False, fontsize=12)
+        omsa.plot.map.setup_ax(
+            axes[0], left_labels=True, bottom_labels=True, top_labels=False, fontsize=12
+        )
         kwargs["transform"] = omsa.plot.map.pc
         if extent is not None:
             axes[0].set_extent(extent)
@@ -193,7 +196,13 @@ def plot(
 
     # plot model
     if plot_on_map:
-        omsa.plot.map.setup_ax(axes[1], left_labels=False, bottom_labels=True, top_labels=False, fontsize=12)
+        omsa.plot.map.setup_ax(
+            axes[1],
+            left_labels=False,
+            bottom_labels=True,
+            top_labels=False,
+            fontsize=12,
+        )
         if extent is not None:
             axes[1].set_extent(extent)
     if kind == "scatter":
@@ -223,7 +232,13 @@ def plot(
     # for last (diff) plot
     kwargs.update({key: cmap_params_diff.get(key) for key in ["vmin", "vmax", "cmap"]})
     if plot_on_map:
-        omsa.plot.map.setup_ax(axes[2], left_labels=False, bottom_labels=True, top_labels=False, fontsize=12)
+        omsa.plot.map.setup_ax(
+            axes[2],
+            left_labels=False,
+            bottom_labels=True,
+            top_labels=False,
+            fontsize=12,
+        )
         if extent is not None:
             axes[2].set_extent(extent)
     if kind == "scatter":

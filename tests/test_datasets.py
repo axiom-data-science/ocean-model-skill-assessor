@@ -367,348 +367,348 @@ def test_choose_depths():
     assert not vertical_interp
 
 
-# @pytest.mark.mpl_image_compare(style="default")
-# def test_timeSeries_temp(dataset_filenames, project_cache):
-#     featuretype = "timeSeries"
-#     no_Z = False
-#     key_variable, interpolate_horizontal = "temp", True
-#     want_vertical_interp = False
-#     need_xgcm_grid = False
+@pytest.mark.mpl_image_compare(style="default")
+def test_timeSeries_temp(dataset_filenames, project_cache):
+    featuretype = "timeSeries"
+    no_Z = False
+    key_variable, interpolate_horizontal = "temp", True
+    want_vertical_interp = False
+    need_xgcm_grid = False
 
-#     cat = make_catalogs(dataset_filenames, featuretype)
-#     omsa.utils.check_catalog(cat)
-#     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
+    cat = make_catalogs(dataset_filenames, featuretype)
+    omsa.utils.check_catalog(cat)
+    paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
 
-#     # test data time range
-#     data_min_time, data_max_time = omsa.main._find_data_time_range(
-#         cat, source_name=featuretype
-#     )
-#     assert data_min_time, data_max_time == (
-#         pd.Timestamp("2009-11-19 12:00:00"),
-#         pd.Timestamp("2009-11-19 16:00:00"),
-#     )
+    # test data time range
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19 12:00:00"),
+        pd.Timestamp("2009-11-19 16:00:00"),
+    )
 
-#     # test depth selection
-#     cat_model = model_catalog()
-#     dsm, model_source_name = omsa.main._initial_model_handling(
-#         model_name=cat_model, paths=paths, model_source_name=None
-#     )
-#     zkeym = dsm.cf.axes["Z"][0]
+    # test depth selection
+    cat_model = model_catalog()
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
+    zkeym = dsm.cf.axes["Z"][0]
 
-#     dfd = cat[featuretype].read()
+    dfd = cat[featuretype].read()
 
-#     # test depth selection for temp/salt
-#     dfdout, Z, vertical_interp = omsa.main._choose_depths(
-#         dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
-#     )
-#     pd.testing.assert_frame_equal(dfdout, dfd)
-#     assert Z == 0
-#     assert not vertical_interp
+    # test depth selection for temp/salt
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
+    pd.testing.assert_frame_equal(dfdout, dfd)
+    assert Z == 0
+    assert not vertical_interp
 
-#     kwargs = dict(
-#         catalogs=cat,
-#         model_name=cat_model,
-#         preprocess=True,
-#         vocabs=["general", "standard_names"],
-#         mode="a",
-#         alpha=5,
-#         dd=5,
-#         want_vertical_interp=want_vertical_interp,
-#         extrap=False,
-#         check_in_boundary=False,
-#         need_xgcm_grid=need_xgcm_grid,
-#         plot_map=False,
-#         plot_count_title=False,
-#         cache_dir=project_cache,
-#         vocab_labels="vocab_labels",
-#         skip_mask=True,
-#     )
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+        skip_mask=True,
+    )
 
-#     # temp, with horizontal interpolation
-#     fig = omsa.run(
-#         project_name=project_name,
-#         key_variable=key_variable,
-#         interpolate_horizontal=interpolate_horizontal,
-#         no_Z=no_Z,
-#         return_fig=True,
-#         **kwargs,
-#     )
-#     check_output(cat, featuretype, key_variable, project_cache, no_Z)
-#     return fig
-
-
-# @pytest.mark.mpl_image_compare(style="default")
-# def test_timeSeries_ssh(dataset_filenames, project_cache):
-#     featuretype = "timeSeries"
-#     key_variable, interpolate_horizontal = "ssh", False
-#     no_Z = True
-#     want_vertical_interp = False
-#     need_xgcm_grid = False
-
-#     cat = make_catalogs(dataset_filenames, featuretype)
-#     omsa.utils.check_catalog(cat)
-#     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
-
-#     # test depth selection
-#     cat_model = model_catalog()
-#     dsm, model_source_name = omsa.main._initial_model_handling(
-#         model_name=cat_model, paths=paths, model_source_name=None
-#     )
-#     zkeym = dsm.cf.axes["Z"][0]
-
-#     dfd = cat[featuretype].read()
-#     # test depth selection for SSH
-#     dfdout, Z, vertical_interp = omsa.main._choose_depths(
-#         dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
-#     )
-#     pd.testing.assert_frame_equal(dfdout, dfd)
-#     assert Z is None
-#     assert not vertical_interp
-
-#     kwargs = dict(
-#         catalogs=cat,
-#         model_name=cat_model,
-#         preprocess=True,
-#         vocabs=["general", "standard_names"],
-#         mode="a",
-#         alpha=5,
-#         dd=5,
-#         want_vertical_interp=want_vertical_interp,
-#         extrap=False,
-#         check_in_boundary=False,
-#         need_xgcm_grid=need_xgcm_grid,
-#         plot_map=False,
-#         plot_count_title=False,
-#         cache_dir=project_cache,
-#         vocab_labels="vocab_labels",
-#         skip_mask=True,
-#     )
-
-#     # without horizontal interpolation and ssh
-#     fig = omsa.run(
-#         project_name=project_name,
-#         key_variable=key_variable,
-#         interpolate_horizontal=interpolate_horizontal,
-#         no_Z=no_Z,
-#         return_fig=True,
-#         **kwargs,
-#     )
-#     check_output(cat, featuretype, key_variable, project_cache, no_Z)
-#     return fig
+    # temp, with horizontal interpolation
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
+    check_output(cat, featuretype, key_variable, project_cache, no_Z)
+    return fig
 
 
-# @pytest.mark.mpl_image_compare(style="default")
-# def test_profile(dataset_filenames, project_cache):
-#     featuretype = "profile"
-#     no_Z = False
-#     key_variable, interpolate_horizontal = "temp", False
-#     want_vertical_interp = True
-#     need_xgcm_grid = True
+@pytest.mark.mpl_image_compare(style="default")
+def test_timeSeries_ssh(dataset_filenames, project_cache):
+    featuretype = "timeSeries"
+    key_variable, interpolate_horizontal = "ssh", False
+    no_Z = True
+    want_vertical_interp = False
+    need_xgcm_grid = False
 
-#     cat = make_catalogs(dataset_filenames, featuretype)
-#     omsa.utils.check_catalog(cat)
-#     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
+    cat = make_catalogs(dataset_filenames, featuretype)
+    omsa.utils.check_catalog(cat)
+    paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
 
-#     # test data time range
-#     data_min_time, data_max_time = omsa.main._find_data_time_range(
-#         cat, source_name=featuretype
-#     )
-#     assert data_min_time, data_max_time == (
-#         pd.Timestamp("2009-11-19T14:00"),
-#         pd.Timestamp("2009-11-19T14:00"),
-#     )
+    # test depth selection
+    cat_model = model_catalog()
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
+    zkeym = dsm.cf.axes["Z"][0]
 
-#     # test depth selection
-#     cat_model = model_catalog()
-#     dsm, model_source_name = omsa.main._initial_model_handling(
-#         model_name=cat_model, paths=paths, model_source_name=None
-#     )
-#     zkeym = dsm.cf.axes["Z"][0]
+    dfd = cat[featuretype].read()
+    # test depth selection for SSH
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
+    pd.testing.assert_frame_equal(dfdout, dfd)
+    assert Z is None
+    assert not vertical_interp
 
-#     dfd = cat[featuretype].read()
-#     # test depth selection for temp/salt
-#     dfdout, Z, vertical_interp = omsa.main._choose_depths(
-#         dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
-#     )
-#     pd.testing.assert_frame_equal(dfdout, dfd)
-#     assert (Z == dfd.cf["Z"]).all()
-#     assert vertical_interp == want_vertical_interp
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+        skip_mask=True,
+    )
 
-#     kwargs = dict(
-#         catalogs=cat,
-#         model_name=cat_model,
-#         preprocess=True,
-#         vocabs=["general", "standard_names"],
-#         mode="a",
-#         alpha=5,
-#         dd=5,
-#         want_vertical_interp=want_vertical_interp,
-#         extrap=False,
-#         check_in_boundary=False,
-#         need_xgcm_grid=need_xgcm_grid,
-#         plot_map=False,
-#         plot_count_title=False,
-#         cache_dir=project_cache,
-#         vocab_labels="vocab_labels",
-#         skip_mask=True,
-#     )
-
-#     fig = omsa.run(
-#         project_name=project_name,
-#         key_variable=key_variable,
-#         interpolate_horizontal=interpolate_horizontal,
-#         no_Z=no_Z,
-#         return_fig=True,
-#         **kwargs,
-#     )
-
-#     check_output(cat, featuretype, key_variable, project_cache, no_Z)
-#     return fig
+    # without horizontal interpolation and ssh
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
+    check_output(cat, featuretype, key_variable, project_cache, no_Z)
+    return fig
 
 
-# @pytest.mark.mpl_image_compare(style="default")
-# def test_timeSeriesProfile(dataset_filenames, project_cache):
-#     """ADCP mooring but for temp for ease of testing"""
+@pytest.mark.mpl_image_compare(style="default")
+def test_profile(dataset_filenames, project_cache):
+    featuretype = "profile"
+    no_Z = False
+    key_variable, interpolate_horizontal = "temp", False
+    want_vertical_interp = True
+    need_xgcm_grid = True
 
-#     featuretype = "timeSeriesProfile"
-#     no_Z = False
-#     key_variable, interpolate_horizontal = "temp", False
-#     want_vertical_interp = True
-#     need_xgcm_grid = True
+    cat = make_catalogs(dataset_filenames, featuretype)
+    omsa.utils.check_catalog(cat)
+    paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
 
-#     cat = make_catalogs(dataset_filenames, featuretype)
-#     omsa.utils.check_catalog(cat)
-#     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
+    # test data time range
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19T14:00"),
+        pd.Timestamp("2009-11-19T14:00"),
+    )
 
-#     # test data time range
-#     data_min_time, data_max_time = omsa.main._find_data_time_range(
-#         cat, source_name=featuretype
-#     )
-#     assert data_min_time, data_max_time == (
-#         pd.Timestamp("2009-11-19T12:00"),
-#         pd.Timestamp("2009-11-19T16:00"),
-#     )
+    # test depth selection
+    cat_model = model_catalog()
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
+    zkeym = dsm.cf.axes["Z"][0]
 
-#     # test depth selection
-#     cat_model = model_catalog()
-#     dsm, model_source_name = omsa.main._initial_model_handling(
-#         model_name=cat_model, paths=paths, model_source_name=None
-#     )
-#     zkeym = dsm.cf.axes["Z"][0]
+    dfd = cat[featuretype].read()
+    # test depth selection for temp/salt
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
+    pd.testing.assert_frame_equal(dfdout, dfd)
+    assert (Z == dfd.cf["Z"]).all()
+    assert vertical_interp == want_vertical_interp
 
-#     dfd = cat[featuretype].read()
-#     # test depth selection for temp/salt. These are Datasets
-#     dfdout, Z, vertical_interp = omsa.main._choose_depths(
-#         dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
-#     )
-#     assert dfd.equals(dfdout)
-#     assert (Z == dfd.cf["Z"]).all()
-#     assert vertical_interp == want_vertical_interp
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+        skip_mask=True,
+    )
 
-#     kwargs = dict(
-#         catalogs=cat,
-#         model_name=cat_model,
-#         preprocess=True,
-#         vocabs=["general", "standard_names"],
-#         mode="a",
-#         alpha=5,
-#         dd=5,
-#         want_vertical_interp=want_vertical_interp,
-#         extrap=False,
-#         check_in_boundary=False,
-#         need_xgcm_grid=need_xgcm_grid,
-#         plot_map=False,
-#         plot_count_title=False,
-#         cache_dir=project_cache,
-#         vocab_labels="vocab_labels",
-#         skip_mask=True,
-#     )
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
 
-#     fig = omsa.run(
-#         project_name=project_name,
-#         key_variable=key_variable,
-#         interpolate_horizontal=interpolate_horizontal,
-#         no_Z=no_Z,
-#         return_fig=True,
-#         **kwargs,
-#     )
-
-#     check_output(cat, featuretype, key_variable, project_cache, no_Z)
-#     return fig
+    check_output(cat, featuretype, key_variable, project_cache, no_Z)
+    return fig
 
 
-# @pytest.mark.mpl_image_compare(style="default")
-# def test_trajectoryProfile(dataset_filenames, project_cache):
-#     """CTD transect"""
+@pytest.mark.mpl_image_compare(style="default")
+def test_timeSeriesProfile(dataset_filenames, project_cache):
+    """ADCP mooring but for temp for ease of testing"""
 
-#     featuretype = "trajectoryProfile"
-#     no_Z = False
-#     key_variable, interpolate_horizontal = "salt", True
-#     want_vertical_interp = True
-#     need_xgcm_grid = True
-#     save_horizontal_interp_weights = False
+    featuretype = "timeSeriesProfile"
+    no_Z = False
+    key_variable, interpolate_horizontal = "temp", False
+    want_vertical_interp = True
+    need_xgcm_grid = True
 
-#     cat = make_catalogs(dataset_filenames, featuretype)
-#     omsa.utils.check_catalog(cat)
-#     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
+    cat = make_catalogs(dataset_filenames, featuretype)
+    omsa.utils.check_catalog(cat)
+    paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
 
-#     # test data time range
-#     data_min_time, data_max_time = omsa.main._find_data_time_range(
-#         cat, source_name=featuretype
-#     )
-#     assert data_min_time, data_max_time == (
-#         pd.Timestamp("2009-11-19T12:00"),
-#         pd.Timestamp("2009-11-19T16:00"),
-#     )
+    # test data time range
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19T12:00"),
+        pd.Timestamp("2009-11-19T16:00"),
+    )
 
-#     # test depth selection
-#     cat_model = model_catalog()
-#     dsm, model_source_name = omsa.main._initial_model_handling(
-#         model_name=cat_model, paths=paths, model_source_name=None
-#     )
-#     zkeym = dsm.cf.axes["Z"][0]
+    # test depth selection
+    cat_model = model_catalog()
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
+    zkeym = dsm.cf.axes["Z"][0]
 
-#     dfd = cat[featuretype].read()
-#     # test depth selection for temp/salt. These are Datasets
-#     dfdout, Z, vertical_interp = omsa.main._choose_depths(
-#         dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
-#     )
-#     assert dfd.equals(dfdout)
-#     assert (Z == dfd.cf["Z"]).all()
-#     assert vertical_interp == want_vertical_interp
+    dfd = cat[featuretype].read()
+    # test depth selection for temp/salt. These are Datasets
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
+    assert dfd.equals(dfdout)
+    assert (Z == dfd.cf["Z"]).all()
+    assert vertical_interp == want_vertical_interp
 
-#     kwargs = dict(
-#         catalogs=cat,
-#         model_name=cat_model,
-#         preprocess=True,
-#         vocabs=["general", "standard_names"],
-#         mode="a",
-#         alpha=5,
-#         dd=5,
-#         want_vertical_interp=want_vertical_interp,
-#         extrap=False,
-#         check_in_boundary=False,
-#         need_xgcm_grid=need_xgcm_grid,
-#         plot_map=False,
-#         plot_count_title=False,
-#         cache_dir=project_cache,
-#         vocab_labels="vocab_labels",
-#         save_horizontal_interp_weights=save_horizontal_interp_weights,
-#         skip_mask=True,
-#     )
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+        skip_mask=True,
+    )
 
-#     fig = omsa.run(
-#         project_name=project_name,
-#         key_variable=key_variable,
-#         interpolate_horizontal=interpolate_horizontal,
-#         no_Z=no_Z,
-#         return_fig=True,
-#         **kwargs,
-#     )
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
 
-#     check_output(cat, featuretype, key_variable, project_cache, no_Z)
+    check_output(cat, featuretype, key_variable, project_cache, no_Z)
+    return fig
 
-#     return fig
+
+@pytest.mark.mpl_image_compare(style="default")
+def test_trajectoryProfile(dataset_filenames, project_cache):
+    """CTD transect"""
+
+    featuretype = "trajectoryProfile"
+    no_Z = False
+    key_variable, interpolate_horizontal = "salt", True
+    want_vertical_interp = True
+    need_xgcm_grid = True
+    save_horizontal_interp_weights = False
+
+    cat = make_catalogs(dataset_filenames, featuretype)
+    omsa.utils.check_catalog(cat)
+    paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
+
+    # test data time range
+    data_min_time, data_max_time = omsa.main._find_data_time_range(
+        cat, source_name=featuretype
+    )
+    assert data_min_time, data_max_time == (
+        pd.Timestamp("2009-11-19T12:00"),
+        pd.Timestamp("2009-11-19T16:00"),
+    )
+
+    # test depth selection
+    cat_model = model_catalog()
+    dsm, model_source_name = omsa.main._initial_model_handling(
+        model_name=cat_model, paths=paths, model_source_name=None
+    )
+    zkeym = dsm.cf.axes["Z"][0]
+
+    dfd = cat[featuretype].read()
+    # test depth selection for temp/salt. These are Datasets
+    dfdout, Z, vertical_interp = omsa.main._choose_depths(
+        dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp
+    )
+    assert dfd.equals(dfdout)
+    assert (Z == dfd.cf["Z"]).all()
+    assert vertical_interp == want_vertical_interp
+
+    kwargs = dict(
+        catalogs=cat,
+        model_name=cat_model,
+        preprocess=True,
+        vocabs=["general", "standard_names"],
+        mode="a",
+        alpha=5,
+        dd=5,
+        want_vertical_interp=want_vertical_interp,
+        extrap=False,
+        check_in_boundary=False,
+        need_xgcm_grid=need_xgcm_grid,
+        plot_map=False,
+        plot_count_title=False,
+        cache_dir=project_cache,
+        vocab_labels="vocab_labels",
+        save_horizontal_interp_weights=save_horizontal_interp_weights,
+        skip_mask=True,
+    )
+
+    fig = omsa.run(
+        project_name=project_name,
+        key_variable=key_variable,
+        interpolate_horizontal=interpolate_horizontal,
+        no_Z=no_Z,
+        return_fig=True,
+        **kwargs,
+    )
+
+    check_output(cat, featuretype, key_variable, project_cache, no_Z)
+
+    return fig
 
 
 @pytest.mark.mpl_image_compare(style="default")
@@ -720,8 +720,8 @@ def test_grid(dataset_filenames, project_cache):
     key_variable, interpolate_horizontal = "temp", True
     # key_variable = [{"data": "north", "accessor": "xroms", "function": "north", "inputs": {}}]
     want_vertical_interp = False
-    horizontal_interp_code="xesmf"
-    locstream=False
+    horizontal_interp_code = "xesmf"
+    locstream = False
     need_xgcm_grid = True
     save_horizontal_interp_weights = False
 

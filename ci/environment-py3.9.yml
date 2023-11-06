@@ -30,6 +30,7 @@ dependencies:
   - xroms  # github actions won't find on conda-forge
   - pytest
   - pip:
+    - extract_model  # while waiting for it to get to conda-forge
     - codecov
     - pytest-cov
     - pytest-mpl

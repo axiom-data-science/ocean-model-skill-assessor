@@ -9,7 +9,6 @@ dependencies:
   - cf_xarray
   - cmocean
   - datetimerange
-  - extract_model
   # - intake
   # - intake-axds
   # - intake-erddap
@@ -30,6 +29,7 @@ dependencies:
   ##############
   - pytest
   - pip:
+    - extract_model  # while waiting for it to get to conda-forge
     - codecov
     - pytest-cov
     - pytest-mpl

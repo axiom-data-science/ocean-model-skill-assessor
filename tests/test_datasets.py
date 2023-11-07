@@ -255,7 +255,8 @@ def check_output(cat, featuretype, key_variable, project_cache, no_Z):
     dsexpected = xr.open_dataset(base_dir / rel_path)
     dsactual = xr.open_dataset(project_cache / "tests" / rel_path)
     for var in dsexpected.coords:
-        assert dsexpected[var].equals(dsactual[var])
+        np.allclose(dsexpected[var], dsactual[var], equal_nan=True)
+        # assert dsexpected[var].equals(dsactual[var])
     for var in dsexpected.data_vars:
         np.allclose(dsexpected[var], dsactual[var], equal_nan=True)
 

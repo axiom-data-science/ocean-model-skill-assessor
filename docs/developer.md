@@ -37,3 +37,5 @@ Next steps:
 * Handle units (right now assumes units are the same in model and datasets and match what is input with `vocab_labels` for labels on plots)
 * Handle time zones. Currently assumes everything in UTC. Removes timezones if present.
 * Make dataset handling more flexible such that if a dataset featuretype is amenable, don't require T, Z, lon, or lat to be in separate columns. Currently all are required but in the future e.g. a `timeSeries` dataset could only have the depth defined in the catalog metadata since it doesn't vary.
+* add functions to test_plot.py to test scatter and pcolormesh
+* expand docs to show other model-data comparison examples, possibly using synthetic data

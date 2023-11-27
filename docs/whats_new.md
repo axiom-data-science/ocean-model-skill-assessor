@@ -1,6 +1,6 @@
 # What's New
 
-## v1.2.0 (November 6, 2023)
+## v1.2.0 (November 27, 2023)
 * Added capability for running HF Radar as quiver plot, over time or single time.
 
 ## v1.1.0 (October 13, 2023)

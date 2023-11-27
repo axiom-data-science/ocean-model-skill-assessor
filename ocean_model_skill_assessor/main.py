@@ -8,13 +8,14 @@ import pathlib
 import warnings
 
 from collections.abc import Sequence
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import cf_xarray
 import extract_model as em
 import extract_model.accessor
 import intake
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
@@ -50,6 +51,9 @@ from .utils import (
     open_catalogs,
     open_vocab_labels,
     open_vocabs,
+    read_model_file,
+    read_processed_data_file,
+    save_processed_files,
     set_up_logging,
     shift_longitudes,
 )
@@ -225,6 +229,7 @@ def make_local_catalog(
             )
 
             cat[source].metadata.update(metadata)
+
             cat[source]._entry._metadata.update(metadata)
 
     # create dictionary of catalog entries
@@ -650,10 +655,13 @@ def _choose_depths(
                 f"Will not perform vertical interpolation and there is no concept of depth for this variable."
             )
 
-    elif (dd.cf["Z"] == dd.cf["Z"][0]).all():
-        Z = float(
-            dd.cf["Z"][0]
-        )  # do nearest depth to the one depth represented in dataset
+    elif (dd.cf["Z"].size == 1) or (dd.cf["Z"] == dd.cf["Z"][0]).all():
+        if dd.cf["Z"].size == 1:
+            Z = float(dd.cf["Z"])
+        else:
+            Z = float(
+                dd.cf["Z"][0]
+            )  # do nearest depth to the one depth represented in dataset
         vertical_interp = False
         if logger is not None:
             logger.info(
@@ -743,10 +751,15 @@ def _dam_from_dsm(
             key_variable["inputs"].update({new_input_key: new_input_val})
 
         # e.g. ds.xroms.east_rotated(angle=-90, reference="compass", isradians=False, name="along_channel")
-        dam = getattr(
+        function_or_property = getattr(
             getattr(dsm2, key_variable["accessor"]),
             key_variable["function"],
-        )(**key_variable["inputs"])
+        )
+        # if it is a property can't call it like a function
+        if isinstance(getattr(type(dsm2.xroms), "east"), property):
+            dam = function_or_property
+        else:
+            dam = function_or_property(**key_variable["inputs"])
     else:
         dam = dsm2.cf[key_variable_data]
 
@@ -934,7 +947,8 @@ def _check_prep_narrow_data(
 
     # see if more than one column of data is being identified as key_variable_data
     # if more than one, log warning and then choose first
-    if isinstance(dd.cf[key_variable_data], DataFrame):
+    # variable might be calculated later
+    if key_variable_data in dd.cf and isinstance(dd.cf[key_variable_data], DataFrame):
         msg = f"More than one variable ({dd.cf[key_variable_data].columns}) have been matched to input variable {key_variable_data}. The first {dd.cf[key_variable_data].columns[0]} is being selected. To change this, modify the vocabulary so that the two variables are not both matched, or change the input data catalog."
         logger.warning(msg)
         # remove other data columns
@@ -999,7 +1013,8 @@ def _check_prep_narrow_data(
         dd = dd
 
     # check if all of variable is nan
-    if dd.cf[key_variable_data].isnull().all():
+    # variable might be calculated later
+    if key_variable_data in dd.cf and dd.cf[key_variable_data].isnull().all():
         msg = f"All values of key variable {key_variable_data} are nan in dataset {source_name}. Skipping dataset.\n"
         logger.warning(msg)
         maps.pop(-1)
@@ -1339,11 +1354,15 @@ def _return_mask(
     if mask is None:
         if paths.MASK_PATH(key_variable_data).is_file():
             if logger is not None:
-                logger.info("Using cached mask.")
+                logger.info(
+                    f"Using cached mask from {paths.MASK_PATH(key_variable_data)}."
+                )
             mask = xr.open_dataarray(paths.MASK_PATH(key_variable_data))
         else:
             if logger is not None:
-                logger.info("Finding and saving mask to cache.")
+                logger.info(
+                    f"Finding and saving mask to cache to {paths.MASK_PATH(key_variable_data)}."
+                )
             # # dam variable might not be in Dataset itself, but its coordinates probably are.
             # mask = get_mask(dsm, dam.name)
             mask = get_mask(dsm, lon_name, wetdry=wetdry)
@@ -1523,7 +1542,12 @@ def _select_process_save_model(
         if "Z" in dam.cf.axes:
             zkey = dam.cf["Z"].name
             iz = list(dam.cf["Z"].values).index(model_var[zkey].values)
-            model_var[f"i_{zkey}"] = iz
+            model_var[f"{zkey}_index"] = iz
+            # if we chose an index maybe there is no vertical? experimental
+            if "vertical" not in model_var.cf:
+                model_var[f"{zkey}_index"].attrs["positive"] = dam.cf["vertical"].attrs[
+                    "positive"
+                ]
         else:
             raise KeyError("Z missing from dam axes")
     if not select_kwargs["horizontal_interp"]:
@@ -1538,7 +1562,8 @@ def _select_process_save_model(
         # model_var.attrs["distance_from_location_km"] = float(distance)
     else:
         # when lons/lats are function of time, add them back in
-        if dam.cf["longitude"].name not in model_var.coords:
+        if "longitude" not in model_var.cf:
+            # if dam.cf["longitude"].name not in model_var.coords:
             # if model_var.ndim == 1 and len(model_var[model_var.dims[0]]) == lons.size:
             if isinstance(select_kwargs["longitude"], (float, int)):
                 attrs = dict(
@@ -1562,7 +1587,8 @@ def _select_process_save_model(
                     select_kwargs["longitude"],
                     attrs,
                 )
-        if dam.cf["latitude"].name not in model_var.dims:
+        if "latitude" not in model_var.cf:
+            # if dam.cf["latitude"].name not in model_var.dims:
             if isinstance(select_kwargs["latitude"], (float, int)):
                 model_var[dam.cf["latitude"].name] = select_kwargs["latitude"]
                 attrs = dict(
@@ -1627,7 +1653,7 @@ def run(
     key_variable: Union[str, dict],
     model_name: Union[str, Catalog],
     vocabs: Optional[Union[str, Vocab, Sequence, PurePath]] = None,
-    vocab_labels: Optional[Union[str, PurePath, dict]] = None,
+    vocab_labels: Optional[Union[str, Path, dict]] = None,
     ndatasets: Optional[int] = None,
     kwargs_map: Optional[Dict] = None,
     verbose: bool = True,
@@ -1663,6 +1689,10 @@ def run(
     override_model: bool = False,
     override_processed: bool = False,
     override_stats: bool = False,
+    override_plot: bool = False,
+    plot_description: Optional[str] = None,
+    kwargs_plot: Optional[Dict] = None,
+    skip_key_variable_check: bool = False,
     **kwargs,
 ):
     """Run the model-data comparison.
@@ -1758,6 +1788,12 @@ def run(
         Flag to force-redo model and data processing. Default False.
     override_stats : bool
         Flag to force-redo stats calculation. Default False.
+    override_plot : bool
+        Flag to force-redo plot. If True, only redos plot itself if other files are already available. If False, only redos the plot not the other files. Default False.
+    kwargs_plot : dict
+        to pass to omsa plot selection and then through the omsa plot selection to the subsequent plot itself for source. If you need more fine options, run the run function per source.
+    skip_key_variable_check : bool
+        If True, don't check for key_variable name being in catalog source metadata.
     """
 
     paths = Paths(project_name, cache_dir=cache_dir)
@@ -1767,8 +1803,12 @@ def run(
     logger.info(f"Input parameters: {locals()}")
 
     kwargs_map = kwargs_map or {}
+    kwargs_plot = kwargs_plot or {}
     kwargs_xroms = kwargs_xroms or {}
     ts_mods = ts_mods or []
+
+    # add override_plot to kwargs_plot in case the fignames are changed later and should be checked there instead
+    kwargs_plot.update({"override_plot": override_plot})
 
     mask = None
 
@@ -1805,6 +1845,9 @@ def run(
     preprocessed = False
     p1 = None
 
+    # have to save this because of my poor variable naming at the moment as I make a list possible
+    key_variable_orig = key_variable
+
     # loop over catalogs and sources to pull out lon/lat locations for plot
     maps = []
     count = 0  # track datasets since count is used to match on map
@@ -1816,6 +1859,8 @@ def run(
             source_names = list(cat)
         for i, source_name in enumerate(source_names[:ndatasets]):
 
+            skip_dataset = False
+
             if ndatasets is None:
                 msg = (
                     f"\nsource name: {source_name} ({i+1} of {ndata} for catalog {cat}."
@@ -1824,13 +1869,26 @@ def run(
                 msg = f"\nsource name: {source_name} ({i+1} of {ndatasets} for catalog {cat}."
             logger.info(msg)
 
+            # this check doesn't work if key_data is a dict since too hard to figure out what to check then
+            # change to iterable
+            key_variable_list = cf_xarray.utils.always_iterable(key_variable_orig)
             if (
                 "key_variables" in cat[source_name].metadata
-                and key_variable not in cat[source_name].metadata["key_variables"]
+                and all(
+                    [
+                        key not in cat[source_name].metadata["key_variables"]
+                        for key in key_variable_list
+                    ]
+                )
+                # and key_variable_list not in cat[source_name].metadata["key_variables"]
+                # and not isinstance(key_variable_list, dict)
+                and all([not isinstance(key, dict) for key in key_variable_list])
+                and not skip_key_variable_check
             ):
                 logger.info(
                     f"no `key_variables` key found in source metadata or at least not {key_variable}"
                 )
+                skip_dataset = True
                 continue
 
             min_lon = cat[source_name].metadata["minLongitude"]
@@ -1860,15 +1918,6 @@ def run(
             model_max_time = pd.Timestamp(str(dsm.cf["T"][-1].values))
             data_min_time, data_max_time = _find_data_time_range(cat, source_name)
 
-            # allow for possibility that key_variable is a dict with more complicated usage than just a string
-            if isinstance(key_variable, dict):
-                key_variable_data = key_variable["data"]
-            else:
-                key_variable_data = key_variable
-
-            # # Combine and align the two time series of variable
-            # with cfp_set_options(custom_criteria=vocab.vocab):
-
             # skip this dataset if times between data and model don't align
             skip_dataset, maps = _check_time_ranges(
                 source_name,
@@ -1884,422 +1933,508 @@ def run(
             if skip_dataset:
                 continue
 
-            try:
-                dfd = cat[source_name].read()
-                if isinstance(dfd, pd.DataFrame):
-                    dfd = check_dataframe(dfd, no_Z)
+            # key_variable could be a list of strings or dicts and here we loop over them if so
+            obss, models, statss, key_variable_datas = [], [], [], []
+            for key_variable in key_variable_list:
 
-            except requests.exceptions.HTTPError as e:
-                logger.warning(str(e))
-                msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
-                logger.warning(msg)
-                maps.pop(-1)
-                continue
+                # allow for possibility that key_variable is a dict with more complicated usage than just a string
+                if isinstance(key_variable, dict):
+                    key_variable_data = key_variable["data"]
+                else:
+                    key_variable_data = key_variable
 
-            except Exception as e:
-                logger.warning(str(e))
-                msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
-                logger.warning(msg)
-                maps.pop(-1)
-                continue
-
-            # Need to have this here because if model file has previously been read in but
-            # aligned file doesn't exist yet, this needs to run to update the sign of the
-            # data depths in certain cases.
-            zkeym = dsm.cf.axes["Z"][0]
-            dfd, Z, vertical_interp = _choose_depths(
-                dfd, dsm[zkeym].attrs["positive"], no_Z, want_vertical_interp, logger
-            )
-
-            # take out relevant variable and identify mask if available (otherwise None)
-            # this mask has to match dam for em.select()
-            if not skip_mask:
-                mask = _return_mask(
-                    mask,
-                    dsm,
-                    dsm.cf.coordinates["longitude"][
-                        0
-                    ],  # using the first longitude key is adequate
-                    wetdry,
-                    key_variable_data,
-                    paths,
-                    logger,
+                logger.info(
+                    f"running {source_name} for key_variable(s) {key_variable_data} from key_variable_list {key_variable_list}\n"
                 )
 
-            # I think these should always be true together
-            if skip_mask:
-                assert mask is None
+                # # Combine and align the two time series of variable
+                # with cfp_set_options(custom_criteria=vocab.vocab):
 
-            # Calculate boundary of model domain to compare with data locations and for map
-            # don't need p1 if check_in_boundary False and plot_map False
-            if (check_in_boundary or plot_map) and p1 is None:
-                p1 = _return_p1(paths, dsm, mask, alpha, dd, logger)
+                try:
+                    dfd = cat[source_name].read()
+                    if isinstance(dfd, pd.DataFrame):
+                        dfd = check_dataframe(dfd, no_Z)
 
-            # see if data location is inside alphashape-calculated polygon of model domain
-            if check_in_boundary:
-                if _is_outside_boundary(p1, min_lon, min_lat, source_name, logger):
+                except requests.exceptions.HTTPError as e:
+                    logger.warning(str(e))
+                    msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
+                    logger.warning(msg)
                     maps.pop(-1)
+                    skip_dataset = True
                     continue
 
-            # check for already-aligned model-data file
-            fname_processed_orig = f"{cat.name}_{source_name}_{key_variable_data}"
-            (
-                fname_processed,
-                fname_processed_data,
-                fname_processed_model,
-                model_file_name,
-            ) = _processed_file_names(
-                fname_processed_orig,
-                type(dfd),
-                user_min_time,
-                user_max_time,
-                paths,
-                ts_mods,
-                logger,
-            )
+                except Exception as e:
+                    logger.warning(str(e))
+                    msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
+                    logger.warning(msg)
+                    maps.pop(-1)
+                    skip_dataset = True
+                    continue
 
-            # read in previously-saved processed model output and obs.
-            if (
-                not override_processed
-                and fname_processed_data.is_file()
-                and fname_processed_model.is_file()
-            ):
-
-                logger.info(
-                    "Reading previously-processed model output and data for %s.",
-                    source_name,
+                # check for already-aligned model-data file
+                fname_processed_orig = (
+                    f"{cat.name}_{source_name.replace('.','_')}_{key_variable_data}"
                 )
-                if isinstance(dfd, pd.DataFrame):
-                    obs = pd.read_csv(fname_processed_data)
-                    obs = check_dataframe(obs, no_Z)
-                elif isinstance(dfd, xr.Dataset):
-                    obs = xr.open_dataset(fname_processed_data).cf.guess_coord_axis()
-                    check_dataset(obs, is_model=False, no_Z=no_Z)
-                else:
-                    raise TypeError("object is neither DataFrame nor Dataset.")
-
-                model = xr.open_dataset(fname_processed_model).cf.guess_coord_axis()
-                # check_dataset(model, no_Z=no_Z)
-                try:
-                    check_dataset(model, no_Z=no_Z)
-                except KeyError:
-                    # see if I can fix it
-                    model = fix_dataset(model, dsm)
-                    check_dataset(model, no_Z=no_Z)
-            else:
-
-                logger.info(
-                    "No previously processed model output and data available for %s, so setting up now.",
-                    source_name,
-                )
-
-                # Check, prep, and possibly narrow data time range
-                dfd, maps = _check_prep_narrow_data(
-                    dfd,
-                    key_variable_data,
-                    source_name,
-                    maps,
-                    vocab,
+                (
+                    fname_processed,
+                    fname_processed_data,
+                    fname_processed_model,
+                    model_file_name,
+                ) = _processed_file_names(
+                    fname_processed_orig,
+                    type(dfd),
                     user_min_time,
                     user_max_time,
-                    data_min_time,
-                    data_max_time,
+                    paths,
+                    ts_mods,
                     logger,
                 )
-                # if there were any issues in the last function, dfd should be None and we should
-                # skip this dataset
-                if dfd is None:
+                figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(
+                    ".png"
+                )
+                # in case there are multiple key_variables in key_variable_list which will be joined
+                # for the figure, renamed including both names
+                if len(key_variable_list) > 1:
+                    figname = pathlib.Path(
+                        str(figname).replace(
+                            key_variable_data, "_".join(key_variable_list)
+                        )
+                    )
+
+                logger.info(f"Figure name is {figname}.")
+
+                if figname.is_file() and not override_plot:
+                    logger.info(f"plot already exists so skipping dataset.")
                     continue
 
-                # Read in model output from cache if possible.
-                if not override_model and model_file_name.is_file():
-                    logger.info("Reading model output from file.")
-                    model_var = xr.open_dataset(model_file_name)
-                    # model_var = xr.open_dataarray(model_file_name)
-                    if not interpolate_horizontal:
-                        distance = model_var["distance"]
-                    # maybe need to process again?
-                    # try to help with missing attributes
-                    model_var = model_var.cf.guess_coord_axis()
-                    model_var = model_var.cf[key_variable_data]
-                    # distance = model_var.attrs["distance_from_location_km"]
-                    # check_dataset(model_var, no_Z=no_Z)
-                    try:
-                        check_dataset(model_var, no_Z=no_Z)
-                    except KeyError:
-                        # see if I can fix it
-                        model_var = fix_dataset(model_var, dsm)
-                        check_dataset(model_var, no_Z=no_Z)
+                # read in previously-saved processed model output and obs.
+                if (
+                    not override_processed
+                    and fname_processed_data.is_file()
+                    and fname_processed_model.is_file()
+                ):
+
+                    logger.info(
+                        "Reading previously-processed model output and data for %s.",
+                        source_name,
+                    )
+                    obs = read_processed_data_file(fname_processed_data, no_Z)
+                    model = read_model_file(fname_processed_model, no_Z, dsm)
+                else:
+
+                    logger.info(
+                        "No previously processed model output and data available for %s, so setting up now.",
+                        source_name,
+                    )
+
+                    # take out relevant variable and identify mask if available (otherwise None)
+                    # this mask has to match dam for em.select()
+                    if not skip_mask:
+                        mask = _return_mask(
+                            mask,
+                            dsm,
+                            dsm.cf.coordinates["longitude"][
+                                0
+                            ],  # using the first longitude key is adequate
+                            wetdry,
+                            key_variable_data,
+                            paths,
+                            logger,
+                        )
+
+                    # I think these should always be true together
+                    if skip_mask:
+                        assert mask is None
+
+                    # Calculate boundary of model domain to compare with data locations and for map
+                    # don't need p1 if check_in_boundary False and plot_map False
+                    if (check_in_boundary or plot_map) and p1 is None:
+                        p1 = _return_p1(paths, dsm, mask, alpha, dd, logger)
+
+                    # see if data location is inside alphashape-calculated polygon of model domain
+                    if check_in_boundary:
+                        if _is_outside_boundary(
+                            p1, min_lon, min_lat, source_name, logger
+                        ):
+                            maps.pop(-1)
+                            continue
+
+                    # Check, prep, and possibly narrow data time range
+                    dfd, maps = _check_prep_narrow_data(
+                        dfd,
+                        key_variable_data,
+                        source_name,
+                        maps,
+                        vocab,
+                        user_min_time,
+                        user_max_time,
+                        data_min_time,
+                        data_max_time,
+                        logger,
+                    )
+                    # if there were any issues in the last function, dfd should be None and we should
+                    # skip this dataset
+                    if dfd is None:
+                        skip_dataset = True
+                        continue
+
+                    # Read in model output from cache if possible.
+                    if not override_model and model_file_name.is_file():
+                        logger.info("Reading model output from file.")
+                        model_var = read_model_file(model_file_name, no_Z, dsm)
+                        if not interpolate_horizontal:
+                            distance = model_var["distance"]
+
+                        # Is this necessary? It removes `s_rho_index` when present which causes an issue
+                        # since it is "vertical" for cf
+                        # model_var = model_var.cf[key_variable_data]
+
+                        # if model_only:
+                        #     logger.info("Running model only so moving on to next source...")
+                        #     continue
+
+                    # have to read in the model output
+                    else:
+
+                        # lons, lats might be one location or many
+                        lons, lats = _return_data_locations(
+                            maps, dfd, cat[source_name].metadata["featuretype"], logger
+                        )
+
+                        # narrow time range to limit how much model output to deal with
+                        dsm2 = _narrow_model_time_range(
+                            dsm,
+                            user_min_time,
+                            user_max_time,
+                            model_min_time,
+                            model_max_time,
+                            data_min_time,
+                            data_max_time,
+                        )
+
+                        # more processing opportunity and chance to use xroms if needed
+                        dsm2, grid, preprocessed = _process_model(
+                            dsm2, preprocess, need_xgcm_grid, kwargs_xroms, logger
+                        )
+
+                        # Narrow model from Dataset to DataArray here
+                        # key_variable = ["xroms", "ualong", "theta"]  # and all necessary steps to get there will happen
+                        # key_variable = {"accessor": "xroms", "function": "ualong", "inputs": {"theta": theta}}
+                        # # HOW TO GET THETA IN THE DICT?
+
+                        # dam might be a Dataset but it has to be on a single grid, that is, e.g., all variable on the ROMS rho grid.
+                        # well, that is only partially true. em.select requires DataArrays for certain operations like vertical
+                        # interpolation.
+                        dam = _dam_from_dsm(
+                            dsm2,
+                            key_variable,
+                            key_variable_data,
+                            cat[source_name].metadata,
+                            no_Z,
+                            logger,
+                        )
+
+                        # shift if 0 to 360
+                        dam = shift_longitudes(dam)  # this is fast if not needed
+
+                        # expand 1D coordinates to 2D, so all models dealt with in OMSA are treated with 2D coords.
+                        # if your model is too large to be treated with this way, subset the model first.
+                        dam = coords1Dto2D(dam)  # this is fast if not needed
+
+                        # if locstreamT then want to keep all the data times (like a CTD transect)
+                        # if not, just want the unique values (like a CTD profile)
+                        locstreamT = ftconfig[cat[source_name].metadata["featuretype"]][
+                            "locstreamT"
+                        ]
+                        locstreamZ = ftconfig[cat[source_name].metadata["featuretype"]][
+                            "locstreamZ"
+                        ]
+                        if locstreamT:
+                            T = [pd.Timestamp(date) for date in dfd.cf["T"].values]
+                        else:
+                            T = [
+                                pd.Timestamp(date)
+                                for date in np.unique(dfd.cf["T"].values)
+                            ]
+
+                        # Need to have this here because if model file has previously been read in but
+                        # aligned file doesn't exist yet, this needs to run to update the sign of the
+                        # data depths in certain cases.
+                        zkeym = dsm.cf.axes["Z"][0]
+                        dfd, Z, vertical_interp = _choose_depths(
+                            dfd,
+                            dsm[zkeym].attrs["positive"],
+                            no_Z,
+                            want_vertical_interp,
+                            logger,
+                        )
+
+                        select_kwargs = dict(
+                            dam=dam,
+                            longitude=lons,
+                            latitude=lats,
+                            # T=slice(user_min_time, user_max_time),
+                            # T=np.unique(dfd.cf["T"].values),  # works for Datasets
+                            # T=np.unique(dfd.cf["T"].values).tolist(),  # works for DataFrame
+                            # T=list(np.unique(dfd.cf["T"].values)),  # might work for both
+                            # T=[pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)],
+                            T=T,
+                            # # works for both
+                            # T=None,  # changed this because wasn't working with CTD profiles. Time interpolation happens during _align.
+                            Z=Z,
+                            vertical_interp=vertical_interp,
+                            iT=None,
+                            iZ=None,
+                            extrap=extrap,
+                            extrap_val=None,
+                            locstream=locstream,
+                            locstreamT=locstreamT,
+                            locstreamZ=locstreamZ,
+                            # locstream_dim="z_rho",
+                            weights=None,
+                            mask=mask,
+                            use_xoak=False,
+                            horizontal_interp=interpolate_horizontal,
+                            horizontal_interp_code=horizontal_interp_code,
+                            xgcm_grid=grid,
+                            return_info=True,
+                        )
+                        model_var, skip_dataset, maps = _select_process_save_model(
+                            select_kwargs,
+                            source_name,
+                            model_source_name,
+                            model_file_name,
+                            save_horizontal_interp_weights,
+                            key_variable_data,
+                            maps,
+                            paths,
+                            logger,
+                        )
+                        if skip_dataset:
+                            continue
 
                     if model_only:
                         logger.info("Running model only so moving on to next source...")
                         continue
 
-                # have to read in the model output
+                    # opportunity to modify time series data
+                    # fnamemods = ""
+                    from copy import deepcopy
+
+                    ts_mods_copy = deepcopy(ts_mods)
+                    # ts_mods_copy = ts_mods.copy()  # otherwise you modify ts_mods when adding data
+                    for mod in ts_mods_copy:
+                        logger.info(
+                            f"Apply a time series modification called {mod['function']}."
+                        )
+                        if isinstance(dfd, pd.DataFrame):
+                            dfd.set_index(dfd.cf["T"], inplace=True)
+
+                        # this is how you include the dataset in the inputs
+                        if (
+                            "include_data" in mod["inputs"]
+                            and mod["inputs"]["include_data"]
+                        ):
+                            mod["inputs"].update({"dd": dfd})
+                            mod["inputs"].pop("include_data")
+
+                        # apply ts_mod to full dataset instead of just one variable since might want
+                        # to use more than one of the variables
+                        # also need to overwrite Dataset since the shape of the variables might change here
+                        dfd = mod["function"](dfd, **mod["inputs"])
+                        # dfd[dfd.cf[key_variable_data].name] = mod["function"](
+                        #     dfd.cf[key_variable_data], **mod["inputs"]
+                        # )
+                        if isinstance(dfd, pd.DataFrame):
+                            if dfd.cf["T"].name in dfd.columns:
+                                drop = True
+                            else:
+                                drop = False
+
+                            dfd = dfd.reset_index(drop=drop)
+
+                        model_var = mod["function"](model_var, **mod["inputs"])
+
+                    # check model output for nans
+                    ind_keep = np.arange(0, model_var.cf["T"].size)[
+                        model_var.cf["T"].notnull()
+                    ]
+                    if model_var.cf["T"].name in model_var.dims:
+                        model_var = model_var.isel({model_var.cf["T"].name: ind_keep})
+
+                    # there could be a small mismatch in the length of time if times were pulled
+                    # out separately
+                    if np.unique(model_var.cf["T"]).size != np.unique(dfd.cf["T"]).size:
+                        logger.info("Changing the timing of the model or data.")
+                        # if model_var.cf["T"].size != np.unique(dfd.cf["T"]).size:
+                        # if (isinstance(dfd, pd.DataFrame) and model_var.cf["T"].size != dfd.cf["T"].unique().size) or (isinstance(dfd, xr.Dataset) and model_var.cf["T"].size != dfd.cf["T"].drop_duplicates(dim=dfd.cf["T"].name).size):
+                        # if len(model_var.cf["T"]) != len(dfd.cf["T"]):  # timeSeries
+                        stime = pd.Timestamp(
+                            max(dfd.cf["T"].values[0], model_var.cf["T"].values[0])
+                        )
+                        etime = pd.Timestamp(
+                            min(dfd.cf["T"].values[-1], model_var.cf["T"].values[-1])
+                        )
+                        if stime != etime:
+                            model_var = model_var.cf.sel({"T": slice(stime, etime)})
+
+                        if isinstance(dfd, pd.DataFrame):
+                            dfd = dfd.set_index(dfd.cf["T"].name)
+                            dfd = dfd.loc[stime:etime]
+
+                            # interpolate data to model times
+                            # Times between data and model should already match from em.select
+                            # except in the case that model output was cached in convenient time series
+                            # in which case the times aren't already matched. For this case, the data
+                            # also might be missing the occasional data points, and want
+                            # the data index to match the model index since the data resolution might be very high.
+                            # get combined index of model and obs to first interpolate then reindex obs to model
+                            # otherwise only nan's come through
+                            # accounting for known issue for interpolation after sampling if indices changes
+                            # https://github.com/pandas-dev/pandas/issues/14297
+                            # this won't run for single ctd profiles
+                            if len(dfd.cf["T"].unique()) > 1:
+                                model_index = model_var.cf["T"].to_pandas().index
+                                model_index.name = dfd.index.name
+                                ind = model_index.union(dfd.index)
+                                dfd = (
+                                    dfd.reindex(ind)
+                                    .interpolate(method="time", limit=3)
+                                    .reindex(model_index)
+                                )
+                                dfd = dfd.reset_index()
+
+                        elif isinstance(dfd, xr.Dataset):
+                            # interpolate data to model times
+                            # model_index = model_var.cf["T"].to_pandas().index
+                            # ind = model_index.union(dfd.cf["T"].to_pandas().index)
+                            dfd = dfd.interp(
+                                {dfd.cf["T"].name: model_var.cf["T"].values}
+                            )
+                            # dfd = dfd.cf.sel({"T": slice(stime, etime)})
+
+                    # change names of model to match data so that stats will calculate without adding variables
+                    # not necessary if dfd is DataFrame (i think)
+                    if isinstance(dfd, (xr.Dataset, xr.DataArray)):
+                        rename = {}
+                        for model_dim in model_var.squeeze().dims:
+                            matching_dim = [
+                                data_dim
+                                for data_dim in dfd.dims
+                                if dfd[data_dim].size == model_var[model_dim].size
+                            ][0]
+                            rename.update({model_dim: matching_dim})
+                        # rename = {model_var.cf[key].name: dfd.cf[key].name for key in ["T","Z","latitude","longitude"]}
+                        model_var = model_var.rename(rename)
+
+                    # Save processed data and model files
+                    save_processed_files(
+                        dfd, fname_processed_data, model_var, fname_processed_model
+                    )
+                    obs = read_processed_data_file(fname_processed_data, no_Z)
+                    model = read_model_file(fname_processed_model, no_Z, dsm)
+
+                logger.info(f"model file name is {model_file_name}.")
+                if not override_model and model_file_name.is_file():
+                    logger.info("Reading model output from file.")
+                    model = read_model_file(fname_processed_model, no_Z, dsm)
+                    if not interpolate_horizontal:
+                        distance = model["distance"]
                 else:
-
-                    # lons, lats might be one location or many
-                    lons, lats = _return_data_locations(
-                        maps, dfd, cat[source_name].metadata["featuretype"], logger
+                    raise ValueError(
+                        "If the processed files are available need this one too."
                     )
-
-                    # narrow time range to limit how much model output to deal with
-                    dsm2 = _narrow_model_time_range(
-                        dsm,
-                        user_min_time,
-                        user_max_time,
-                        model_min_time,
-                        model_max_time,
-                        data_min_time,
-                        data_max_time,
-                    )
-
-                    # more processing opportunity and chance to use xroms if needed
-                    dsm2, grid, preprocessed = _process_model(
-                        dsm2, preprocess, need_xgcm_grid, kwargs_xroms, logger
-                    )
-
-                    # Narrow model from Dataset to DataArray here
-                    # key_variable = ["xroms", "ualong", "theta"]  # and all necessary steps to get there will happen
-                    # key_variable = {"accessor": "xroms", "function": "ualong", "inputs": {"theta": theta}}
-                    # # HOW TO GET THETA IN THE DICT?
-
-                    # dam might be a Dataset but it has to be on a single grid, that is, e.g., all variable on the ROMS rho grid.
-                    # well, that is only partially true. em.select requires DataArrays for certain operations like vertical
-                    # interpolation.
-                    dam = _dam_from_dsm(
-                        dsm2,
-                        key_variable,
-                        key_variable_data,
-                        cat[source_name].metadata,
-                        no_Z,
-                        logger,
-                    )
-
-                    # shift if 0 to 360
-                    dam = shift_longitudes(dam)  # this is fast if not needed
-
-                    # expand 1D coordinates to 2D, so all models dealt with in OMSA are treated with 2D coords.
-                    # if your model is too large to be treated with this way, subset the model first.
-                    dam = coords1Dto2D(dam)  # this is fast if not needed
-
-                    # if locstreamT then want to keep all the data times (like a CTD transect)
-                    # if not, just want the unique values (like a CTD profile)
-                    locstreamT = ftconfig[cat[source_name].metadata["featuretype"]][
-                        "locstreamT"
-                    ]
-                    locstreamZ = ftconfig[cat[source_name].metadata["featuretype"]][
-                        "locstreamZ"
-                    ]
-                    if locstreamT:
-                        T = [pd.Timestamp(date) for date in dfd.cf["T"].values]
-                    else:
-                        T = [
-                            pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)
-                        ]
-
-                    select_kwargs = dict(
-                        dam=dam,
-                        longitude=lons,
-                        latitude=lats,
-                        # T=slice(user_min_time, user_max_time),
-                        # T=np.unique(dfd.cf["T"].values),  # works for Datasets
-                        # T=np.unique(dfd.cf["T"].values).tolist(),  # works for DataFrame
-                        # T=list(np.unique(dfd.cf["T"].values)),  # might work for both
-                        # T=[pd.Timestamp(date) for date in np.unique(dfd.cf["T"].values)],
-                        T=T,
-                        # # works for both
-                        # T=None,  # changed this because wasn't working with CTD profiles. Time interpolation happens during _align.
-                        Z=Z,
-                        vertical_interp=vertical_interp,
-                        iT=None,
-                        iZ=None,
-                        extrap=extrap,
-                        extrap_val=None,
-                        locstream=locstream,
-                        locstreamT=locstreamT,
-                        locstreamZ=locstreamZ,
-                        # locstream_dim="z_rho",
-                        weights=None,
-                        mask=mask,
-                        use_xoak=False,
-                        horizontal_interp=interpolate_horizontal,
-                        horizontal_interp_code=horizontal_interp_code,
-                        xgcm_grid=grid,
-                        return_info=True,
-                    )
-                    model_var, skip_dataset, maps = _select_process_save_model(
-                        select_kwargs,
-                        source_name,
-                        model_source_name,
-                        model_file_name,
-                        save_horizontal_interp_weights,
-                        key_variable_data,
-                        maps,
-                        paths,
-                        logger,
-                    )
-                    if skip_dataset:
-                        continue
 
                 if model_only:
                     logger.info("Running model only so moving on to next source...")
                     continue
 
-                # opportunity to modify time series data
-                # fnamemods = ""
-                for mod in ts_mods:
-                    logger.info(
-                        f"Apply a time series modification called {mod['function']}."
-                    )
-                    if isinstance(dfd, pd.DataFrame):
-                        dfd.set_index(dfd.cf["T"], inplace=True)
-                    dfd[dfd.cf[key_variable_data].name] = mod["function"](
-                        dfd.cf[key_variable_data], **mod["inputs"]
-                    )
-                    if isinstance(dfd, pd.DataFrame):
-                        dfd = dfd.reset_index(drop=True)
-                    model_var = mod["function"](model_var, **mod["inputs"])
+                stats_fname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(
+                    ".yaml"
+                )
 
-                # there could be a small mismatch in the length of time if times were pulled
-                # out separately
-                # import pdb; pdb.set_trace()
-                if np.unique(model_var.cf["T"]).size != np.unique(dfd.cf["T"]).size:
-                    # if model_var.cf["T"].size != np.unique(dfd.cf["T"]).size:
-                    # if (isinstance(dfd, pd.DataFrame) and model_var.cf["T"].size != dfd.cf["T"].unique().size) or (isinstance(dfd, xr.Dataset) and model_var.cf["T"].size != dfd.cf["T"].drop_duplicates(dim=dfd.cf["T"].name).size):
-                    # if len(model_var.cf["T"]) != len(dfd.cf["T"]):  # timeSeries
-                    stime = pd.Timestamp(
-                        max(dfd.cf["T"].values[0], model_var.cf["T"].values[0])
-                    )
-                    etime = pd.Timestamp(
-                        min(dfd.cf["T"].values[-1], model_var.cf["T"].values[-1])
-                    )
-                    model_var = model_var.cf.sel({"T": slice(stime, etime)})
+                if not override_stats and stats_fname.is_file():
+                    logger.info("Reading from previously-saved stats file.")
+                    with open(stats_fname, "r") as stream:
+                        stats = yaml.safe_load(stream)
 
-                    if isinstance(dfd, pd.DataFrame):
-                        dfd = dfd.set_index(dfd.cf["T"].name)
-                        dfd = dfd.loc[stime:etime]
-
-                        # interpolate data to model times
-                        # Times between data and model should already match from em.select
-                        # except in the case that model output was cached in convenient time series
-                        # in which case the times aren't already matched. For this case, the data
-                        # also might be missing the occasional data points, and want
-                        # the data index to match the model index since the data resolution might be very high.
-                        # get combined index of model and obs to first interpolate then reindex obs to model
-                        # otherwise only nan's come through
-                        # accounting for known issue for interpolation after sampling if indices changes
-                        # https://github.com/pandas-dev/pandas/issues/14297
-                        model_index = model_var.cf["T"].to_pandas().index
-                        model_index.name = dfd.index.name
-                        ind = model_index.union(dfd.index)
-                        dfd = (
-                            dfd.reindex(ind)
-                            .interpolate(method="time", limit=3)
-                            .reindex(model_index)
-                        )
-                        dfd = dfd.reset_index()
-
-                    elif isinstance(dfd, xr.Dataset):
-                        # interpolate data to model times
-                        # model_index = model_var.cf["T"].to_pandas().index
-                        # ind = model_index.union(dfd.cf["T"].to_pandas().index)
-                        dfd = dfd.interp({dfd.cf["T"].name: model_var.cf["T"].values})
-                        # dfd = dfd.cf.sel({"T": slice(stime, etime)})
-
-                # Save processed data and model files
-                # read in from newly made file to make sure output is loaded
-                if isinstance(dfd, pd.DataFrame):
-                    dfd.to_csv(fname_processed_data, index=False)
-                    obs = pd.read_csv(fname_processed_data)
-                    obs = check_dataframe(obs, no_Z)
-                elif isinstance(dfd, xr.Dataset):
-                    dfd.to_netcdf(fname_processed_data)
-                    obs = xr.open_dataset(fname_processed_data).cf.guess_coord_axis()
-                    check_dataset(obs, is_model=False, no_Z=no_Z)
                 else:
-                    raise TypeError("object is neither DataFrame nor Dataset.")
-                model_var.to_netcdf(fname_processed_model)
-                model = xr.open_dataset(fname_processed_model).cf.guess_coord_axis()
-                # check_dataset(model, no_Z=no_Z)
-                try:
-                    check_dataset(model, no_Z=no_Z)
-                except KeyError:
-                    # see if I can fix it
-                    model = fix_dataset(model, dsm)
-                    check_dataset(model, no_Z=no_Z)
+                    logger.info(f"Calculating stats for {key_variable_data}.")
+                    stats = compute_stats(
+                        obs.cf[key_variable_data], model.cf[key_variable_data].squeeze()
+                    )
+                    # stats = obs.omsa.compute_stats
 
-            logger.info(f"model file name is {model_file_name}.")
-            if not override_model and model_file_name.is_file():
-                logger.info("Reading model output from file.")
-                model_var = xr.open_dataset(model_file_name).cf.guess_coord_axis()
-                # check_dataset(model_var, no_Z=no_Z)
-                try:
-                    check_dataset(model_var, no_Z=no_Z)
-                except KeyError:
-                    # see if I can fix it
-                    model_var = fix_dataset(model_var, dsm)
-                    check_dataset(model_var, no_Z=no_Z)
-                if not interpolate_horizontal:
-                    distance = model_var["distance"]
-                # distance = model_var.attrs["distance_from_location_km"]
+                    # add distance in
+                    if not interpolate_horizontal:
+                        stats["dist"] = float(distance)
+
+                    # save stats
+                    save_stats(
+                        source_name,
+                        stats,
+                        key_variable_data,
+                        paths,
+                        filename=stats_fname,
+                    )
+                    logger.info("Saved stats file.")
+
+                # Combine across key_variable in case there was a list of inputs
+                obss.append(obs)
+                models.append(model)
+                statss.append(stats)
+                key_variable_datas.append(key_variable_data)
+
+            # combine list of outputs in the case there is more than one key variable
+            if len(obss) > 1:
+                # if both key variables are in the dataset both times just take one
+                # or could check to see if both key variables are in the first dataset
+                if obss[0].equals(obss[1]):
+                    obs = obss[0]
+                else:
+                    raise NotImplementedError
+
+                # assume one key variable in each model output
+                if all(
+                    [
+                        len(cf_xarray.accessor._get_all(model, key)) > 0
+                        for model, key in zip(models, key_variable_list)
+                    ]
+                ):
+                    # if len(cf_xarray.accessor._get_all(models[0], key_variable_list[0])) > 0 and :
+                    model = xr.merge(models)
+                else:
+                    raise NotImplementedError
+
+                # leave stats as a list
+                stats = statss
+
+            # if there was always just one key variable for this run, do nothing since the variables are
+            # already available correctly named
             else:
-                raise ValueError(
-                    "If the processed files are available need this one too."
-                )
-
-            stats_fname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(
-                ".yaml"
-            )
-
-            if not override_stats and stats_fname.is_file():
-                logger.info("Reading from previously-saved stats file.")
-                with open(stats_fname, "r") as stream:
-                    stats = yaml.safe_load(stream)
-
-            else:
-                stats = compute_stats(
-                    obs.cf[key_variable_data], model.cf[key_variable_data].squeeze()
-                )
-                # stats = obs.omsa.compute_stats
-
-                # add distance in
-                if not interpolate_horizontal:
-                    stats["dist"] = float(distance)
-
-                # save stats
-                save_stats(
-                    source_name,
-                    stats,
-                    key_variable_data,
-                    paths,
-                    filename=stats_fname,
-                )
-                logger.info("Saved stats file.")
-
-            # Write stats on plot
-            figname = (paths.OUT_DIR / f"{fname_processed.stem}").with_suffix(".png")
+                pass
 
             # # currently title is being set in plot.selection
             # if plot_count_title:
             #     title = f"{count}: {source_name}"
             # else:
             #     title = f"{source_name}"
-
-            fig = plot.selection(
-                obs,
-                model,
-                cat[source_name].metadata["featuretype"],
-                key_variable_data,
-                source_name,
-                stats,
-                figname,
-                vocab_labels,
-                xcmocean_options=xcmocean_options,
-                **kwargs,
-            )
-            msg = f"Plotted time series for {source_name}\n."
-            logger.info(msg)
+            if not skip_dataset and (not figname.is_file() or override_plot):
+                fig = plot.selection(
+                    obs,
+                    model,
+                    cat[source_name].metadata["featuretype"],
+                    key_variable_datas,
+                    source_name,
+                    stats,
+                    figname,
+                    plot_description,
+                    vocab_labels,
+                    xcmocean_options=xcmocean_options,
+                    **kwargs_plot,
+                )
+                msg = f"Made plot for {source_name}\n."
+                logger.info(msg)
 
             count += 1
 
@@ -2323,3 +2458,5 @@ def run(
     if len(maps) == 1 and return_fig:
         # model output, processed data, processed model, stats, fig
         return fig
+    # else:
+    #     plt.close(fig)

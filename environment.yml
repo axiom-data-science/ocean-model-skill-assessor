@@ -7,6 +7,7 @@ dependencies:
   # Examples (remove and add as needed)
   - aiohttp
   # - cf_pandas
+  - cartopy
   - cf_xarray
   - cmocean
   - datetimerange

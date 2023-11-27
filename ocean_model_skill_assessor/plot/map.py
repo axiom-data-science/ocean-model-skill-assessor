@@ -5,6 +5,7 @@ Plot map.
 from pathlib import PurePath
 from typing import Dict, Optional, Sequence, Tuple, Union
 
+import cartopy
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -29,19 +30,34 @@ except ImportError:  # pragma: no cover
 col_label = "k"  # "r"
 res = "10m"
 
+land_10m = cartopy.feature.NaturalEarthFeature(
+    "physical", "land", "10m", edgecolor="face", facecolor="0.8"
+)
 
-def setup_ax(ax, land_10m, left_labels=True, fontsize=12):
+pc = cartopy.crs.PlateCarree()
+
+
+def setup_ax(
+    ax,
+    left_labels=True,
+    right_labels=False,
+    bottom_labels=False,
+    top_labels=True,
+    fontsize=12,
+):
     """Basic plot setup for map."""
     gl = ax.gridlines(
         linewidth=0.2, color="gray", alpha=0.5, linestyle="-", draw_labels=True
     )
-    gl.bottom_labels = False  # turn off labels where you don't want them
-    gl.right_labels = False
+    gl.bottom_labels = bottom_labels  # turn off labels where you don't want them
+    gl.top_labels = top_labels
+    gl.left_labels = left_labels
+    gl.right_labels = right_labels
     gl.xlabel_style = {"size": fontsize}
     gl.ylabel_style = {"size": fontsize}
-    if not left_labels:
-        gl.left_labels = False
-        gl.right_labels = True
+    # if not left_labels:
+    #     gl.left_labels = False
+    #     gl.right_labels = True
     ax.coastlines(resolution=res)
     ax.add_feature(land_10m, facecolor="0.8")
 
@@ -127,13 +143,6 @@ def plot_map(
             "Cartopy is not available so map will not be plotted."
         )
 
-    import cartopy
-
-    pc = cartopy.crs.PlateCarree()
-    land_10m = cartopy.feature.NaturalEarthFeature(
-        "physical", "land", "10m", edgecolor="face", facecolor="0.8"
-    )
-
     min_lons, max_lons = maps[:, 0].astype(float), maps[:, 1].astype(float)
     min_lats, max_lats = maps[:, 2].astype(float), maps[:, 3].astype(float)
     station_names = maps[:, 4].astype(str)
@@ -167,7 +176,7 @@ def plot_map(
             width_ratios=width_ratios,
             subplot_kw=dict(projection=proj, frameon=False),
         )
-        setup_ax(ax_map, land_10m, fontsize=map_font_size)
+        setup_ax(ax_map, fontsize=map_font_size)
         ax_map.set_extent(two_maps["extent_left"], pc)
 
         ax_map.set_frame_on(True)
@@ -193,7 +202,7 @@ def plot_map(
 
         # set up magnified map, which will be used for the rest of the function
         ax = fig.add_subplot(1, 2, 2, projection=proj)
-        setup_ax(ax, land_10m, left_labels=False, fontsize=map_font_size)
+        setup_ax(ax, left_labels=False, fontsize=map_font_size)
         # add box to magnified plot to emphasize connection
         ax.add_patch(
             mpatches.Rectangle(
@@ -211,7 +220,7 @@ def plot_map(
 
     else:
         ax = fig.add_axes([0.06, 0.01, 0.93, 0.95], projection=proj)
-        setup_ax(ax, land_10m)
+        setup_ax(ax)
 
     # alphashape
     if p is not None:
@@ -386,6 +395,7 @@ def plot_map(
 def plot_cat_on_map(
     catalog: Union[Catalog, str],
     paths: Paths,
+    source_names: Optional[list] = None,
     figname: Optional[str] = None,
     remove_duplicates=None,
     **kwargs_map,
@@ -398,6 +408,8 @@ def plot_cat_on_map(
         Which catalog of datasets to plot on map.
     paths : Paths
         Paths object for finding paths to use.
+    source_names : list
+        Use these list names instead of list(cat) if input.
     remove_duplicates : bool
         If True, take the set of the source in catalog based on the spatial locations so they are not repeated in the map.
     remove_duplicates : function, optional
@@ -411,7 +423,13 @@ def plot_cat_on_map(
     >>> omsa.plot.map.plot_cat_on_map(catalog=catalog_name, project_name=project_name)
     """
 
-    cat = open_catalogs(catalog, paths)[0]
+    if isinstance(catalog, Catalog):
+        cat = catalog
+    else:
+        cat = open_catalogs(catalog, paths)[0]
+
+    if source_names is None:
+        source_names = list(cat)
 
     figname = figname or f"map_of_{cat.name}"
 
@@ -428,7 +446,7 @@ def plot_cat_on_map(
                 s,
                 cat[s].metadata["maptype"] or "",
             ]
-            for s in list(cat)
+            for s in source_names
             if "minLongitude" in cat[s].metadata
         ]
     )

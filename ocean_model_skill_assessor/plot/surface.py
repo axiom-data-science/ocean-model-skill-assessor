@@ -33,13 +33,19 @@ def plot(
     xlabel: Optional[str] = None,
     ylabel: Optional[str] = None,
     zlabel: Optional[str] = None,
+    model_title: str = "Model",
     along_transect_distance: bool = False,
+    plot_on_map: bool = False,
+    proj=None,
+    extent=None,
     kind="pcolormesh",
     nsubplots: int = 3,
     figname: Union[str, pathlib.Path] = "figure.png",
     dpi: int = 100,
-    figsize=(15, 4),
+    figsize=(15, 6),
     return_plot: bool = False,
+    invert_yaxis: bool = False,
+    make_Z_negative=None,
     **kwargs,
 ):
     """Plot scatter or surface plot.
@@ -81,6 +87,9 @@ def plot(
     return_plot : bool
         If True, return plot. Use for testing.
     """
+
+    if "override_plot" in kwargs:
+        kwargs.pop("override_plot")
 
     # want obs and data as DataFrames
     if kind == "scatter":
@@ -137,11 +146,29 @@ def plot(
 
     # sharex and sharey removed the y ticklabels so don't use.
     # maybe don't work with layout="constrained"
+    if plot_on_map:
+        if proj is None:
+            import cartopy
+
+            proj = cartopy.crs.Mercator()
+        subplot_kw = dict(projection=proj, frameon=False)
+    else:
+        subplot_kw = {}
+
+    if make_Z_negative is not None:
+        if make_Z_negative == "obs":
+            if (obs[obs.cf["Z"].notnull()].cf["Z"] > 0).all():
+                obs[obs.cf["Z"].name] = -obs.cf["Z"]
+        elif make_Z_negative == "model":
+            if (model[model.cf["Z"].notnull()].cf["Z"] > 0).all():
+                model[model.cf["Z"].name] = -model.cf["Z"]
+
     fig, axes = plt.subplots(
         1,
         nsubplots,
         figsize=figsize,
         layout="constrained",
+        subplot_kw=subplot_kw,
     )
     #  sharex=True, sharey=True)
 
@@ -152,8 +179,15 @@ def plot(
     )
     pandas_kwargs = dict(colorbar=False)
 
-    kwargs = {key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]}
+    kwargs.update({key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]})
 
+    if plot_on_map:
+        omsa.plot.map.setup_ax(
+            axes[0], left_labels=True, bottom_labels=True, top_labels=False, fontsize=12
+        )
+        kwargs["transform"] = omsa.plot.map.pc
+        if extent is not None:
+            axes[0].set_extent(extent)
     if kind == "scatter":
         obs.plot(
             kind=kind,
@@ -172,8 +206,20 @@ def plot(
     axes[0].set_ylabel(ylabel, fontsize=fs)
     axes[0].set_xlabel(xlabel, fontsize=fs)
     axes[0].tick_params(axis="both", labelsize=fs)
+    if invert_yaxis:
+        axes[0].invert_yaxis()
 
     # plot model
+    if plot_on_map:
+        omsa.plot.map.setup_ax(
+            axes[1],
+            left_labels=False,
+            bottom_labels=True,
+            top_labels=False,
+            fontsize=12,
+        )
+        if extent is not None:
+            axes[1].set_extent(extent)
     if kind == "scatter":
         model.plot(
             kind=kind,
@@ -188,7 +234,7 @@ def plot(
         model.cf[zname].cf.plot.pcolormesh(
             x=xname, y=yname, ax=axes[1], **kwargs, **xarray_kwargs
         )
-    axes[1].set_title("Model", fontsize=fs_title)
+    axes[1].set_title(model_title, fontsize=fs_title)
     axes[1].set_xlabel(xlabel, fontsize=fs)
     axes[1].set_ylabel("")
     axes[1].set_xlim(axes[0].get_xlim())
@@ -200,6 +246,16 @@ def plot(
     # plot difference (assume Dataset)
     # for last (diff) plot
     kwargs.update({key: cmap_params_diff.get(key) for key in ["vmin", "vmax", "cmap"]})
+    if plot_on_map:
+        omsa.plot.map.setup_ax(
+            axes[2],
+            left_labels=False,
+            bottom_labels=True,
+            top_labels=False,
+            fontsize=12,
+        )
+        if extent is not None:
+            axes[2].set_extent(extent)
     if kind == "scatter":
         model.plot(
             kind=kind,
@@ -214,14 +270,17 @@ def plot(
         model["diff"].cf.plot.pcolormesh(
             x=xname, y=yname, ax=axes[2], **kwargs, **xarray_kwargs
         )
+    # CAN SEE 3 PLOTS
     axes[2].set_title("Obs - Model", fontsize=fs_title)
     axes[2].set_xlabel(xlabel, fontsize=fs)
     axes[2].set_ylabel("")
-    axes[2].set_xlim(axes[0].get_xlim())
-    axes[2].set_ylim(axes[0].get_ylim())
-    axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())
-    axes[2].set_yticklabels("")
-    axes[2].tick_params(axis="x", labelsize=fs)
+    if not plot_on_map:
+        axes[2].set_xlim(axes[0].get_xlim())
+        axes[2].set_ylim(axes[0].get_ylim())
+        axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())
+        axes[2].set_yticklabels("")
+        axes[2].tick_params(axis="x", labelsize=fs)
+    # import pdb; pdb.set_trace()
 
     # two colorbars, 1 for obs and model and 1 for diff
     # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py

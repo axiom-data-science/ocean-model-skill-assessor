@@ -7,10 +7,11 @@ import logging
 import pathlib
 import sys
 
-from pathlib import PurePath
-from typing import Dict, List, Optional, Sequence, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import cf_pandas as cfp
+import cf_xarray
 import extract_model as em
 import intake
 import numpy as np
@@ -24,6 +25,101 @@ from shapely.geometry import Polygon
 from xarray import DataArray, Dataset
 
 from .paths import Paths
+
+
+def read_model_file(
+    fname_processed_model: Path, no_Z: bool, dsm: xr.Dataset
+) -> xr.Dataset:
+    """_summary_
+
+    Parameters
+    ----------
+    fname_processed_model : Path
+        Model file path
+    no_Z : bool
+        _description_
+    dsm : Dataset
+
+    Returns
+    -------
+    Processed model output (Dataset)
+    """
+
+    model = xr.open_dataset(fname_processed_model).cf.guess_coord_axis()
+    try:
+        check_dataset(model, no_Z=no_Z)
+    except KeyError:
+        # see if I can fix it
+        model = fix_dataset(model, dsm)
+        check_dataset(model, no_Z=no_Z)
+
+    return model
+
+
+def read_processed_data_file(
+    fname_processed_data: Path, no_Z: bool
+) -> Union[xr.Dataset, pd.DataFrame]:
+    """_summary_
+
+    Parameters
+    ----------
+    fname_processed_data : Path
+        Data file path
+    no_Z : bool
+        _description_
+
+    Returns
+    -------
+    Processed data (DataFrame or Dataset)
+    """
+
+    # read in from newly made file to make sure output is loaded
+    if ".csv" in str(fname_processed_data):
+        obs = pd.read_csv(fname_processed_data)
+        obs = check_dataframe(obs, no_Z)
+    elif ".nc" in str(fname_processed_data):
+        obs = xr.open_dataset(fname_processed_data).cf.guess_coord_axis()
+        check_dataset(obs, is_model=False, no_Z=no_Z)
+    else:
+        raise TypeError("object is neither DataFrame nor Dataset.")
+
+    return obs
+
+
+def save_processed_files(
+    dfd: Union[xr.Dataset, pd.DataFrame],
+    fname_processed_data: Path,
+    model_var: xr.Dataset,
+    fname_processed_model: Path,
+):
+    """Save processed data and model output into files.
+
+    Parameters
+    ----------
+    dfd : Union[xr.Dataset, pd.DataFrame]
+        Processed data
+    fname_processed_data : Path
+        Data file path
+    model_var : xr.Dataset
+        Processed model output
+    fname_processed_model : Path
+        Model file path
+    """
+
+    if isinstance(dfd, pd.DataFrame):
+        # # make sure datetimes will be recognized when reread
+        # # actually seems to work without this
+        # dfd = dfd.rename(columns={dfd.cf["T"].name: "time"})
+        dfd.to_csv(fname_processed_data, index=False)
+    elif isinstance(dfd, xr.Dataset):
+        dfd.to_netcdf(fname_processed_data)
+        dfd.close()
+    else:
+        raise TypeError("object is neither DataFrame nor Dataset.")
+    if fname_processed_model.is_file():
+        pathlib.Path.unlink(fname_processed_model)
+    model_var.to_netcdf(fname_processed_model, mode="w")
+    model_var.close()
 
 
 def fix_dataset(
@@ -45,32 +141,44 @@ def fix_dataset(
     Union[xr.DataArray,xr.Dataset]
         model_var with more information included, hopefully
     """
-    lonkey, latkey = ds.cf["longitude"].name, ds.cf["latitude"].name
-    X, Y = model_var.cf["X"], model_var.cf["Y"]
 
+    # see if lon/lat are in model_var as data_vars instead of as coordinates
     if (
-        "longitude" not in model_var.cf
+        "longitude" not in model_var.cf.coordinates and "longitude" in model_var.cf
+    ) or ("latitude" not in model_var.cf.coordinates and "latitude" in model_var.cf):
+        lonkey, latkey = model_var.cf["longitude"].name, model_var.cf["latitude"].name
+        model_var = model_var.assign_coords(
+            {lonkey: model_var[lonkey], latkey: model_var[latkey]}
+        )
+
+    # if we have X/Y indices in model_var but not their equivalent lon/lat, get them from ds
+    elif (
+        "longitude" not in model_var.cf.coordinates
         and "X" in model_var.cf
-        and "longitude" in ds.cf
-        and ds.cf["longitude"].ndim == 2
+        and "longitude" in ds.cf.coordinates
+        # and ds.cf["longitude"].ndim == 2
+        and ds[cf_xarray.accessor._get_all(ds, "longitude")[0]].ndim == 2
+        and "latitude" not in model_var.cf.coordinates
+        and "Y" in model_var.cf
+        and "latitude" in ds.cf
+        # and ds.cf["latitude"].ndim == 2
+        and ds[cf_xarray.accessor._get_all(ds, "latitude")[0]].ndim == 2
     ):
+        lonkey, latkey = ds.cf["longitude"].name, ds.cf["latitude"].name
+        X, Y = model_var.cf["X"], model_var.cf["Y"]
         # model_var[lonkey] = ds.cf["longitude"].isel({Y.name: Y, X.name: X})
         # model_var[lonkey].attrs = ds[lonkey].attrs
         model_var = model_var.assign_coords(
-            {lonkey: ds.cf["longitude"].isel({Y.name: Y, X.name: X})}
+            {
+                lonkey: ds.cf["longitude"].isel({Y.name: Y, X.name: X}),
+                latkey: ds.cf["latitude"].isel({Y.name: Y, X.name: X}),
+            }
         )
 
-    if (
-        "latitude" not in model_var.cf
-        and "Y" in model_var.cf
-        and "latitude" in ds.cf
-        and ds.cf["latitude"].ndim == 2
-    ):
-        # model_var[latkey] = ds.cf["latitude"].isel({Y.name: Y, X.name: X})
-        # model_var[latkey].attrs = ds[latkey].attrs
-        model_var = model_var.assign_coords(
-            {latkey: ds.cf["latitude"].isel({Y.name: Y, X.name: X})}
-        )
+    # see if Z is in variables but not in coords
+    # can't figure out how to catch this case but generalize yet
+    if "Z" not in model_var.cf.coordinates and "s_rho" in model_var.variables:
+        model_var = model_var.assign_coords({"s_rho": model_var["s_rho"]})
 
     return model_var
 
@@ -109,7 +217,7 @@ def check_dataset(
                     "a variable of depths needs to be identifiable by `cf-xarray` in dataset for axis 'Z'. Ways to address this include: variable name has the word 'depth' in it; variable has an attribute of `'axis': 'Z'`. See `cf-xarray` docs for more information."
                 )
 
-    if "longitude" not in ds.cf or "latitude" not in ds.cf:
+    if "longitude" not in ds.cf.coordinates or "latitude" not in ds.cf.coordinates:
         raise KeyError(
             "A variable containing longitudes and a variable containing latitudes must each be identifiable. One way to address this is to make sure the variable names start with 'lon' and 'lat' respectively. See `cf-xarray` docs for more information."
         )
@@ -272,13 +380,13 @@ def open_catalogs(
 
 
 def open_vocabs(
-    vocabs: Union[str, Vocab, Sequence, PurePath], paths: Optional[Paths] = None
+    vocabs: Union[str, Vocab, Sequence, Path], paths: Optional[Paths] = None
 ) -> Vocab:
     """Open vocabularies, can input mix of forms.
 
     Parameters
     ----------
-    vocabs : Union[str, Vocab, Sequence, PurePath]
+    vocabs : Union[str, Vocab, Sequence, Path]
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     paths : Paths, optional
         Paths object for finding paths to use. Required if any input vocab is a str referencing paths.
@@ -296,7 +404,7 @@ def open_vocabs(
             if paths is None:
                 raise KeyError("if any vocab is a string, need to input `paths`.")
             vocab = Vocab(paths.VOCAB_PATH(vocab))
-        elif isinstance(vocab, PurePath):
+        elif isinstance(vocab, Path):
             vocab = Vocab(vocab)
         elif isinstance(vocab, Vocab):
             vocab = vocab
@@ -311,14 +419,14 @@ def open_vocabs(
 
 
 def open_vocab_labels(
-    vocab_labels: Union[str, dict, PurePath],
+    vocab_labels: Union[str, dict, Path],
     paths: Optional[Paths] = None,
 ) -> dict:
     """Open dict of vocab_labels if needed
 
     Parameters
     ----------
-    vocab_labels : Union[str, Vocab, Sequence, PurePath], optional
+    vocab_labels : Union[str, Vocab, Sequence, Path], optional
         Criteria to use to map from variable to attributes describing the variable. This is to be used with a key representing what variable to search for. This input is for the name of one or more existing vocabularies which are stored in a user application cache.
     paths : Paths, optional
         Paths object for finding paths to use.
@@ -335,11 +443,11 @@ def open_vocab_labels(
         ), "need to input `paths` to `open_vocab_labels()` if inputting string."
         vocab_labels = json.loads(
             open(
-                pathlib.PurePath(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"),
+                pathlib.Path(paths.VOCAB_PATH(vocab_labels)).with_suffix(".json"),
                 "r",
             ).read()
         )
-    elif isinstance(vocab_labels, PurePath):
+    elif isinstance(vocab_labels, Path):
         vocab_labels = json.loads(open(vocab_labels.with_suffix(".json"), "r").read())
     elif isinstance(vocab_labels, dict):
         vocab_labels = vocab_labels
@@ -779,7 +887,9 @@ def kwargs_search_from_model(
 
 
 def calculate_anomaly(
-    dd_in: Union[pd.Series, pd.DataFrame, xr.DataArray], monthly_mean
+    dd_in: Union[pd.Series, pd.DataFrame, xr.DataArray],
+    monthly_mean,
+    varname=None,
 ) -> pd.Series:
     """Given monthly mean that is indexed by month of year, subtract it from time series to get anomaly.
 
@@ -790,7 +900,12 @@ def calculate_anomaly(
     Returns dd as the type as DataFrame it is came in as Series and Dataset if it came in DataArray. It is pd.Series in the middle so this probably won't work well for datasets that are more complex than time series.
     """
 
-    varname = dd_in.name
+    if varname is None:
+        varname = dd_in.name
+    else:
+        varname = dd_in.cf[
+            varname
+        ].name  # translate from key_variable alias to actual variable name
     varname_mean = f"{varname}_mean"
     varname_anomaly = f"{varname}_anomaly"
 
@@ -824,23 +939,27 @@ def calculate_anomaly(
     dd.loc[inan, varname_mean] = pd.NA
 
     dd[varname_mean] = dd[varname_mean].interpolate()
-    dd[varname_anomaly] = dd_in.squeeze() - dd[varname_mean]
+    dd[varname_anomaly] = dd_in[varname].squeeze() - dd[varname_mean]
 
     # return in original container
-    if isinstance(dd_in, xr.DataArray):
+    if isinstance(dd_in, (xr.DataArray, xr.Dataset)):
         dd_out = xr.DataArray(
             coords={dd_in.cf["T"].name: dd.index.values},
             data=dd[varname_anomaly].values,
-        ).broadcast_like(dd_in)
-        if len(dd_in.coords) > len(dd_out.coords):
-            coordstoadd = list(set(dd_in.coords) - set(dd_out.coords))
+        ).broadcast_like(dd_in[varname])
+        if len(dd_in[varname].coords) > len(dd_out.coords):
+            coordstoadd = list(set(dd_in[varname].coords) - set(dd_out.coords))
             for coord in coordstoadd:
-                dd_out[coord] = dd_in[coord]
-        dd_out.attrs = dd_in.attrs
-        dd_out.name = dd_in.name
+                dd_out[coord] = dd_in[varname][coord]
+        dd_out.attrs = dd_in[varname].attrs
+        dd_out.name = dd_in[varname].name
 
     elif isinstance(dd_in, (pd.Series, pd.DataFrame)):
-        dd_out = dd[varname_anomaly]
+
+        dd_out = pd.DataFrame()
+        for key in ["T", "Z", "latitude", "longitude"]:
+            dd_out[dd_in.cf[key].name] = dd_in.cf[key]
+        dd_out[varname_anomaly] = dd[varname_anomaly]
 
     return dd_out
 

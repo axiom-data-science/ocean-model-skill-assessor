@@ -5,6 +5,7 @@ dependencies:
   - python=3.9
   ############## These will have to be adjusted to your specific project
   # - cf_pandas
+  - cartopy
   - cf_xarray
   - cmocean
   - datetimerange
@@ -26,6 +27,7 @@ dependencies:
   - intake-erddap
   - intake
   - nested-lookup
+  - xesmf
   - xroms  # github actions won't find on conda-forge
   - pytest
   - pip:

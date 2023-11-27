@@ -15,6 +15,7 @@ import cf_xarray
 import extract_model as em
 import extract_model.accessor
 import intake
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import requests
@@ -1353,11 +1354,15 @@ def _return_mask(
     if mask is None:
         if paths.MASK_PATH(key_variable_data).is_file():
             if logger is not None:
-                logger.info("Using cached mask.")
+                logger.info(
+                    f"Using cached mask from {paths.MASK_PATH(key_variable_data)}."
+                )
             mask = xr.open_dataarray(paths.MASK_PATH(key_variable_data))
         else:
             if logger is not None:
-                logger.info("Finding and saving mask to cache.")
+                logger.info(
+                    f"Finding and saving mask to cache to {paths.MASK_PATH(key_variable_data)}."
+                )
             # # dam variable might not be in Dataset itself, but its coordinates probably are.
             # mask = get_mask(dsm, dam.name)
             mask = get_mask(dsm, lon_name, wetdry=wetdry)
@@ -1854,6 +1859,8 @@ def run(
             source_names = list(cat)
         for i, source_name in enumerate(source_names[:ndatasets]):
 
+            skip_dataset = False
+
             if ndatasets is None:
                 msg = (
                     f"\nsource name: {source_name} ({i+1} of {ndata} for catalog {cat}."
@@ -1881,6 +1888,7 @@ def run(
                 logger.info(
                     f"no `key_variables` key found in source metadata or at least not {key_variable}"
                 )
+                skip_dataset = True
                 continue
 
             min_lon = cat[source_name].metadata["minLongitude"]
@@ -1952,6 +1960,7 @@ def run(
                     msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
                     logger.warning(msg)
                     maps.pop(-1)
+                    skip_dataset = True
                     continue
 
                 except Exception as e:
@@ -1959,52 +1968,13 @@ def run(
                     msg = f"Data cannot be loaded for dataset {source_name}. Skipping dataset.\n"
                     logger.warning(msg)
                     maps.pop(-1)
+                    skip_dataset = True
                     continue
 
-                # Need to have this here because if model file has previously been read in but
-                # aligned file doesn't exist yet, this needs to run to update the sign of the
-                # data depths in certain cases.
-                zkeym = dsm.cf.axes["Z"][0]
-                dfd, Z, vertical_interp = _choose_depths(
-                    dfd,
-                    dsm[zkeym].attrs["positive"],
-                    no_Z,
-                    want_vertical_interp,
-                    logger,
-                )
-
-                # take out relevant variable and identify mask if available (otherwise None)
-                # this mask has to match dam for em.select()
-                if not skip_mask:
-                    mask = _return_mask(
-                        mask,
-                        dsm,
-                        dsm.cf.coordinates["longitude"][
-                            0
-                        ],  # using the first longitude key is adequate
-                        wetdry,
-                        key_variable_data,
-                        paths,
-                        logger,
-                    )
-
-                # I think these should always be true together
-                if skip_mask:
-                    assert mask is None
-
-                # Calculate boundary of model domain to compare with data locations and for map
-                # don't need p1 if check_in_boundary False and plot_map False
-                if (check_in_boundary or plot_map) and p1 is None:
-                    p1 = _return_p1(paths, dsm, mask, alpha, dd, logger)
-
-                # see if data location is inside alphashape-calculated polygon of model domain
-                if check_in_boundary:
-                    if _is_outside_boundary(p1, min_lon, min_lat, source_name, logger):
-                        maps.pop(-1)
-                        continue
-
                 # check for already-aligned model-data file
-                fname_processed_orig = f"{cat.name}_{source_name}_{key_variable_data}"
+                fname_processed_orig = (
+                    f"{cat.name}_{source_name.replace('.','_')}_{key_variable_data}"
+                )
                 (
                     fname_processed,
                     fname_processed_data,
@@ -2057,6 +2027,38 @@ def run(
                         source_name,
                     )
 
+                    # take out relevant variable and identify mask if available (otherwise None)
+                    # this mask has to match dam for em.select()
+                    if not skip_mask:
+                        mask = _return_mask(
+                            mask,
+                            dsm,
+                            dsm.cf.coordinates["longitude"][
+                                0
+                            ],  # using the first longitude key is adequate
+                            wetdry,
+                            key_variable_data,
+                            paths,
+                            logger,
+                        )
+
+                    # I think these should always be true together
+                    if skip_mask:
+                        assert mask is None
+
+                    # Calculate boundary of model domain to compare with data locations and for map
+                    # don't need p1 if check_in_boundary False and plot_map False
+                    if (check_in_boundary or plot_map) and p1 is None:
+                        p1 = _return_p1(paths, dsm, mask, alpha, dd, logger)
+
+                    # see if data location is inside alphashape-calculated polygon of model domain
+                    if check_in_boundary:
+                        if _is_outside_boundary(
+                            p1, min_lon, min_lat, source_name, logger
+                        ):
+                            maps.pop(-1)
+                            continue
+
                     # Check, prep, and possibly narrow data time range
                     dfd, maps = _check_prep_narrow_data(
                         dfd,
@@ -2073,6 +2075,7 @@ def run(
                     # if there were any issues in the last function, dfd should be None and we should
                     # skip this dataset
                     if dfd is None:
+                        skip_dataset = True
                         continue
 
                     # Read in model output from cache if possible.
@@ -2154,6 +2157,18 @@ def run(
                                 for date in np.unique(dfd.cf["T"].values)
                             ]
 
+                        # Need to have this here because if model file has previously been read in but
+                        # aligned file doesn't exist yet, this needs to run to update the sign of the
+                        # data depths in certain cases.
+                        zkeym = dsm.cf.axes["Z"][0]
+                        dfd, Z, vertical_interp = _choose_depths(
+                            dfd,
+                            dsm[zkeym].attrs["positive"],
+                            no_Z,
+                            want_vertical_interp,
+                            logger,
+                        )
+
                         select_kwargs = dict(
                             dam=dam,
                             longitude=lons,
@@ -2209,7 +2224,6 @@ def run(
                     ts_mods_copy = deepcopy(ts_mods)
                     # ts_mods_copy = ts_mods.copy()  # otherwise you modify ts_mods when adding data
                     for mod in ts_mods_copy:
-                        # import pdb; pdb.set_trace()
                         logger.info(
                             f"Apply a time series modification called {mod['function']}."
                         )
@@ -2241,6 +2255,13 @@ def run(
 
                         model_var = mod["function"](model_var, **mod["inputs"])
 
+                    # check model output for nans
+                    ind_keep = np.arange(0, model_var.cf["T"].size)[
+                        model_var.cf["T"].notnull()
+                    ]
+                    if model_var.cf["T"].name in model_var.dims:
+                        model_var = model_var.isel({model_var.cf["T"].name: ind_keep})
+
                     # there could be a small mismatch in the length of time if times were pulled
                     # out separately
                     if np.unique(model_var.cf["T"]).size != np.unique(dfd.cf["T"]).size:
@@ -2254,7 +2275,8 @@ def run(
                         etime = pd.Timestamp(
                             min(dfd.cf["T"].values[-1], model_var.cf["T"].values[-1])
                         )
-                        model_var = model_var.cf.sel({"T": slice(stime, etime)})
+                        if stime != etime:
+                            model_var = model_var.cf.sel({"T": slice(stime, etime)})
 
                         if isinstance(dfd, pd.DataFrame):
                             dfd = dfd.set_index(dfd.cf["T"].name)
@@ -2270,15 +2292,17 @@ def run(
                             # otherwise only nan's come through
                             # accounting for known issue for interpolation after sampling if indices changes
                             # https://github.com/pandas-dev/pandas/issues/14297
-                            model_index = model_var.cf["T"].to_pandas().index
-                            model_index.name = dfd.index.name
-                            ind = model_index.union(dfd.index)
-                            dfd = (
-                                dfd.reindex(ind)
-                                .interpolate(method="time", limit=3)
-                                .reindex(model_index)
-                            )
-                            dfd = dfd.reset_index()
+                            # this won't run for single ctd profiles
+                            if len(dfd.cf["T"].unique()) > 1:
+                                model_index = model_var.cf["T"].to_pandas().index
+                                model_index.name = dfd.index.name
+                                ind = model_index.union(dfd.index)
+                                dfd = (
+                                    dfd.reindex(ind)
+                                    .interpolate(method="time", limit=3)
+                                    .reindex(model_index)
+                                )
+                                dfd = dfd.reset_index()
 
                         elif isinstance(dfd, xr.Dataset):
                             # interpolate data to model times
@@ -2395,7 +2419,7 @@ def run(
             #     title = f"{count}: {source_name}"
             # else:
             #     title = f"{source_name}"
-            if not figname.is_file() or override_plot:
+            if not skip_dataset and (not figname.is_file() or override_plot):
                 fig = plot.selection(
                     obs,
                     model,
@@ -2434,3 +2458,5 @@ def run(
     if len(maps) == 1 and return_fig:
         # model output, processed data, processed model, stats, fig
         return fig
+    # else:
+    #     plt.close(fig)

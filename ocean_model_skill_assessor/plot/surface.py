@@ -42,8 +42,10 @@ def plot(
     nsubplots: int = 3,
     figname: Union[str, pathlib.Path] = "figure.png",
     dpi: int = 100,
-    figsize=(15, 4),
+    figsize=(15, 6),
     return_plot: bool = False,
+    invert_yaxis: bool = False,
+    make_Z_negative=None,
     **kwargs,
 ):
     """Plot scatter or surface plot.
@@ -85,6 +87,9 @@ def plot(
     return_plot : bool
         If True, return plot. Use for testing.
     """
+
+    if "override_plot" in kwargs:
+        kwargs.pop("override_plot")
 
     # want obs and data as DataFrames
     if kind == "scatter":
@@ -150,6 +155,14 @@ def plot(
     else:
         subplot_kw = {}
 
+    if make_Z_negative is not None:
+        if make_Z_negative == "obs":
+            if (obs[obs.cf["Z"].notnull()].cf["Z"] > 0).all():
+                obs[obs.cf["Z"].name] = -obs.cf["Z"]
+        elif make_Z_negative == "model":
+            if (model[model.cf["Z"].notnull()].cf["Z"] > 0).all():
+                model[model.cf["Z"].name] = -model.cf["Z"]
+
     fig, axes = plt.subplots(
         1,
         nsubplots,
@@ -166,7 +179,7 @@ def plot(
     )
     pandas_kwargs = dict(colorbar=False)
 
-    kwargs = {key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]}
+    kwargs.update({key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]})
 
     if plot_on_map:
         omsa.plot.map.setup_ax(
@@ -193,6 +206,8 @@ def plot(
     axes[0].set_ylabel(ylabel, fontsize=fs)
     axes[0].set_xlabel(xlabel, fontsize=fs)
     axes[0].tick_params(axis="both", labelsize=fs)
+    if invert_yaxis:
+        axes[0].invert_yaxis()
 
     # plot model
     if plot_on_map:

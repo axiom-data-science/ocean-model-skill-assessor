@@ -395,6 +395,7 @@ def plot_map(
 def plot_cat_on_map(
     catalog: Union[Catalog, str],
     paths: Paths,
+    source_names: Optional[list] = None,
     figname: Optional[str] = None,
     remove_duplicates=None,
     **kwargs_map,
@@ -407,6 +408,8 @@ def plot_cat_on_map(
         Which catalog of datasets to plot on map.
     paths : Paths
         Paths object for finding paths to use.
+    source_names : list
+        Use these list names instead of list(cat) if input.
     remove_duplicates : bool
         If True, take the set of the source in catalog based on the spatial locations so they are not repeated in the map.
     remove_duplicates : function, optional
@@ -420,7 +423,13 @@ def plot_cat_on_map(
     >>> omsa.plot.map.plot_cat_on_map(catalog=catalog_name, project_name=project_name)
     """
 
-    cat = open_catalogs(catalog, paths)[0]
+    if isinstance(catalog, Catalog):
+        cat = catalog
+    else:
+        cat = open_catalogs(catalog, paths)[0]
+
+    if source_names is None:
+        source_names = list(cat)
 
     figname = figname or f"map_of_{cat.name}"
 
@@ -437,7 +446,7 @@ def plot_cat_on_map(
                 s,
                 cat[s].metadata["maptype"] or "",
             ]
-            for s in list(cat)
+            for s in source_names
             if "minLongitude" in cat[s].metadata
         ]
     )

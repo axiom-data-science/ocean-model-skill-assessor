@@ -30,6 +30,7 @@ def plot(
     title: Optional[str] = None,
     xlabel: Optional[str] = None,
     ylabel: Optional[str] = None,
+    model_label: str = "Model",
     figname: Union[str, pathlib.Path] = "figure.png",
     dpi: int = 100,
     figsize: tuple = (15, 5),
@@ -72,7 +73,7 @@ def plot(
     ax.plot(
         np.array(model.cf[xname].squeeze()),
         np.array(model.cf[yname].squeeze()),
-        label="model",
+        label=model_label,
         lw=lw,
         color=col_model,
     )

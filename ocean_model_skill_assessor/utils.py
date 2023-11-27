@@ -107,6 +107,9 @@ def save_processed_files(
     """
 
     if isinstance(dfd, pd.DataFrame):
+        # # make sure datetimes will be recognized when reread
+        # # actually seems to work without this
+        # dfd = dfd.rename(columns={dfd.cf["T"].name: "time"})
         dfd.to_csv(fname_processed_data, index=False)
     elif isinstance(dfd, xr.Dataset):
         dfd.to_netcdf(fname_processed_data)

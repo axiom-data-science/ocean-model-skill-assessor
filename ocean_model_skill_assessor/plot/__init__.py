@@ -198,8 +198,8 @@ def selection(
             # Assume want along-transect distance if number of unique locations is
             # equal to or more than number of times
             if (
-                np.unique(obs.cf["longitude"]).size >= np.unique(obs.cf["T"]).size
-                or np.unique(obs.cf["latitude"]).size >= np.unique(obs.cf["T"]).size
+                np.unique(obs.cf["longitude"]).size + 3 >= np.unique(obs.cf["T"]).size
+                or np.unique(obs.cf["latitude"]).size + 3 >= np.unique(obs.cf["T"]).size
             ):
                 assert isinstance(key_variable, str)
                 xname, yname, zname = "distance", "Z", key_variable
@@ -236,7 +236,7 @@ def selection(
                 ylabel=ylabel,
                 zlabel=zlabel,
                 nsubplots=3,
-                figsize=(15, 6),
+                # figsize=(15, 6),
                 figname=figname,
                 along_transect_distance=along_transect_distance,
                 kind="scatter",
@@ -260,7 +260,7 @@ def selection(
                 ylabel=ylabel,
                 zlabel=zlabel,
                 kind="pcolormesh",
-                figsize=(15, 6),
+                # figsize=(15, 6),
                 figname=figname,
                 return_plot=True,
                 **kwargs,

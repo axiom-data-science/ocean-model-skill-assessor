@@ -365,7 +365,7 @@ def open_catalogs(
             if paths is None:
                 raise KeyError("if any catalog is a string, need to input `paths`.")
             cat = intake.open_catalog(paths.CAT_PATH(catalog))
-        elif isinstance(catalog, Catalog):
+        elif isinstance(catalog, (Catalog, intake.readers.entry.Catalog)):
             cat = catalog
         else:
             raise ValueError(

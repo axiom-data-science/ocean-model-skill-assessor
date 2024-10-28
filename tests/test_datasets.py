@@ -119,7 +119,7 @@ def test_initial_model_handling(project_cache):
     cat_model = model_catalog()
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
     dsm, model_source_name = omsa.main._initial_model_handling(
-        model_name=cat_model, paths=paths, model_source_name=None
+        model_name=cat_model, paths=paths, override_chunks={}, model_source_name=None
     )
 
     # make sure cf-xarray will work after this is run
@@ -144,7 +144,7 @@ def test_narrow_model_time_range(project_cache):
     cat_model = model_catalog()
     paths = omsa.paths.Paths(project_name=project_name, cache_dir=project_cache)
     dsm, model_source_name = omsa.main._initial_model_handling(
-        model_name=cat_model, paths=paths, model_source_name=None
+        model_name=cat_model, paths=paths, override_chunks={}, model_source_name=None
     )
 
     model_min_time = pd.Timestamp(dsm.ocean_time.min().values)

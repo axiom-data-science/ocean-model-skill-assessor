@@ -97,8 +97,10 @@ def plot(
             obs = obs.to_dataframe()
         if isinstance(model, xr.Dataset):
             model = model.to_dataframe().reset_index()
-        # using .values on obs prevents name clashes for time and depth
-        model["diff"] = obs.cf[zname].values - model.cf[zname]
+        
+        if nsubplots == 3:
+            # using .values on obs prevents name clashes for time and depth
+            model["diff"] = obs.cf[zname].values - model.cf[zname]
     # want obs and data as Datasets
     elif kind == "pcolormesh":
         if isinstance(obs, pd.DataFrame):
@@ -108,10 +110,12 @@ def plot(
             )
         if isinstance(model, pd.DataFrame):
             model = model.to_xarray()
-        # using .values on obs prevents name clashes for time and depth
-        model["diff"] = obs.cf[zname].values - model.cf[zname]
-        # model["diff"] = obs.cf[zname].values - model.cf[zname]
-        model["diff"].attrs = {}
+
+        if nsubplots == 3:
+            # using .values on obs prevents name clashes for time and depth
+            model["diff"] = obs.cf[zname].values - model.cf[zname]
+            # model["diff"] = obs.cf[zname].values - model.cf[zname]
+            model["diff"].attrs = {}
     else:
         raise ValueError("`kind` should be scatter or pcolormesh.")
 
@@ -136,13 +140,34 @@ def plot(
 
     # for first two plots
     # vmin, vmax, cmap, extend, levels, norm
-    cmap_params = xr.plot.utils._determine_cmap_params(
-        np.vstack((obs.cf[zname].values, model.cf[zname].values)), robust=True
-    )
-    # including `center=0` forces this to return the diverging colormap option
-    cmap_params_diff = xr.plot.utils._determine_cmap_params(
-        model["diff"].values, robust=True, center=0
-    )
+    if nsubplots > 1:
+        cmap_params = xr.plot.utils._determine_cmap_params(
+            np.vstack((obs.cf[zname].values, model.cf[zname].values)), robust=True
+        )
+    else:
+        # I need to fix this in cf-xarray but haven't yet so instead this
+        # workaround for DataArray
+        # only works if the key is the actual variable
+        if isinstance(obs, xr.DataArray):
+            cmap_params = xr.plot.utils._determine_cmap_params(
+                obs.values, robust=True
+            )
+        else:
+            cmap_params = xr.plot.utils._determine_cmap_params(
+                obs.cf[zname].values, robust=True
+            )
+    
+    if "vmin" in kwargs:
+        cmap_params.update({"vmin": kwargs["vmin"]})
+    if "vmax" in kwargs:
+        cmap_params.update({"vmax": kwargs["vmax"]})
+
+    if nsubplots == 3:
+        # including `center=0` forces this to return the diverging colormap option
+        cmap_params_diff = xr.plot.utils._determine_cmap_params(
+            model["diff"].values, robust=True, center=0
+        )
+        
 
     # sharex and sharey removed the y ticklabels so don't use.
     # maybe don't work with layout="constrained"
@@ -181,122 +206,148 @@ def plot(
 
     kwargs.update({key: cmap_params.get(key) for key in ["vmin", "vmax", "cmap"]})
 
+    if nsubplots == 1:
+        ax = axes
+    else:
+        ax = axes[0]
+
     if plot_on_map:
         omsa.plot.map.setup_ax(
-            axes[0], left_labels=True, bottom_labels=True, top_labels=False, fontsize=12
+            ax, left_labels=True, bottom_labels=True, top_labels=False, fontsize=12
         )
         kwargs["transform"] = omsa.plot.map.pc
         if extent is not None:
-            axes[0].set_extent(extent)
+            ax.set_extent(extent)
     if kind == "scatter":
         obs.plot(
             kind=kind,
             x=obs.cf[xname].name,
             y=obs.cf[yname].name,
             c=obs.cf[zname].name,
-            ax=axes[0],
+            ax=ax,
             **kwargs,
             **pandas_kwargs,
         )
     elif kind == "pcolormesh":
-        obs.cf[zname].cf.plot.pcolormesh(
-            x=xname, y=yname, ax=axes[0], **kwargs, **xarray_kwargs
-        )
-    axes[0].set_title("Observation", fontsize=fs_title)
-    axes[0].set_ylabel(ylabel, fontsize=fs)
-    axes[0].set_xlabel(xlabel, fontsize=fs)
-    axes[0].tick_params(axis="both", labelsize=fs)
+        # I need to fix this in cf-xarray but haven't yet so instead this
+        # workaround for DataArray
+        # only works if the key is the actual variable
+        if isinstance(obs, xr.DataArray):
+            obs.cf.plot.pcolormesh(
+                x=xname, y=yname, ax=ax, **kwargs, **xarray_kwargs
+            )
+        else:
+            obs.cf[zname].cf.plot.pcolormesh(
+                x=xname, y=yname, ax=ax, **kwargs, **xarray_kwargs
+            )
+    ax.set_title("Observation", fontsize=fs_title)
+    ax.set_ylabel(ylabel, fontsize=fs)
+    ax.set_xlabel(xlabel, fontsize=fs)
+    ax.tick_params(axis="both", labelsize=fs)
     if invert_yaxis:
-        axes[0].invert_yaxis()
+        ax.invert_yaxis()
 
-    # plot model
-    if plot_on_map:
-        omsa.plot.map.setup_ax(
-            axes[1],
-            left_labels=False,
-            bottom_labels=True,
-            top_labels=False,
-            fontsize=12,
-        )
-        if extent is not None:
-            axes[1].set_extent(extent)
-    if kind == "scatter":
-        model.plot(
-            kind=kind,
-            x=model.cf[xname].name,
-            y=model.cf[yname].name,
-            c=model.cf[zname].name,
-            ax=axes[1],
-            **kwargs,
-            **pandas_kwargs,
-        )
-    elif kind == "pcolormesh":
-        model.cf[zname].cf.plot.pcolormesh(
-            x=xname, y=yname, ax=axes[1], **kwargs, **xarray_kwargs
-        )
-    axes[1].set_title(model_title, fontsize=fs_title)
-    axes[1].set_xlabel(xlabel, fontsize=fs)
-    axes[1].set_ylabel("")
-    axes[1].set_xlim(axes[0].get_xlim())
-    axes[1].set_ylim(axes[0].get_ylim())
-    # save space by not relabeling y axis
-    axes[1].set_yticklabels("")
-    axes[1].tick_params(axis="x", labelsize=fs)
+    if nsubplots > 1:
+        # plot model
+        if plot_on_map:
+            omsa.plot.map.setup_ax(
+                axes[1],
+                left_labels=False,
+                bottom_labels=True,
+                top_labels=False,
+                fontsize=12,
+            )
+            if extent is not None:
+                axes[1].set_extent(extent)
+        if kind == "scatter":
+            model.plot(
+                kind=kind,
+                x=model.cf[xname].name,
+                y=model.cf[yname].name,
+                c=model.cf[zname].name,
+                ax=axes[1],
+                **kwargs,
+                **pandas_kwargs,
+            )
+        elif kind == "pcolormesh":
+            model.cf[zname].cf.plot.pcolormesh(
+                x=xname, y=yname, ax=axes[1], **kwargs, **xarray_kwargs
+            )
+        axes[1].set_title(model_title, fontsize=fs_title)
+        axes[1].set_xlabel(xlabel, fontsize=fs)
+        axes[1].set_ylabel("")
+        axes[1].set_xlim(axes[0].get_xlim())
+        axes[1].set_ylim(axes[0].get_ylim())
+        # save space by not relabeling y axis
+        axes[1].set_yticklabels("")
+        axes[1].tick_params(axis="x", labelsize=fs)
 
-    # plot difference (assume Dataset)
-    # for last (diff) plot
-    kwargs.update({key: cmap_params_diff.get(key) for key in ["vmin", "vmax", "cmap"]})
-    if plot_on_map:
-        omsa.plot.map.setup_ax(
-            axes[2],
-            left_labels=False,
-            bottom_labels=True,
-            top_labels=False,
-            fontsize=12,
-        )
-        if extent is not None:
-            axes[2].set_extent(extent)
-    if kind == "scatter":
-        model.plot(
-            kind=kind,
-            x=model.cf[xname].name,
-            y=model.cf[yname].name,
-            c="diff",
-            ax=axes[2],
-            **kwargs,
-            **pandas_kwargs,
-        )
-    elif kind == "pcolormesh":
-        model["diff"].cf.plot.pcolormesh(
-            x=xname, y=yname, ax=axes[2], **kwargs, **xarray_kwargs
-        )
-    # CAN SEE 3 PLOTS
-    axes[2].set_title("Obs - Model", fontsize=fs_title)
-    axes[2].set_xlabel(xlabel, fontsize=fs)
-    axes[2].set_ylabel("")
-    if not plot_on_map:
-        axes[2].set_xlim(axes[0].get_xlim())
-        axes[2].set_ylim(axes[0].get_ylim())
-        axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())
-        axes[2].set_yticklabels("")
-        axes[2].tick_params(axis="x", labelsize=fs)
-    # import pdb; pdb.set_trace()
+    if nsubplots > 2:
+        # plot difference (assume Dataset)
+        # for last (diff) plot
+        kwargs.update({key: cmap_params_diff.get(key) for key in ["vmin", "vmax", "cmap"]})
+        if plot_on_map:
+            omsa.plot.map.setup_ax(
+                axes[2],
+                left_labels=False,
+                bottom_labels=True,
+                top_labels=False,
+                fontsize=12,
+            )
+            if extent is not None:
+                axes[2].set_extent(extent)
+        if kind == "scatter":
+            model.plot(
+                kind=kind,
+                x=model.cf[xname].name,
+                y=model.cf[yname].name,
+                c="diff",
+                ax=axes[2],
+                **kwargs,
+                **pandas_kwargs,
+            )
+        elif kind == "pcolormesh":
+            model["diff"].cf.plot.pcolormesh(
+                x=xname, y=yname, ax=axes[2], **kwargs, **xarray_kwargs
+            )
+        # CAN SEE 3 PLOTS
+        axes[2].set_title("Obs - Model", fontsize=fs_title)
+        axes[2].set_xlabel(xlabel, fontsize=fs)
+        axes[2].set_ylabel("")
+        if not plot_on_map:
+            axes[2].set_xlim(axes[0].get_xlim())
+            axes[2].set_ylim(axes[0].get_ylim())
+            # commenting this out 9/13/24 bc it made the third plot not match the first 2
+            # axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())  
+            axes[2].set_yticklabels("")
+            axes[2].tick_params(axis="x", labelsize=fs)
+        # import pdb; pdb.set_trace()
 
-    # two colorbars, 1 for obs and model and 1 for diff
-    # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py
-    norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
-    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
-    cbar1 = fig.colorbar(mappable, ax=axes[:2], orientation="horizontal", shrink=0.5)
-    cbar1.set_label(zlabel, fontsize=fs)
-    cbar1.ax.tick_params(axis="both", labelsize=fs)
 
-    norm = mpl.colors.Normalize(
-        vmin=cmap_params_diff["vmin"], vmax=cmap_params_diff["vmax"]
-    )
-    mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params_diff["cmap"])
-    cbar2 = fig.colorbar(mappable, ax=axes[2], orientation="horizontal")  # shrink=0.6)
-    cbar2.set_label(f"{zlabel} difference", fontsize=fs)
-    cbar2.ax.tick_params(axis="both", labelsize=fs)
+    if nsubplots > 2:
+        # two colorbars, 1 for obs and model and 1 for diff
+        # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py
+        norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
+        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
+        cbar1 = fig.colorbar(mappable, ax=axes[:2], orientation="horizontal", shrink=0.5)
+        cbar1.set_label(zlabel, fontsize=fs)
+        cbar1.ax.tick_params(axis="both", labelsize=fs)
+
+        norm = mpl.colors.Normalize(
+            vmin=cmap_params_diff["vmin"], vmax=cmap_params_diff["vmax"]
+        )
+        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params_diff["cmap"])
+        cbar2 = fig.colorbar(mappable, ax=axes[2], orientation="horizontal")  # shrink=0.6)
+        cbar2.set_label(f"{zlabel} difference", fontsize=fs)
+        cbar2.ax.tick_params(axis="both", labelsize=fs)
+    
+    elif nsubplots == 1:
+        norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
+        mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
+        cbar1 = fig.colorbar(mappable, ax=axes, orientation="horizontal", shrink=0.5)
+        cbar1.set_label(zlabel, fontsize=fs)
+        cbar1.ax.tick_params(axis="both", labelsize=fs)
+        
 
     fig.suptitle(suptitle, wrap=True, fontsize=fs_title)  # , loc="left")
 

@@ -107,9 +107,9 @@ def save_processed_files(
     """
 
     if isinstance(dfd, pd.DataFrame):
-        # # make sure datetimes will be recognized when reread
-        # # actually seems to work without this
-        # dfd = dfd.rename(columns={dfd.cf["T"].name: "time"})
+        # make sure datetimes will be recognized when reread
+        # actually seems to work without this
+        dfd = dfd.rename(columns={dfd.cf["T"].name: "time_UTC"})
         dfd.to_csv(fname_processed_data, index=False)
     elif isinstance(dfd, xr.Dataset):
         dfd.to_netcdf(fname_processed_data)
@@ -304,8 +304,9 @@ def check_catalog(
         missing_keys = set(required_keys) - set(cat[source_name].metadata.keys())
 
         if len(missing_keys) > 0:
+            cat_name = cat.name or cat.metadata["name"]
             raise KeyError(
-                f"In catalog {cat.name} and dataset {source_name}, missing required keys {missing_keys}."
+                f"In catalog {cat_name} and dataset {source_name}, missing required keys {missing_keys}."
             )
 
     allowed_featuretypes = [
@@ -357,7 +358,6 @@ def open_catalogs(
     list[Catalog]
         Catalogs, ready to use.
     """
-
     catalogs = always_iterable(catalogs)
     cats = []
     for catalog in catalogs:
@@ -559,7 +559,7 @@ def get_mask(
     varname : str
         Name of variable in dsm.
     wetdry : bool
-        If True, selected mask must include "wetdry" in name and will use first time step.
+        If True, selected mask must include "wetdry" in name and will use first year of time steps to get best approximation of mask.
 
     Returns
     -------
@@ -593,7 +593,9 @@ def get_mask(
                 in dsm[varname].encoding["coordinates"]
                 or dsm[mask].cf.isel(T=0).shape == dsm[varname].shape
             ][0]
-            mask = dsm[mask_name].cf.isel(T=0)
+            # mask = dsm[mask_name].cf.isel(T=0)
+            year = pd.Timestamp(dsm.cf["T"][0].values).year
+            mask = dsm[mask_name].cf.sel(T=f"{year}").min("ocean_time").load()
         else:
             mask_name = [
                 mask
@@ -610,7 +612,9 @@ def get_mask(
                 for mask in masks.data_vars
                 if dsm[mask].cf.isel(T=0).shape == dsm[varname].shape
             ][0]
-            mask = dsm[mask_name].cf.isel(T=0)
+            # mask = dsm[mask_name].cf.isel(T=0)
+            year = pd.Timestamp(dsm.cf["T"][0].values).year
+            mask = dsm[mask_name].cf.sel(T=f"{year}").min("ocean_time").load()
         else:
             mask_name = [
                 mask

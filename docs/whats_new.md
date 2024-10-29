@@ -1,5 +1,14 @@
 # What's New
 
+## v1.3.0 (October 29, 2024)
+* add chunks override option
+* update to intake2
+* improved vertical options
+* added complexity around if the model might have gaps, like for ciofs freshwater
+* fixed title in plot
+* generalized surface plot better
+* test fixing
+
 ## v1.2.0 (November 27, 2023)
 * Added capability for running HF Radar as quiver plot, over time or single time.
 

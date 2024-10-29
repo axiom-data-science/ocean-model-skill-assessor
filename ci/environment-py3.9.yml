@@ -9,7 +9,8 @@ dependencies:
   - cf_xarray
   - cmocean
   - datetimerange
-  - esmpy=>8.5.0 # https://github.com/esmf-org/esmf/issues/140
+  - esmf>=8.5.0
+  - esmpy>=8.5.0 # https://github.com/esmf-org/esmf/issues/140
   - extract_model
   # - intake
   # - intake-axds

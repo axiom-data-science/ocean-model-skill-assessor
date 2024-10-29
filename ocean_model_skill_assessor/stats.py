@@ -17,7 +17,7 @@ def compute_bias(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> fl
 
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
-    
+
     # # easier to consistently check model for this
     # # if 3D, assume we should calculate metrics over time dimension
     # if model.squeeze().ndim == 3:
@@ -25,7 +25,7 @@ def compute_bias(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> fl
     #     out = (model - obs).cf.mean(dim=dim)
     # else:
     out = float((model - obs).cf.mean())
-    
+
     return out
 
 
@@ -36,7 +36,7 @@ def compute_correlation_coefficient(
 
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
-    
+
     # # easier to consistently check model for this
     # # if 3D, assume we should calculate metrics over time dimension
     # if model.squeeze().ndim == 3:
@@ -73,7 +73,7 @@ def compute_index_of_agreement(
     #     # denom_a = np.abs(np.array(model - ref_mean))
     #     # denom_b = np.abs(np.array(obs - ref_mean))
     #     denom = ((denom_a + denom_b) ** 2).cf.sum(dim=dim)
-        
+
     #     out = 1 - num / denom
 
     # else:
@@ -82,9 +82,9 @@ def compute_index_of_agreement(
     denom_a = np.abs(np.array(model - ref_mean))
     denom_b = np.abs(np.array(obs - ref_mean))
     denom = ((denom_a + denom_b) ** 2).sum()
-    
+
     out = float(1 - num / denom)
-    
+
     # handle underfloat
     if denom < 1e-16:
         return 1
@@ -99,17 +99,17 @@ def compute_mean_square_error(
 
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
-    
+
     error = obs - model
 
     # # easier to consistently check model for this
     # # if 3D, assume we should calculate metrics over time dimension
     # if model.squeeze().ndim == 3:
     #     dim = "T"
-        
+
     #     if centered:
     #         raise NotImplementedError("Centered not implemented for 3D")
-        
+
     #     out = (error**2).cf.mean(dim=dim)
 
     # else:
@@ -128,7 +128,7 @@ def compute_murphy_skill_score(
 
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
-    
+
     # # easier to consistently check model for this
     # # if 3D, assume we should calculate metrics over time dimension
     # if model.squeeze().ndim == 3:
@@ -141,7 +141,7 @@ def compute_murphy_skill_score(
 
     #         # if a obs forecast is not available, use mean of the *original* observations
     #         obs_model[:] = obs.cf.mean(dim=dim)
-            
+
     #     out = 1 - ((obs - model) ** 2).cf.sum(dim=dim) / ((obs - obs_model) ** 2).cf.sum(dim=dim)
 
     # else:
@@ -153,7 +153,7 @@ def compute_murphy_skill_score(
 
         # if a obs forecast is not available, use mean of the *original* observations
         obs_model[:] = obs.mean()
-        
+
     out = float(1 - ((obs - model) ** 2).sum() / ((obs - obs_model) ** 2).sum())
 
     # # jesse's
@@ -178,7 +178,7 @@ def compute_root_mean_square_error(
 
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
-    
+
     # # easier to consistently check model for this
     # # if 3D, assume we should calculate metrics over time dimension
     # if model.squeeze().ndim == 3:
@@ -195,7 +195,7 @@ def compute_descriptive_statistics(model: xr.DataArray, ddof=0) -> list:
     """Given obs and model signals, return the standard deviation"""
 
     assert isinstance(model, xr.DataArray)
-    
+
     # # easier to consistently check model for this
     # # if 3D, assume we should calculate metrics over time dimension
     # if model.squeeze().ndim == 3:
@@ -210,12 +210,12 @@ def compute_descriptive_statistics(model: xr.DataArray, ddof=0) -> list:
     # )
     # else:
     out = list(
-    [
-        float(model.max()),
-        float(model.min()),
-        float(model.mean()),
-        float(model.std(ddof=ddof)),
-    ]
+        [
+            float(model.max()),
+            float(model.min()),
+            float(model.mean()),
+            float(model.std(ddof=ddof)),
+        ]
     )
     return out
 

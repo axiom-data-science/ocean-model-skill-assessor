@@ -2,13 +2,13 @@
 Main run functions.
 """
 
-from glob import glob
 import logging
 import mimetypes
 import pathlib
 import warnings
 
 from collections.abc import Sequence
+from glob import glob
 from pathlib import Path, PurePath
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -16,6 +16,7 @@ import cf_xarray
 import extract_model as em
 import extract_model.accessor
 import intake
+import intake_xarray
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -466,7 +467,10 @@ def _initial_model_handling(
     # read in model output
     model_cat = open_catalogs(model_name, paths, skip_check=True)[0]
     model_source_name = model_source_name or list(model_cat)[0]
-    dsm = model_cat[model_source_name].read(chunks=override_chunks)
+    if isinstance(model_cat[model_source_name], intake_xarray.netcdf.NetCDFSource):
+        dsm = model_cat[model_source_name].read()
+    else:
+        dsm = model_cat[model_source_name].read(chunks=override_chunks)
 
     # the main preprocessing happens later, but do a minimal job here
     # so that cf-xarray can be used hopefully
@@ -530,9 +534,11 @@ def _narrow_model_time_range(
         and (model_max_time.date() >= user_max_time.date())
     ):
         dsm2 = dsm.cf.sel(T=slice(user_min_time, user_max_time))
-        
+
         if dsm2.cf["T"].size == 0:
-            raise ValueError("accidentally narrowed time range too far; no more times left!")
+            raise ValueError(
+                "accidentally narrowed time range too far; no more times left!"
+            )
 
     # always take an extra timestep just in case
     else:
@@ -545,7 +551,6 @@ def _narrow_model_time_range(
         if dsm2.cf["T"].size == 0:
             # this means the data is in a hole in the model output
             dsm2 = None
-    
 
     return dsm2
 
@@ -595,15 +600,25 @@ def _find_data_time_range(cat: Catalog, source_name: str) -> tuple:
     data_max_time = pd.Timestamp(data_max_time.replace("Z", ""))
 
     # take time constraints as min/max if available and more constricting
-    # constraints could be in the metadata or in the kwargs_search 
+    # constraints could be in the metadata or in the kwargs_search
     # depending on intake v1 or v2
     if cat.version == 2:
-        if "constraints" in cat[source_name].kwargs and "time>=" in cat[source_name].kwargs["constraints"]:
-            constrained_min_time = pd.Timestamp(cat[source_name].kwargs["constraints"]["time>="].replace("Z", ""))
+        if (
+            "constraints" in cat[source_name].kwargs
+            and "time>=" in cat[source_name].kwargs["constraints"]
+        ):
+            constrained_min_time = pd.Timestamp(
+                cat[source_name].kwargs["constraints"]["time>="].replace("Z", "")
+            )
             if constrained_min_time > data_min_time:
                 data_min_time = constrained_min_time
-        if "constraints" in cat[source_name].kwargs and "time<=" in cat[source_name].kwargs["constraints"]:
-            constrained_max_time = pd.Timestamp(cat[source_name].kwargs["constraints"]["time<="].replace("Z", ""))
+        if (
+            "constraints" in cat[source_name].kwargs
+            and "time<=" in cat[source_name].kwargs["constraints"]
+        ):
+            constrained_max_time = pd.Timestamp(
+                cat[source_name].kwargs["constraints"]["time<="].replace("Z", "")
+            )
             if constrained_max_time < data_max_time:
                 data_max_time = constrained_max_time
     else:  # intake v1
@@ -635,7 +650,7 @@ def _find_data_time_range(cat: Catalog, source_name: str) -> tuple:
 
 def _match_depth_sign(dd, model_depth_attr_positive):
     """Match depth sign to model depth direction attribute"""
-    
+
     if isinstance(dd, (xr.DataArray, xr.Dataset)):
         attrs = dd[dd.cf["Z"].name].attrs
         if hasattr(dd[dd.cf["Z"].name], "encoding"):
@@ -709,10 +724,10 @@ def _choose_depths(
     iZ
         Depth index to use for model extraction
     """
-    
+
     Z = None
     iZ = None
-    
+
     # Catch case in which z column represent fixed depth and SSH is water column above depth
     # such that SSH gives information to z
     dd = _change_z_by_ssh(dd, model_depth_attr_positive, key_variables, logger)
@@ -729,9 +744,13 @@ def _choose_depths(
             )
 
     # if depth varies in time and will interpolate to match depths or
-    elif (dd.cf["Z"].size > 1) and (dd.cf["Z"] != dd.cf["Z"][0]).any() and want_vertical_interp:
-    # elif (dd.cf["Z"] != dd.cf["Z"][0]).any() or ((dd.cf["Z"] == 0).all() and ("ssh" in key_variables) and (dd.cf["ssh"].name == 'sea_surface_height_above_sea_level_geoid_local_station_datum')) and want_vertical_interp:
-    # elif (dd.cf["Z"] == 0).all() and ("ssh" in key_variables) and (dd.cf["ssh"].name == 'sea_surface_height_above_sea_level_geoid_local_station_datum') and want_vertical_interp:
+    elif (
+        (dd.cf["Z"].size > 1)
+        and (dd.cf["Z"] != dd.cf["Z"][0]).any()
+        and want_vertical_interp
+    ):
+        # elif (dd.cf["Z"] != dd.cf["Z"][0]).any() or ((dd.cf["Z"] == 0).all() and ("ssh" in key_variables) and (dd.cf["ssh"].name == 'sea_surface_height_above_sea_level_geoid_local_station_datum')) and want_vertical_interp:
+        # elif (dd.cf["Z"] == 0).all() and ("ssh" in key_variables) and (dd.cf["ssh"].name == 'sea_surface_height_above_sea_level_geoid_local_station_datum') and want_vertical_interp:
 
         # if the model depths are positive up/negative down, make sure the data match
         dd = _match_depth_sign(dd, model_depth_attr_positive)
@@ -761,12 +780,12 @@ def _choose_depths(
     else:
         if logger is not None:
             logger.info("Need to find depth index")
-        
+
         # if slug == "moorings_kbnerr_historical":  # not erddap
         #     dd = cat[source_name].read()
         # else:
         #     dd = cat[source_name](cache_kwargs={}).read()
-        
+
         dd = _match_depth_sign(dd, model_depth_attr_positive)
 
         mean_depth = dd.cf["Z"].mean()
@@ -775,23 +794,29 @@ def _choose_depths(
         else:
             mean_ssh = 0
 
-        if (mean_depth==0) and (mean_ssh > 3):
+        if (mean_depth == 0) and (mean_ssh > 3):
             mean = mean_ssh
         else:
             mean = mean_depth
 
         # find ix, iy for location
-        var_out, kwargs = em.sel2dcf(dam, longitude=lon, latitude=lat, mask=mask, 
-                                     return_info=True, use_xoak=False)
-        
+        var_out, kwargs = em.sel2dcf(
+            dam,
+            longitude=lon,
+            latitude=lat,
+            mask=mask,
+            return_info=True,
+            use_xoak=False,
+        )
+
         # distances, ie, ix = em.sel2d(dam, mask, lon, lat)
         # distances, ie, ix = utils.sel2d(mask, lon, lat)
-        
+
         # need xgcm grid to have vertical coords for this
-        
+
         inds = ..., kwargs[dam.cf["Y"].name], kwargs[dam.cf["X"].name]
         # depths = dam.cf["vertical"][inds].squeeze().load()
-        mid = int(np.floor(dam.cf["T"].size/2))
+        mid = int(np.floor(dam.cf["T"].size / 2))
         izs = []
         for i in [0, mid, -1]:
             depths = dam.cf["vertical"][inds].squeeze().isel(ocean_time=i).load()
@@ -803,12 +828,15 @@ def _choose_depths(
 
         # also haven't tested it but this camef rom the model caching script which worked.
         from scipy.stats import mode
+
         iZ = mode(np.array(izs))[0]
-        
+
         vertical_interp = False
         if logger is not None:
-            logger.info(f"Will not perform vertical interpolation and will use depth index {iZ}.")
-        
+            logger.info(
+                f"Will not perform vertical interpolation and will use depth index {iZ}."
+            )
+
         # raise NotImplementedError(
         #     "Method to find index for depth not at surface not available yet."
         # )
@@ -1046,10 +1074,8 @@ def _check_prep_narrow_data(
         maps.pop(-1)
         return None, maps
 
-    elif (
-        isinstance(dd, (xr.DataArray, xr.Dataset))
-        and vocab is not None):
-        
+    elif isinstance(dd, (xr.DataArray, xr.Dataset)) and vocab is not None:
+
         try:
             dd.cf[key_variable_data]
         except KeyError:
@@ -1114,27 +1140,27 @@ def _check_prep_narrow_data(
         # and (data_min_time.date() <= user_min_time.date())
         # and (data_max_time.date() >= user_max_time.date())
     ):
-    # if (
-    #     pd.notnull(user_min_time)
-    #     and pd.notnull(user_max_time)
-    #     and (data_min_time.date() <= user_min_time.date())
-    #     and (data_max_time.date() >= user_max_time.date())
-    # ):
+        # if (
+        #     pd.notnull(user_min_time)
+        #     and pd.notnull(user_max_time)
+        #     and (data_min_time.date() <= user_min_time.date())
+        #     and (data_max_time.date() >= user_max_time.date())
+        # ):
         # if pd.notnull(user_min_time) and pd.notnull(user_max_time) and (abs(data_min_time - user_min_time) <= pd.Timedelta("1 day")) and (abs(data_max_time - user_max_time) >= pd.Timedelta("1 day")):
         # if pd.notnull(user_min_time) and pd.notnull(user_max_time) and (data_min_time <= user_min_time) and (data_max_time >= user_max_time):
         # if data_time_range.encompass(model_time_range):
-        
+
         if isinstance(dd, pd.DataFrame):
-        
+
             dd = (
                 dd.set_index(dd.cf["T"])
                 .loc[user_min_time:user_max_time]
                 .reset_index(drop=True)
             )
-        
+
         elif isinstance(dd, xr.Dataset):
-            dd = dd.cf.sel(T=slice(user_min_time, user_max_time))    
-            
+            dd = dd.cf.sel(T=slice(user_min_time, user_max_time))
+
     else:
         dd = dd
 
@@ -1775,13 +1801,19 @@ def _select_process_save_model(
 
 def _change_z_by_ssh(dd, model_depth_attr_positive, key_variables, logger):
     """Possibly modify depth by ssh.
-    
+
     Catch case in which z column represent fixed depth and SSH is water column above depth
     such that SSH gives information to z
     """
 
-    if dd.cf["Z"].size > 1 and (dd.cf["Z"] == dd.cf["Z"][0]).all() and "ssh" in key_variables and dd.cf["ssh"].name == 'sea_surface_height_above_sea_level_geoid_local_station_datum':
-        
+    if (
+        dd.cf["Z"].size > 1
+        and (dd.cf["Z"] == dd.cf["Z"][0]).all()
+        and "ssh" in key_variables
+        and dd.cf["ssh"].name
+        == "sea_surface_height_above_sea_level_geoid_local_station_datum"
+    ):
+
         constant_z = dd.cf["Z"][0]
         mean_ssh = dd.cf["ssh"].mean()
 
@@ -2199,7 +2231,7 @@ def run(
 
                         # first discover if key_variable_data is either directly in dsm.data_vars
                         # or is a cf-xarray/pandas custom name, to get the long coord name
-                        # dsm.cf[key_variable_data] works whether key_variable_data is a 
+                        # dsm.cf[key_variable_data] works whether key_variable_data is a
                         # direct variable name or a custom name
                         if override_mask_lon is not None:
                             lonname = override_mask_lon
@@ -2224,7 +2256,7 @@ def run(
                         # else:
                         #     try:
                         #         dsm.cf[key_variable_data]
-                        
+
                         # if key_variable_data in dsm.data_vars:
                         #     mask = _return_mask(
                         #         mask,
@@ -2291,12 +2323,18 @@ def run(
                         if not interpolate_horizontal:
                             distance = model_var["distance"]
 
-                
                         # Update data depth to account for ssh if necessary
                         # this happens in _choose_depths if the model output is read in
-                        model_depth_attr_positive = dsm[dsm.cf.axes["Z"][0]].attrs["positive"] or known_model_depth_attr_positive
-                        dfd = _change_z_by_ssh(dfd, model_depth_attr_positive, 
-                                               cat[source_name].metadata["key_variables"], logger)                
+                        model_depth_attr_positive = (
+                            dsm[dsm.cf.axes["Z"][0]].attrs["positive"]
+                            or known_model_depth_attr_positive
+                        )
+                        dfd = _change_z_by_ssh(
+                            dfd,
+                            model_depth_attr_positive,
+                            cat[source_name].metadata["key_variables"],
+                            logger,
+                        )
 
                         # Is this necessary? It removes `s_rho_index` when present which causes an issue
                         # since it is "vertical" for cf
@@ -2326,9 +2364,10 @@ def run(
                         )
                         if dsm2 is None:
                             skip_dataset = True
-                            logger.info("Data range was within a gap in the model output, so skipping data source.")
+                            logger.info(
+                                "Data range was within a gap in the model output, so skipping data source."
+                            )
                             continue
-                        
 
                         # more processing opportunity and chance to use xroms if needed
                         dsm2, grid, preprocessed = _process_model(
@@ -2568,9 +2607,12 @@ def run(
                     raise ValueError(
                         f"If the processed files are available need model file {model_file_name} too."
                     )
-                
+
                 # make sure that obs depths were modified if necessary, to match model
-                model_depth_attr_positive = known_model_depth_attr_positive or model[model.cf.axes["Z"][0]].attrs["positive"]
+                model_depth_attr_positive = (
+                    known_model_depth_attr_positive
+                    or model[model.cf.axes["Z"][0]].attrs["positive"]
+                )
                 obs = _match_depth_sign(obs, model_depth_attr_positive)
 
                 if model_only:
@@ -2606,11 +2648,11 @@ def run(
                         filename=stats_fname,
                     )
                     logger.info("Saved stats file.")
-                    
+
                     # this conflicts with quiver plots over time...
-                    # # If stats are 2D, assume I want to actually plot them instead of 
+                    # # If stats are 2D, assume I want to actually plot them instead of
                     # # obs and model, so replace obs/model with their respective stats
-                    # # I guess this only works if you have 
+                    # # I guess this only works if you have
                     # if isinstance(stats["ss"]["value"], (xr.DataArray,xr.Dataset)) and stats["ss"]["value"].ndim > 1:
                     #     missing_dims = set(obs.cf.axes) - set(stats["ss"]["value"].cf.axes)
                     #     if len(missing_dims) > 0:
@@ -2621,17 +2663,17 @@ def run(
                     #     too_many_dict = {key: value for key, value in stats["ss"]["value"].cf.axes.items() if len(value) > 1}
                     #     to_drop = list(too_many_dict.values())[0][0]
                     #     del stats["ss"]["value"][to_drop]
-                        
+
                     #     # use key_variable_data name so plot works
                     #     # import pdb; pdb.set_trace()
                     #     obs = stats["ss"]["value"].rename(key_variable_data)
                     #     # obs = stats["ss"]["value"]#.to_dataset(name=key_variable_data)
-                        
+
                     #     # obs = stats["ss"]["value"].rename(key_variable_data).to_dataset(name="skill_score")
                     #     model = None
-                        
+
                     #     # import pdb; pdb.set_trace()
-                    #     logger.info("Stats are 2D, so replacing obs with stats and model with None.")             
+                    #     logger.info("Stats are 2D, so replacing obs with stats and model with None.")
 
                 # Combine across key_variable in case there was a list of inputs
                 obss.append(obs)
@@ -2681,7 +2723,11 @@ def run(
             #     title = f"{count}: {source_name}"
             # else:
             #     title = f"{source_name}"
-            if not skip_dataset and (not figname.is_file() or override_plot) and not model_only:
+            if (
+                not skip_dataset
+                and (not figname.is_file() or override_plot)
+                and not model_only
+            ):
                 fig = plot.selection(
                     obs,
                     model,

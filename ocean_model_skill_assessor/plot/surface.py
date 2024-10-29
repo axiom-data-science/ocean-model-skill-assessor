@@ -97,7 +97,7 @@ def plot(
             obs = obs.to_dataframe()
         if isinstance(model, xr.Dataset):
             model = model.to_dataframe().reset_index()
-        
+
         if nsubplots == 3:
             # using .values on obs prevents name clashes for time and depth
             model["diff"] = obs.cf[zname].values - model.cf[zname]
@@ -149,14 +149,12 @@ def plot(
         # workaround for DataArray
         # only works if the key is the actual variable
         if isinstance(obs, xr.DataArray):
-            cmap_params = xr.plot.utils._determine_cmap_params(
-                obs.values, robust=True
-            )
+            cmap_params = xr.plot.utils._determine_cmap_params(obs.values, robust=True)
         else:
             cmap_params = xr.plot.utils._determine_cmap_params(
                 obs.cf[zname].values, robust=True
             )
-    
+
     if "vmin" in kwargs:
         cmap_params.update({"vmin": kwargs["vmin"]})
     if "vmax" in kwargs:
@@ -167,7 +165,6 @@ def plot(
         cmap_params_diff = xr.plot.utils._determine_cmap_params(
             model["diff"].values, robust=True, center=0
         )
-        
 
     # sharex and sharey removed the y ticklabels so don't use.
     # maybe don't work with layout="constrained"
@@ -233,9 +230,7 @@ def plot(
         # workaround for DataArray
         # only works if the key is the actual variable
         if isinstance(obs, xr.DataArray):
-            obs.cf.plot.pcolormesh(
-                x=xname, y=yname, ax=ax, **kwargs, **xarray_kwargs
-            )
+            obs.cf.plot.pcolormesh(x=xname, y=yname, ax=ax, **kwargs, **xarray_kwargs)
         else:
             obs.cf[zname].cf.plot.pcolormesh(
                 x=xname, y=yname, ax=ax, **kwargs, **xarray_kwargs
@@ -285,7 +280,9 @@ def plot(
     if nsubplots > 2:
         # plot difference (assume Dataset)
         # for last (diff) plot
-        kwargs.update({key: cmap_params_diff.get(key) for key in ["vmin", "vmax", "cmap"]})
+        kwargs.update(
+            {key: cmap_params_diff.get(key) for key in ["vmin", "vmax", "cmap"]}
+        )
         if plot_on_map:
             omsa.plot.map.setup_ax(
                 axes[2],
@@ -318,18 +315,19 @@ def plot(
             axes[2].set_xlim(axes[0].get_xlim())
             axes[2].set_ylim(axes[0].get_ylim())
             # commenting this out 9/13/24 bc it made the third plot not match the first 2
-            # axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())  
+            # axes[2].set_ylim(obs.cf[yname].min(), obs.cf[yname].max())
             axes[2].set_yticklabels("")
             axes[2].tick_params(axis="x", labelsize=fs)
         # import pdb; pdb.set_trace()
-
 
     if nsubplots > 2:
         # two colorbars, 1 for obs and model and 1 for diff
         # https://matplotlib.org/stable/tutorials/colors/colorbar_only.html#sphx-glr-tutorials-colors-colorbar-only-py
         norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
         mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
-        cbar1 = fig.colorbar(mappable, ax=axes[:2], orientation="horizontal", shrink=0.5)
+        cbar1 = fig.colorbar(
+            mappable, ax=axes[:2], orientation="horizontal", shrink=0.5
+        )
         cbar1.set_label(zlabel, fontsize=fs)
         cbar1.ax.tick_params(axis="both", labelsize=fs)
 
@@ -337,17 +335,18 @@ def plot(
             vmin=cmap_params_diff["vmin"], vmax=cmap_params_diff["vmax"]
         )
         mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params_diff["cmap"])
-        cbar2 = fig.colorbar(mappable, ax=axes[2], orientation="horizontal")  # shrink=0.6)
+        cbar2 = fig.colorbar(
+            mappable, ax=axes[2], orientation="horizontal"
+        )  # shrink=0.6)
         cbar2.set_label(f"{zlabel} difference", fontsize=fs)
         cbar2.ax.tick_params(axis="both", labelsize=fs)
-    
+
     elif nsubplots == 1:
         norm = mpl.colors.Normalize(vmin=cmap_params["vmin"], vmax=cmap_params["vmax"])
         mappable = mpl.cm.ScalarMappable(norm=norm, cmap=cmap_params["cmap"])
         cbar1 = fig.colorbar(mappable, ax=axes, orientation="horizontal", shrink=0.5)
         cbar1.set_label(zlabel, fontsize=fs)
         cbar1.ax.tick_params(axis="both", labelsize=fs)
-        
 
     fig.suptitle(suptitle, wrap=True, fontsize=fs_title)  # , loc="left")
 

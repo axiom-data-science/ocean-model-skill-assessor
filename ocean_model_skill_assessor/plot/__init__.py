@@ -30,7 +30,11 @@ def stats_string(stats):
         elif isinstance(stats["bias"]["value"], xr.DataArray):
             # haven't figured out "corr" for this yet
             stat_sum_sub = "".join(
-                [f"{type}: {stats[type]['value'].mean():.1f}  " for type in types if type != "corr"]
+                [
+                    f"{type}: {stats[type]['value'].mean():.1f}  "
+                    for type in types
+                    if type != "corr"
+                ]
             )
     else:
         stat_sum_sub = "".join([f"{type}: {stats[type]:.1f}  " for type in types])
@@ -57,10 +61,12 @@ def create_title(stats, key_variable, obs, source_name, featuretype, plot_descri
     if obs.cf["longitude"].size == 1:
         loc = f"lon: {float(obs.cf['longitude']):.2f} lat: {float(obs.cf['latitude']):.2f}"
     elif isinstance(obs, pd.DataFrame) and obs.cf["longitude"].size > 1:
-        lon = obs.cf["longitude"][obs.cf['longitude'].notnull()].iloc[0]
-        lat = obs.cf["latitude"][obs.cf['latitude'].notnull()].iloc[0]
+        lon = obs.cf["longitude"][obs.cf["longitude"].notnull()].iloc[0]
+        lat = obs.cf["latitude"][obs.cf["latitude"].notnull()].iloc[0]
         loc = f"lon: {lon:.2f} lat: {lat:.2f}"
-    elif isinstance(obs, (xr.DataArray, xr.Dataset)) and obs.cf["longitude"].ndim == 1:  # untested
+    elif (
+        isinstance(obs, (xr.DataArray, xr.Dataset)) and obs.cf["longitude"].ndim == 1
+    ):  # untested
         loc = f"lon: {obs.cf['longitude'][0]:.2f} lat: {obs.cf['latitude'][0]:.2f}"
     elif isinstance(obs, (xr.DataArray, xr.Dataset)) and obs.cf["longitude"].ndim == 2:
         # locations will be plotted in this case
@@ -83,13 +89,17 @@ def create_title(stats, key_variable, obs, source_name, featuretype, plot_descri
     if obs.cf["Z"].size == 1:  # only one depth values
         depth = f"depth: {obs.cf['Z'].values}m"
         # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"
-    elif np.unique(obs.cf["Z"][~np.isnan(obs.cf["Z"])]).size == 1:  # all depths the same
+    elif (
+        np.unique(obs.cf["Z"][~np.isnan(obs.cf["Z"])]).size == 1
+    ):  # all depths the same
         # if (np.unique(obs.cf["Z"]) * ~np.isnan(obs.cf["Z"])).size == 1:
         # if np.unique(obs[obs.cf["Z"].notnull()].cf["Z"]).size == 1:  # did not work for timeSeriesProfile
         Z = obs.cf["Z"][~np.isnan(obs.cf["Z"])].iloc[0]
         depth = f"depth: {Z}m"
         # title = f"{source_name}: {stat_sum}\n{time} {depth} {loc}"
-    elif np.unique(obs.cf["Z"][~np.isnan(obs.cf["Z"])]).size > 1:  # all depths not the same
+    elif (
+        np.unique(obs.cf["Z"][~np.isnan(obs.cf["Z"])]).size > 1
+    ):  # all depths not the same
         depth = f"depth: {obs.cf['Z'][0].mean():.2f}m"
     else:
         depth = None

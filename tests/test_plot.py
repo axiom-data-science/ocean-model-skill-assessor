@@ -10,7 +10,7 @@ import ocean_model_skill_assessor as omsa
 def test_line():
     """Test line plot with nothing extra."""
 
-    t = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6H")
+    t = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6h")
     x = np.linspace(0, 10, t.size)
     obs = pd.DataFrame({"xaxis": t, "yaxis": x**2})
     model = xr.Dataset({"xaxis": t, "yaxis": x**3})
@@ -22,7 +22,7 @@ def test_line():
 # def test_selection():
 #     # have one sample dataset that I slice different ways to select diff featuretypes
 #     lon, lat, depth = -98, 30, 0
-#     ref_times = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6H")
+#     ref_times = pd.date_range(start="2000-12-30", end="2001-01-03", freq="6h")
 #     # data
 #     obs = pd.DataFrame(
 #         {"temp": np.sin(ref_times.values.astype("float32"))}, index=ref_times

@@ -16,7 +16,7 @@ def make_test_datasets():
     times = pd.date_range(
         str(example_loc.ocean_time.values[0]),
         str(example_loc.ocean_time.values[1]),
-        freq="1H",
+        freq="1h",
     )
     npts = len(times)
     df = pd.DataFrame(
@@ -149,7 +149,7 @@ def make_test_datasets():
     times = pd.date_range(
         str(example_loc.ocean_time.values[0]),
         str(example_loc.ocean_time.values[1]),
-        freq="1H",
+        freq="1h",
     )
     ntimes = len(times)
     ndepths = 20
@@ -202,10 +202,10 @@ def make_test_datasets():
     #     xi_rho=[10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
     # )
     dsd = xr.Dataset()
-    dsd["temp"] = temp.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(
+    dsd["temp"] = temp.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop_vars(
         ["eta_rho", "xi_rho", "z_rho"]
     )
-    dsd["salt"] = salt.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop(
+    dsd["salt"] = salt.swap_dims({"eta_rho": "lat_rho", "xi_rho": "lon_rho"}).drop_vars(
         ["eta_rho", "xi_rho", "z_rho"]
     )
     dsd["z_rho"] = 0

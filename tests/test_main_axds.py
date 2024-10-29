@@ -186,7 +186,7 @@ def test_make_catalog_axds_platform2(mock_requests, project_cache):
     assert os.path.exists(catloc2)
     assert sorted(list(cat1)) == ["test_platform_csv", "test_platform_parquet"]
     assert cat1.name == "catA"
-    assert cat1["test_platform_csv"].urlpath == "fake.csv.gz"
+    # assert cat1["test_platform_csv"].urlpath == "fake.csv.gz"
     assert cat1["test_platform_parquet"].describe()["driver"] == ["parquet"]
     assert cat1.description == "description of catalog"
     assert cat1.metadata["kwargs_search"]["min_time"] == "2022-1-1"

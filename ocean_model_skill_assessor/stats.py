@@ -18,7 +18,15 @@ def compute_bias(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> fl
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
-    return float((model - obs).mean())
+    # # easier to consistently check model for this
+    # # if 3D, assume we should calculate metrics over time dimension
+    # if model.squeeze().ndim == 3:
+    #     dim = "T"
+    #     out = (model - obs).cf.mean(dim=dim)
+    # else:
+    out = float((model - obs).cf.mean())
+
+    return out
 
 
 def compute_correlation_coefficient(
@@ -29,11 +37,21 @@ def compute_correlation_coefficient(
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
+    # # easier to consistently check model for this
+    # # if 3D, assume we should calculate metrics over time dimension
+    # if model.squeeze().ndim == 3:
+    #     # can't figure this one out and doesn't seem high priority
+    #     out = np.nan
+    # else:
+
     # can't send nan's in
     inds = obs.notnull().values * model.notnull().values
     inds = inds.squeeze()
 
-    return float(np.corrcoef(np.array(obs)[inds], np.array(model)[inds])[0, 1])
+    # out = float((model - obs).cf.mean())
+    out = float(np.corrcoef(np.array(obs)[inds], np.array(model)[inds])[0, 1])
+
+    return out
 
 
 def compute_index_of_agreement(
@@ -44,15 +62,34 @@ def compute_index_of_agreement(
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
+    # # easier to consistently check model for this
+    # # if 3D, assume we should calculate metrics over time dimension
+    # if model.squeeze().ndim == 3:
+    #     dim = "T"
+    #     ref_mean = obs.cf.mean(dim=dim)
+    #     num = ((obs - model) ** 2).cf.sum(dim=dim)
+    #     denom_a = np.abs(model - ref_mean)
+    #     denom_b = np.abs(obs - ref_mean)
+    #     # denom_a = np.abs(np.array(model - ref_mean))
+    #     # denom_b = np.abs(np.array(obs - ref_mean))
+    #     denom = ((denom_a + denom_b) ** 2).cf.sum(dim=dim)
+
+    #     out = 1 - num / denom
+
+    # else:
     ref_mean = obs.mean()
     num = ((obs - model) ** 2).sum()
     denom_a = np.abs(np.array(model - ref_mean))
     denom_b = np.abs(np.array(obs - ref_mean))
     denom = ((denom_a + denom_b) ** 2).sum()
+
+    out = float(1 - num / denom)
+
     # handle underfloat
     if denom < 1e-16:
         return 1
-    return float(1 - num / denom)
+
+    return out
 
 
 def compute_mean_square_error(
@@ -64,9 +101,24 @@ def compute_mean_square_error(
     assert isinstance(model, xr.DataArray)
 
     error = obs - model
+
+    # # easier to consistently check model for this
+    # # if 3D, assume we should calculate metrics over time dimension
+    # if model.squeeze().ndim == 3:
+    #     dim = "T"
+
+    #     if centered:
+    #         raise NotImplementedError("Centered not implemented for 3D")
+
+    #     out = (error**2).cf.mean(dim=dim)
+
+    # else:
+
     if centered:
         error += float(-obs.mean() + model.mean())
-    return float((error**2).mean())
+    out = float((error**2).mean())
+
+    return out
 
 
 def compute_murphy_skill_score(
@@ -77,6 +129,23 @@ def compute_murphy_skill_score(
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
+    # # easier to consistently check model for this
+    # # if 3D, assume we should calculate metrics over time dimension
+    # if model.squeeze().ndim == 3:
+    #     dim = "T"
+
+    #     if not obs_model:
+    #         obs_model = obs.copy()
+    #         # # Have default solution be to skip the climatology
+    #         # obs_model[:] = 0
+
+    #         # if a obs forecast is not available, use mean of the *original* observations
+    #         obs_model[:] = obs.cf.mean(dim=dim)
+
+    #     out = 1 - ((obs - model) ** 2).cf.sum(dim=dim) / ((obs - obs_model) ** 2).cf.sum(dim=dim)
+
+    # else:
+
     if not obs_model:
         obs_model = obs.copy()
         # # Have default solution be to skip the climatology
@@ -84,6 +153,8 @@ def compute_murphy_skill_score(
 
         # if a obs forecast is not available, use mean of the *original* observations
         obs_model[:] = obs.mean()
+
+    out = float(1 - ((obs - model) ** 2).sum() / ((obs - obs_model) ** 2).sum())
 
     # # jesse's
     # mse_model = compute_mean_square_error(obs, model, centered=False)
@@ -97,7 +168,7 @@ def compute_murphy_skill_score(
     # return float(1 - mse_model / mse_obs_model)
 
     # 1-((obs - model)**2).sum()/(obs**2).sum()
-    return float(1 - ((obs - model) ** 2).sum() / ((obs - obs_model) ** 2).sum())
+    return out
 
 
 def compute_root_mean_square_error(
@@ -108,8 +179,16 @@ def compute_root_mean_square_error(
     assert isinstance(obs, (pd.Series, xr.DataArray))
     assert isinstance(model, xr.DataArray)
 
+    # # easier to consistently check model for this
+    # # if 3D, assume we should calculate metrics over time dimension
+    # if model.squeeze().ndim == 3:
+    #     mse = compute_mean_square_error(obs, model, centered=centered)
+    #     out = np.sqrt(mse)
+
+    # else:
     mse = compute_mean_square_error(obs, model, centered=centered)
-    return float(np.sqrt(mse))
+    out = float(np.sqrt(mse))
+    return out
 
 
 def compute_descriptive_statistics(model: xr.DataArray, ddof=0) -> list:
@@ -117,7 +196,20 @@ def compute_descriptive_statistics(model: xr.DataArray, ddof=0) -> list:
 
     assert isinstance(model, xr.DataArray)
 
-    return list(
+    # # easier to consistently check model for this
+    # # if 3D, assume we should calculate metrics over time dimension
+    # if model.squeeze().ndim == 3:
+    #     dim = "T"
+    #     out = list(
+    #     [
+    #         model.cf.max(dim=dim),
+    #         model.cf.min(dim=dim),
+    #         model.cf.mean(dim=dim),
+    #         model.cf.std(ddof=ddof, dim=dim),
+    #     ]
+    # )
+    # else:
+    out = list(
         [
             float(model.max()),
             float(model.min()),
@@ -125,6 +217,7 @@ def compute_descriptive_statistics(model: xr.DataArray, ddof=0) -> list:
             float(model.std(ddof=ddof)),
         ]
     )
+    return out
 
 
 def compute_stats(obs: Union[pd.Series, xr.DataArray], model: xr.DataArray) -> dict:

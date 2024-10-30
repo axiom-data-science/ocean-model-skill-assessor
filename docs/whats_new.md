@@ -1,5 +1,8 @@
 # What's New
 
+## v1.3.2 (October 30, 2024)
+* added Windows-specific CI build environments that exclude xESMF-related packages
+
 ## v1.3.1 (October 30, 2024)
 * updated release workflow so it will work on PyPI
 

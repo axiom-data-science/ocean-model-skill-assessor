@@ -1,0 +1,39 @@
+name: test_env_model_assessor
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  ############## These will have to be adjusted to your specific project
+  # - cf_pandas
+  - cartopy
+  - cf_xarray
+  - cmocean
+  - datetimerange
+  # - esmf>=8.5.0
+  # - esmpy>=8.5.0 # https://github.com/esmf-org/esmf/issues/140
+  - extract_model
+  # - intake
+  # - intake-axds
+  # - intake-erddap
+  - matplotlib-base
+  - numpy
+  - pandas
+  - pyproj
+  - scipy
+  - xarray
+  - xcmocean
+  ##############
+  - alphashape
+  - cf_pandas
+  - intake-axds
+  - intake-erddap
+  - intake
+  - nested-lookup
+  # - xesmf
+  - xroms  # github actions won't find on conda-forge
+  - pytest
+  - pip:
+    - codecov
+    - pytest-cov
+    - pytest-mpl
+    - coverage[toml]

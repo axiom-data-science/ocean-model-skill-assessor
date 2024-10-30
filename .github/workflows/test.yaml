@@ -11,7 +11,8 @@ jobs:
         os: ["macos-latest", "ubuntu-latest", "windows-latest"]
         python-version: ["3.9", "3.10", "3.11"]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
       # - name: Cache conda
       #   uses: actions/cache@v3
       #   env:
@@ -21,7 +22,8 @@ jobs:
       #     path: ~/conda_pkgs_dir
       #     key: ${{ runner.os }}-conda-${{ env.CACHE_NUMBER }}-${{ hashFiles('ci/environment-py${{ matrix.python-version }}.yml') }}
 
-      - name: Setup Micromamba Python ${{ matrix.python-version }}
+      - name: Setup Linux/macOS Micromamba Python ${{ matrix.python-version }}
+        if: ${{ runner.os != 'Windows' }}
         uses: mamba-org/setup-micromamba@v1
         with:
           init-shell: bash
@@ -30,6 +32,27 @@ jobs:
           environment-file: ci/environment-py${{ matrix.python-version }}.yml
           cache-environment: true
           post-cleanup: 'all'
+
+      - name: Setup Windows Micromamba Python ${{ matrix.python-version }}
+        if: ${{ runner.os == 'Windows' }}
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          init-shell: bash
+          create-args: >-
+            python=${{ matrix.python-version }} --channel conda-forge
+          environment-file: ci/environment-py${{ matrix.python-version }}-win.yml
+          cache-environment: true
+          post-cleanup: 'all'
+
+      # - name: Setup Micromamba Python ${{ matrix.python-version }}
+      #   uses: mamba-org/setup-micromamba@v1
+      #   with:
+      #     init-shell: bash
+      #     create-args: >-
+      #       python=${{ matrix.python-version }} --channel conda-forge
+      #     environment-file: ci/environment-py${{ matrix.python-version }}.yml
+      #     cache-environment: true
+      #     post-cleanup: 'all'
 
 
       # - name: Set up conda environment

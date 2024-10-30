@@ -2,7 +2,7 @@ name: test_env_model_assessor
 channels:
   - conda-forge
 dependencies:
-  - python=3.12
+  - python=3.9
   ############## These will have to be adjusted to your specific project
   # - cf_pandas
   - cartopy

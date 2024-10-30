@@ -1,5 +1,8 @@
 # What's New
 
+## v1.3.1 (October 30, 2024)
+* updated release workflow so it will work on PyPI
+
 ## v1.3.0 (October 29, 2024)
 * add chunks override option
 * update to intake2
